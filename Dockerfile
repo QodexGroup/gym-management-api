@@ -70,10 +70,13 @@ COPY .docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache \
     && chmod -R 775 /app/storage /app/bootstrap/cache
 
+# Copy startup script
+COPY .docker/startup.sh /usr/local/bin/startup.sh
+RUN chmod +x /usr/local/bin/startup.sh
+
 # Expose port 8080 (Cloud Run default PORT)
 # Cloud Run will set the PORT environment variable, and nginx will use it
 EXPOSE 8080
 
-# Command to start PHP-FPM and Nginx when the container runs.
-# Create .env file from environment variables and start services
-CMD ["sh", "-c", "php artisan config:clear 2>/dev/null || true && php-fpm -D && sleep 2 && nginx -t && nginx -g 'daemon off;'"]
+# Use startup script that runs migrations before starting services
+CMD ["/usr/local/bin/startup.sh"]

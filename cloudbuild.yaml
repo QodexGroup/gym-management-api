@@ -1,0 +1,48 @@
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/gym-management-api:$SHORT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/gym-management-api:latest'
+      - '.'
+
+  # Push the Docker image to GCR
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/gym-management-api:$SHORT_SHA'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/gym-management-api:latest'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'gym-management-api'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/gym-management-api:$SHORT_SHA'
+      - '--region'
+      - 'asia-southeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'APP_KEY=base64:eXyAz7Zj3cKaWXV6SQkv65zLQBmLxruM0EtwL1mfFjg=,DB_CONNECTION=mysql,DB_HOST=localhost,DB_DATABASE=gym-management-db,DB_USERNAME=gymhubtech-db,DB_PASSWORD=@GymHubTech122025,DB_SOCKET=/cloudsql/$PROJECT_ID:asia-southeast1:gymhubtech-db'
+      - '--add-cloudsql-instances'
+      - '$PROJECT_ID:asia-southeast1:gymhubtech-db'
+
+images:
+  - 'gcr.io/$PROJECT_ID/gym-management-api:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/gym-management-api:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
