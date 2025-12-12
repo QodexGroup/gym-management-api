@@ -63,7 +63,12 @@ COPY .docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 # We run `chown` as root (default build user) but target UID 82 (www-data).
 # The user www-data belongs to the group www-data (GID 82)
 RUN chown -R 82:82 /app/storage /app/bootstrap/cache \
-    && chmod -R 775 /app/storage /app/bootstrap/cache
+    && chmod -R 775 /app/storage /app/bootstrap/cache \
+    && chown 82:82 /etc/nginx/conf.d/default.conf \
+    && chmod 664 /etc/nginx/conf.d/default.conf \
+    && mkdir -p /var/log/nginx /var/run \
+    && chown -R 82:82 /var/log/nginx /var/run \
+    && chmod -R 755 /var/log/nginx /var/run
 
 # Copy startup script
 COPY .docker/startup.sh /usr/local/bin/startup.sh

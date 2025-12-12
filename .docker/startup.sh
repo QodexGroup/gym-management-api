@@ -5,6 +5,15 @@ echo "========================================="
 echo "Starting application startup sequence..."
 echo "========================================="
 
+# Set PORT environment variable if not set (default to 8080 for Cloud Run)
+export PORT=${PORT:-8080}
+echo "Using PORT: $PORT"
+
+# Substitute PORT variable in Nginx configuration
+echo "Configuring Nginx to listen on port $PORT..."
+sed -i "s/\${PORT:-8080}/$PORT/g" /etc/nginx/conf.d/default.conf
+echo "✓ Nginx configured to listen on port $PORT"
+
 # Quick cache clear (non-blocking)
 echo "Clearing Laravel caches..."
 php artisan config:clear 2>/dev/null || true
