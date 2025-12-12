@@ -22,6 +22,7 @@ class MembershipPlanResource extends JsonResource
             'planPeriod' => $this->plan_period,
             'planInterval' => $this->plan_interval,
             'features' => $this->features,
+            'activeMembersCount' => $this->active_members_count ?? 0,
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
         ];
