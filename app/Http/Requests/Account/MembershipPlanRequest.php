@@ -26,6 +26,7 @@ class MembershipPlanRequest extends FormRequest
             'price' => ['required', 'numeric', 'min:1'],
             'planPeriod' => ['required', 'integer', 'min:1'],
             'planInterval' => ['required', 'string'],
+            'features' => ['nullable', 'array'],
             'features.*' => ['nullable', 'string'],
         ];
     }
