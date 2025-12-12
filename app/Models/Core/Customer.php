@@ -2,6 +2,7 @@
 
 namespace App\Models\Core;
 
+use App\Models\User;
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +26,7 @@ class Customer extends Model
      */
     protected $fillable = [
         'account_id',
+        'balance',
         'first_name',
         'last_name',
         'gender',
@@ -57,7 +59,56 @@ class Customer extends Model
     {
         return [
             'date_of_birth' => 'date',
+            'balance' => 'decimal:2',
         ];
+    }
+
+    /**
+     * Get the memberships for the customer.
+     */
+    public function memberships()
+    {
+        return $this->hasMany(CustomerMembership::class, 'customer_id');
+    }
+
+    /**
+     * Get the active membership for the customer.
+     */
+    public function activeMembership()
+    {
+        return $this->hasOne(CustomerMembership::class, 'customer_id')
+            ->where('status', 'active')
+            ->where('membership_end_date', '>=', now())
+            ->latest('membership_start_date');
+    }
+
+    /**
+     * Get the current membership for the customer (most recent).
+     */
+    public function currentMembership()
+    {
+        return $this->hasOne(CustomerMembership::class, 'customer_id')
+            ->latest('membership_start_date');
+    }
+
+    /**
+     * Get the trainers assigned to this customer.
+     */
+    public function trainers()
+    {
+        return $this->belongsToMany(User::class, 'tb_customer_trainor', 'customer_id', 'trainer_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the current trainer for the customer (most recently assigned).
+     */
+    public function currentTrainer()
+    {
+        return $this->belongsToMany(User::class, 'tb_customer_trainor', 'customer_id', 'trainer_id')
+            ->withTimestamps()
+            ->orderByPivot('created_at', 'desc')
+            ->limit(1);
     }
 }
 

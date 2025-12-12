@@ -45,4 +45,13 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    /**
+     * Get the customers assigned to this trainer.
+     */
+    public function customers()
+    {
+        return $this->belongsToMany(\App\Models\Core\Customer::class, 'tb_customer_trainor', 'trainer_id', 'customer_id')
+            ->withTimestamps();
+    }
 }

@@ -6,13 +6,16 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\CustomerRequest;
 use App\Http\Resources\Core\CustomerResource;
+use App\Http\Resources\Core\TrainerResource;
 use App\Repositories\Core\CustomerRepository;
+use App\Services\Core\CustomerService;
 use Illuminate\Http\JsonResponse;
 
 class CustomerController extends Controller
 {
     public function __construct(
-        private CustomerRepository $repository
+        private CustomerRepository $repository,
+        private CustomerService $customerService
     ) {
     }
 
@@ -48,7 +51,7 @@ class CustomerController extends Controller
     public function store(CustomerRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $customer = $this->repository->create($data);
+        $customer = $this->customerService->create($data);
         return ApiResponse::success(new CustomerResource($customer), 'Customer created successfully', 201);
     }
 
@@ -62,7 +65,7 @@ class CustomerController extends Controller
     public function updateCustomer(CustomerRequest $request, int $id): JsonResponse
     {
         $data = $request->validated();
-        $customer = $this->repository->update($id, $data);
+        $customer = $this->customerService->update($id, $data);
         return ApiResponse::success(new CustomerResource($customer), 'Customer updated successfully');
     }
 
@@ -76,6 +79,24 @@ class CustomerController extends Controller
     {
         $this->repository->delete($id);
         return ApiResponse::success(null, 'Customer deleted successfully');
+    }
+
+    /**
+     * Get all trainers (users) for selection
+     *
+     * @return JsonResponse
+     */
+    public function getTrainers(): JsonResponse
+    {
+        // For now, return dummy trainer (id: 1, name: Jomilen Dela Torre)
+        // In the future, this can be filtered by role or other criteria
+        $dummyTrainer = new \App\Models\User([
+            'id' => 1,
+            'name' => 'Jomilen Dela Torre',
+            'email' => 'jomilen@example.com',
+        ]);
+
+        return ApiResponse::success([new TrainerResource($dummyTrainer)]);
     }
 }
 

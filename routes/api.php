@@ -30,6 +30,7 @@ Route::prefix('expense-categories')->group(function () {
 Route::prefix('customers')->group(function () {
     Route::get('/', [CustomerController::class, 'getCustomers']);
     Route::post('/', [CustomerController::class, 'store']);
+    Route::get('/trainers', [CustomerController::class, 'getTrainers']);
     Route::get('/{id}', [CustomerController::class, 'getCustomer']);
     Route::put('/{id}', [CustomerController::class, 'updateCustomer']);
     Route::delete('/{id}', [CustomerController::class, 'delete']);

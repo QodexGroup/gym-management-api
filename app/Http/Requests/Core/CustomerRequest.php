@@ -43,6 +43,8 @@ class CustomerRequest extends FormRequest
             'insurancePolicyNumber' => ['nullable', 'string', 'max:100'],
             'emergencyContactRelationship' => ['nullable', 'string', 'max:100'],
             'emergencyContactAddress' => ['nullable', 'string'],
+            'membershipPlanId' => ['nullable', 'integer'],
+            'currentTrainerId' => ['nullable', 'integer'],
         ];
     }
 }

@@ -8,15 +8,27 @@ use Illuminate\Database\Eloquent\Collection;
 class MembershipPlanRepository
 {
     /**
-     * Get all membership plans for account_id = 1
+     * Get all membership plans for account_id = 1 with active members count
      *
      * @return Collection
      */
     public function getAll(): Collection
     {
-        return MembershipPlan::where('account_id', 1)->get();
+        return MembershipPlan::where('account_id', 1)
+            ->withCount('activeCustomerMemberships as active_members_count')
+            ->get();
     }
 
+    /**
+     * Get a membership plan by ID
+     *
+     * @param int $id
+     * @return MembershipPlan
+     */
+    public function getById(int $id): MembershipPlan
+    {
+        return MembershipPlan::where('account_id', 1)->findOrFail($id);
+    }
     /**
      * Create a new membership plan
      *

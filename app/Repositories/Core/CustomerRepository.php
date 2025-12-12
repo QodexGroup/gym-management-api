@@ -2,9 +2,12 @@
 
 namespace App\Repositories\Core;
 
+use App\Constant\CustomerMembershipConstant;
+use App\Models\Account\MembershipPlan;
 use App\Models\Core\Customer;
+use App\Models\Core\CustomerMembership;
+use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Collection;
 
 class CustomerRepository
 {
@@ -16,6 +19,7 @@ class CustomerRepository
     public function getAll(): LengthAwarePaginator
     {
         return Customer::where('account_id', 1)
+            ->with(['currentMembership.membershipPlan', 'currentTrainer'])
             ->orderBy('created_at', 'desc')
             ->paginate(50);
     }
@@ -28,8 +32,6 @@ class CustomerRepository
      */
     public function create(array $data): Customer
     {
-        // Set account_id to 1 by default
-        $data['account_id'] = 1;
         return Customer::create($data);
     }
 
@@ -40,7 +42,9 @@ class CustomerRepository
      */
     public function getById(int $id): Customer
     {
-        return Customer::where('account_id', 1)->findOrFail($id);
+        return Customer::where('account_id', 1)
+            ->with(['currentMembership.membershipPlan', 'currentTrainer'])
+            ->findOrFail($id);
     }
 
     /**
@@ -48,13 +52,12 @@ class CustomerRepository
      *
      * @param int $id
      * @param array $data
-     * @return Customer
+     * @return bool
      */
-    public function update(int $id, array $data): Customer
+    public function update(int $id, array $data): bool
     {
         $customer = Customer::where('account_id', 1)->findOrFail($id);
-        $customer->update($data);
-        return $customer->fresh();
+        return $customer->update($data);
     }
 
     /**
@@ -67,6 +70,29 @@ class CustomerRepository
     {
         $customer = Customer::where('account_id', 1)->findOrFail($id);
         return $customer->delete();
+    }
+
+    /**
+     * Create a membership for a customer
+     *
+     * @param int $accountId
+     * @param int $customerId
+     * @param int $membershipPlanId
+     * @return CustomerMembership
+     */
+    public function createMembership(int $accountId, int $customerId, MembershipPlan $membershipPlan): CustomerMembership
+    {
+        $startDate = Carbon::now();
+        $endDate = $membershipPlan->calculateEndDate($startDate);
+
+        return CustomerMembership::create([
+            'account_id' => $accountId,
+            'customer_id' => $customerId,
+            'membership_plan_id' => $membershipPlan->id,
+            'membership_start_date' => $startDate,
+            'membership_end_date' => $endDate,
+            'status' => CustomerMembershipConstant::STATUS_ACTIVE,
+        ]);
     }
 }
 
