@@ -58,17 +58,21 @@ COPY . /app
 COPY .docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY .docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 
+# Configure PHP-FPM for non-root container:
+COPY .docker/php-fpm/www.conf /usr/local/etc/php-fpm.d/www.conf
+COPY .docker/php-fpm/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
+
 # === CRITICAL FIX: Set Permissions using numeric ID (UID 82 for www-data) ===
 # This ensures the command runs successfully during the build phase.
 # We run `chown` as root (default build user) but target UID 82 (www-data).
 # The user www-data belongs to the group www-data (GID 82)
 RUN chown -R 82:82 /app/storage /app/bootstrap/cache \
     && chmod -R 775 /app/storage /app/bootstrap/cache \
-    && chown 82:82 /etc/nginx/conf.d/default.conf \
-    && chmod 664 /etc/nginx/conf.d/default.conf \
-    && mkdir -p /var/log/nginx /var/cache/nginx /tmp \
+    && mkdir -p /var/log/nginx /var/cache/nginx \
+               /tmp/client_body /tmp/proxy /tmp/fastcgi /tmp/uwsgi /tmp/scgi \
     && chown -R 82:82 /var/log/nginx /var/cache/nginx /tmp \
-    && chmod -R 755 /var/log/nginx /var/cache/nginx
+    && chmod -R 755 /var/log/nginx /var/cache/nginx \
+    && chmod 1777 /tmp
 
 # Copy startup script
 COPY .docker/startup.sh /usr/local/bin/startup.sh

@@ -5,35 +5,25 @@ echo "========================================="
 echo "Starting application startup sequence..."
 echo "========================================="
 
-# Set PORT environment variable if not set (default to 8080 for Cloud Run)
-export PORT=${PORT:-8080}
-echo "Using PORT: $PORT"
-
-# Substitute PORT variable in Nginx configuration
-echo "Configuring Nginx to listen on port $PORT..."
-sed -i "s/\${PORT:-8080}/$PORT/g" /etc/nginx/conf.d/default.conf
-echo "✓ Nginx configured to listen on port $PORT"
-
-# Quick cache clear (non-blocking)
-echo "Clearing Laravel caches..."
-php artisan config:clear 2>/dev/null || true
-php artisan route:clear 2>/dev/null || true
-php artisan view:clear 2>/dev/null || true
-
 # Start PHP-FPM in background
 echo "Starting PHP-FPM..."
-php-fpm -D
-sleep 1
+php-fpm
+sleep 2
+
+# Verify PHP-FPM is running
+if [ -f /tmp/php-fpm.pid ]; then
+    echo "✓ PHP-FPM started (PID: $(cat /tmp/php-fpm.pid))"
+else
+    echo "WARNING: PHP-FPM PID file not found, but continuing..."
+fi
 
 # Test Nginx configuration
 echo "Testing Nginx configuration..."
 nginx -t
 echo "✓ Nginx configuration valid"
 
-# Start Nginx in foreground FIRST - this makes Cloud Run happy
-# Then do database/migrations in background
 echo "========================================="
-echo "Starting Nginx server on port $PORT..."
+echo "Starting Nginx server on port 8080..."
 echo "Application is ready to serve requests!"
 echo "========================================="
 
@@ -41,6 +31,11 @@ echo "========================================="
 (
     sleep 5
     echo "Running background tasks..."
+
+    # Clear caches first
+    php artisan config:clear 2>/dev/null || true
+    php artisan route:clear 2>/dev/null || true
+    php artisan view:clear 2>/dev/null || true
 
     # Wait for database connection (reduced retries for background task)
     MAX_RETRIES=10

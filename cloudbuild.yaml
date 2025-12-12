@@ -21,7 +21,7 @@ steps:
       - 'gcr.io/$PROJECT_ID/gym-management-api:latest'
 
   # Deploy to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: gcloud
     args:
       - 'run'
@@ -34,6 +34,18 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--timeout'
+      - '300'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '10'
       - '--set-env-vars'
       - 'APP_KEY=base64:eXyAz7Zj3cKaWXV6SQkv65zLQBmLxruM0EtwL1mfFjg=,DB_CONNECTION=mysql,DB_HOST=localhost,DB_DATABASE=gym-management-db,DB_USERNAME=gymhubtech-db,DB_PASSWORD=@GymHubTech122025,DB_SOCKET=/cloudsql/$PROJECT_ID:asia-southeast1:gymhubtech-db'
       - '--add-cloudsql-instances'
