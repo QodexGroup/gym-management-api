@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Account\MembershipPlanController;
+use App\Http\Controllers\Core\CustomerController;
 use App\Http\Controllers\Core\ExpenseController;
 use App\Http\Controllers\Core\ExpenseCategoryController;
 use Illuminate\Support\Facades\Route;
@@ -24,4 +25,13 @@ Route::prefix('expense-categories')->group(function () {
     Route::post('/', [ExpenseCategoryController::class, 'store']);
     Route::put('/{id}', [ExpenseCategoryController::class, 'updateExpenseCategory']);
     Route::delete('/{id}', [ExpenseCategoryController::class, 'delete']);
+});
+
+Route::prefix('customers')->group(function () {
+    Route::get('/', [CustomerController::class, 'getCustomers']);
+    Route::post('/', [CustomerController::class, 'store']);
+    Route::get('/trainers', [CustomerController::class, 'getTrainers']);
+    Route::get('/{id}', [CustomerController::class, 'getCustomer']);
+    Route::put('/{id}', [CustomerController::class, 'updateCustomer']);
+    Route::delete('/{id}', [CustomerController::class, 'delete']);
 });

@@ -1,0 +1,113 @@
+<?php
+
+namespace App\Services\Core;
+
+use App\Models\Core\Customer;
+use App\Models\Core\CustomerMembership;
+use App\Models\Account\MembershipPlan;
+use App\Repositories\Account\MembershipPlanRepository;
+use App\Repositories\Core\CustomerRepository;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+class CustomerService
+{
+    public function __construct(
+        private CustomerRepository $repository,
+        private MembershipPlanRepository $membershipPlanRepository
+    ) {
+    }
+
+    /**
+     * Create a new customer with membership and trainer assignment
+     *
+     * @param array $data
+     * @return Customer
+     */
+    public function create(array $data): Customer
+    {
+        try {
+            return DB::transaction(function () use ($data) {
+                // Extract membership plan ID and trainer ID
+                $membershipPlanId = $data['membershipPlanId'] ?? null;
+                $currentTrainerId = $data['currentTrainerId'] ?? null;
+
+                // Remove these from data array as they're not direct customer fields
+                unset($data['membershipPlanId'], $data['currentTrainerId']);
+
+                // Set account_id to 1 by default
+                $data['account_id'] = 1;
+
+                // Calculate balance from membership plan if provided
+                if ($membershipPlanId) {
+                    $plan = $this->membershipPlanRepository->getById($membershipPlanId);
+                    $data['balance'] = $plan->price;
+                } else {
+                    // Set default balance if no membership plan
+                    $data['balance'] = 0;
+                }
+
+                // Create customer
+                $customer = $this->repository->create($data);
+
+                // Create membership if plan is selected
+                if ($membershipPlanId) {
+                    $this->createMembership($customer->id, $membershipPlanId, $data['account_id']);
+                }
+
+                // Attach trainer if provided
+                if ($currentTrainerId) {
+                    $customer->trainers()->sync([$currentTrainerId]);
+                }
+
+                return $customer->fresh(['currentTrainer']);
+            });
+        } catch (\Throwable $th) {
+            Log::error('Error creating customer', [
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString(),
+            ]);
+            throw $th;
+        }
+    }
+
+    /**
+     * Update a customer (membership and trainer are not updated)
+     *
+     * @param int $id
+     * @param array $data
+     * @return Customer
+     */
+    public function update(int $id, array $data): Customer
+    {
+        // Remove membership and trainer fields if they exist (shouldn't be sent from frontend)
+        unset($data['membershipPlanId'], $data['currentTrainerId']);
+
+        // Don't update balance when editing - keep existing balance
+        unset($data['balance']);
+
+        // Update customer
+        $this->repository->update($id, $data);
+
+        // Return fresh customer with relationships loaded
+        return $this->repository->getById($id);
+    }
+
+
+    /**
+     * Create a membership for a customer
+     *
+     * @param int $customerId
+     * @param int $membershipPlanId
+     * @param int $accountId
+     * @return CustomerMembership
+     */
+    private function createMembership(int $customerId, int $membershipPlanId, int $accountId): CustomerMembership
+    {
+        $plan = $this->membershipPlanRepository->getById($membershipPlanId);
+        return $this->repository->createMembership($accountId, $customerId, $plan);
+    }
+
+}
+
