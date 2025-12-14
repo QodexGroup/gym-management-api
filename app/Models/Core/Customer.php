@@ -110,5 +110,29 @@ class Customer extends Model
             ->orderByPivot('created_at', 'desc')
             ->limit(1);
     }
+
+    /**
+     * Get the progress records for the customer.
+     */
+    public function progressRecords()
+    {
+        return $this->hasMany(CustomerProgress::class, 'customer_id');
+    }
+
+    /**
+     * Get the scans for the customer.
+     */
+    public function scans()
+    {
+        return $this->hasMany(CustomerScans::class, 'customer_id');
+    }
+
+    /**
+     * Get the files for the customer.
+     */
+    public function files()
+    {
+        return $this->hasMany(CustomerFiles::class, 'customer_id');
+    }
 }
 
