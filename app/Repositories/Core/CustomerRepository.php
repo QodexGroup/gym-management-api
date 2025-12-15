@@ -77,13 +77,19 @@ class CustomerRepository
      *
      * @param int $accountId
      * @param int $customerId
-     * @param int $membershipPlanId
+     * @param MembershipPlan $membershipPlan
+     * @param Carbon|null $startDate
      * @return CustomerMembership
      */
-    public function createMembership(int $accountId, int $customerId, MembershipPlan $membershipPlan): CustomerMembership
+    public function createMembership(int $accountId, int $customerId, MembershipPlan $membershipPlan, ?Carbon $startDate = null): CustomerMembership
     {
-        $startDate = Carbon::now();
+        $startDate = $startDate ?? Carbon::now();
         $endDate = $membershipPlan->calculateEndDate($startDate);
+
+        // Deactivate existing active memberships
+        CustomerMembership::where('customer_id', $customerId)
+            ->where('status', CustomerMembershipConstant::STATUS_ACTIVE)
+            ->update(['status' => CustomerMembershipConstant::STATUS_DEACTIVATED]);
 
         return CustomerMembership::create([
             'account_id' => $accountId,

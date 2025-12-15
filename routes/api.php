@@ -5,6 +5,8 @@ use App\Http\Controllers\Core\CustomerController;
 use App\Http\Controllers\Core\CustomerProgressController;
 use App\Http\Controllers\Core\CustomerScanController;
 use App\Http\Controllers\Core\CustomerFileController;
+use App\Http\Controllers\Core\CustomerBillController;
+use App\Http\Controllers\Core\CustomerPaymentController;
 use App\Http\Controllers\Core\ExpenseController;
 use App\Http\Controllers\Core\ExpenseCategoryController;
 use Illuminate\Support\Facades\Route;
@@ -37,6 +39,7 @@ Route::prefix('customers')->group(function () {
     Route::get('/{id}', [CustomerController::class, 'getCustomer']);
     Route::put('/{id}', [CustomerController::class, 'updateCustomer']);
     Route::delete('/{id}', [CustomerController::class, 'delete']);
+    Route::post('/{id}/membership', [CustomerController::class, 'createOrUpdateMembership']);
 
     // Customer Progress Routes
     Route::prefix('progress')->group(function () {
@@ -66,4 +69,18 @@ Route::prefix('customers')->group(function () {
         Route::get('/{customerId}', [CustomerFileController::class, 'getFilesByCustomerId']);
         Route::delete('/{id}', [CustomerFileController::class, 'deleteFile']);
     });
+
+    // Customer Bill Routes
+    Route::prefix('bills')->group(function () {
+        Route::get('/customer/{customerId}', [CustomerBillController::class, 'getCustomerBills']);
+        Route::post('/', [CustomerBillController::class, 'createBill']);
+        Route::put('/{id}', [CustomerBillController::class, 'updateBill']);
+        Route::delete('/{id}', [CustomerBillController::class, 'delete']);
+
+        // Customer Payment Routes
+        Route::get('/{billId}/payments', [CustomerPaymentController::class, 'getBillPayments']);
+        Route::post('/{billId}/payments', [CustomerPaymentController::class, 'addPayment']);
+        Route::delete('/payments/{id}', [CustomerPaymentController::class, 'deletePayment']);
+    });
+
 });

@@ -5,17 +5,24 @@ namespace App\Http\Controllers\Core;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\CustomerRequest;
+use App\Http\Requests\Core\CustomerMembershipRequest;
 use App\Http\Resources\Core\CustomerResource;
+use App\Http\Resources\Core\CustomerMembershipResource;
 use App\Http\Resources\Core\TrainerResource;
+use App\Models\User;
 use App\Repositories\Core\CustomerRepository;
+use App\Repositories\Account\MembershipPlanRepository;
 use App\Services\Core\CustomerService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CustomerController extends Controller
 {
     public function __construct(
         private CustomerRepository $repository,
-        private CustomerService $customerService
+        private CustomerService $customerService,
+        private MembershipPlanRepository $membershipPlanRepository
     ) {
     }
 
@@ -88,15 +95,40 @@ class CustomerController extends Controller
      */
     public function getTrainers(): JsonResponse
     {
-        // For now, return dummy trainer (id: 1, name: Jomilen Dela Torre)
-        // In the future, this can be filtered by role or other criteria
-        $dummyTrainer = new \App\Models\User([
-            'id' => 1,
-            'name' => 'Jomilen Dela Torre',
-            'email' => 'jomilen@example.com',
-        ]);
+         // For now, return dummy trainer (id: 1, name: Jomilen Dela Torre)
+        $dummyTrainer = new User();
+        $dummyTrainer->id = 1;
+        $dummyTrainer->name = 'Jomilen Dela Torre';
+        $dummyTrainer->email = 'jomilen@example.com';
+
+    return ApiResponse::success([new TrainerResource($dummyTrainer)]);
 
         return ApiResponse::success([new TrainerResource($dummyTrainer)]);
+    }
+
+    /**
+     * Create or update customer membership
+     *
+     * @param CustomerMembershipRequest $request
+     * @param int $id Customer ID
+     * @return JsonResponse
+     */
+    public function createOrUpdateMembership(CustomerMembershipRequest $request, int $id): JsonResponse
+    {
+        try {
+            $data = $request->validated();
+            $membership = $this->customerService->createOrUpdateMembership($id, $data);
+
+            return ApiResponse::success([
+                'membership' => new CustomerMembershipResource($membership),
+            ], 'Membership created/updated successfully');
+        } catch (\Throwable $th) {
+            Log::error('Error creating/updating customer membership', [
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString()
+            ]);
+            return ApiResponse::error('Failed to create/update membership: ' . $th->getMessage(), 500);
+        }
     }
 }
 
