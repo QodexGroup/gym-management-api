@@ -2,11 +2,14 @@
 
 namespace App\Services\Core;
 
+use App\Constant\CustomerBillConstant;
 use App\Models\Core\Customer;
 use App\Models\Core\CustomerMembership;
 use App\Models\Account\MembershipPlan;
+use App\Models\Core\CustomerBill;
 use App\Repositories\Account\MembershipPlanRepository;
 use App\Repositories\Core\CustomerRepository;
+use App\Repositories\Core\CustomerBillRepository;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -15,7 +18,8 @@ class CustomerService
 {
     public function __construct(
         private CustomerRepository $repository,
-        private MembershipPlanRepository $membershipPlanRepository
+        private MembershipPlanRepository $membershipPlanRepository,
+        private CustomerBillRepository $customerBillRepository
     ) {
     }
 
@@ -54,6 +58,8 @@ class CustomerService
                 // Create membership if plan is selected
                 if ($membershipPlanId) {
                     $this->createMembership($customer->id, $membershipPlanId, $data['account_id']);
+                    // create bill for the membership plan
+                    $this->createBillFromCustomerMembership($customer->id, $membershipPlanId, $data);
                 }
 
                 // Attach trainer if provided
@@ -94,6 +100,38 @@ class CustomerService
         return $this->repository->getById($id);
     }
 
+    /**
+     * Create or update a customer's membership.
+     *
+     * @param int $customerId
+     * @param array $data
+     * @return CustomerMembership
+     */
+    public function createOrUpdateMembership(int $customerId, array $data): CustomerMembership
+    {
+        try {
+            $accountId = 1;
+
+            return DB::transaction(function () use ($accountId, $customerId, $data) {
+                /** @var MembershipPlan $membershipPlan */
+                $membershipPlan = $this->membershipPlanRepository->getById($data['membershipPlanId']);
+
+                $startDate = Carbon::parse($data['membershipStartDate']);
+
+                $membership = $this->repository->createMembership($accountId, $customerId, $membershipPlan, $startDate);
+                $membership->load('membershipPlan');
+                $this->createBillFromCustomerMembership($customerId, $membership->id, $data);
+
+                return $membership;
+            });
+        } catch (\Throwable $th) {
+            Log::error('Error creating/updating customer membership', [
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString(),
+            ]);
+            throw $th;
+        }
+    }
 
     /**
      * Create a membership for a customer
@@ -107,6 +145,35 @@ class CustomerService
     {
         $plan = $this->membershipPlanRepository->getById($membershipPlanId);
         return $this->repository->createMembership($accountId, $customerId, $plan);
+    }
+
+    /**
+     * @param int $customerId
+     * @param int $membershipPlanId
+     * @param array $data
+     *
+     * @return CustomerBill
+     */
+    private function createBillFromCustomerMembership(int $customerId, int $membershipPlanId, array $data): CustomerBill
+    {
+        $plan = $this->membershipPlanRepository->getById($membershipPlanId);
+        if (!$plan) {
+            throw new \Exception('Membership plan not found');
+        }
+        $data['customer_id'] = $customerId;
+        $data['gross_amount'] = $plan->price;
+        $data['discount_percentage'] = 0;
+        $data['net_amount'] = $plan->price;
+        $data['paid_amount'] = 0;
+        $data['bill_date'] = Carbon::now();
+        $data['bill_status'] = CustomerBillConstant::BILL_STATUS_ACTIVE;
+        $data['bill_type'] = CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION;
+        $data['membership_plan_id'] = $membershipPlanId;
+        $data['created_by'] = $data['createdBy'] ?? 1;
+        $data['updated_by'] = $data['updatedBy'] ?? 1;
+
+        $bill = $this->customerBillRepository->create($data);
+        return $bill;
     }
 
 }
