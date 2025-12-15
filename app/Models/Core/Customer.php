@@ -88,7 +88,8 @@ class Customer extends Model
     public function currentMembership()
     {
         return $this->hasOne(CustomerMembership::class, 'customer_id')
-            ->latest('membership_start_date');
+            ->orderBy('membership_start_date', 'desc')
+            ->orderBy('created_at', 'desc');
     }
 
     /**
@@ -133,6 +134,45 @@ class Customer extends Model
     public function files()
     {
         return $this->hasMany(CustomerFiles::class, 'customer_id');
+    }
+
+    /**
+     * Get the bills for the customer.
+     */
+    public function bills()
+    {
+        return $this->hasMany(CustomerBill::class, 'customer_id');
+    }
+
+    /**
+     * Calculate customer balance from bills
+     * Balance = Total Net Amount - Total Paid Amount
+     *
+     * @return float
+     */
+    public function calculateBalance(): float
+    {
+        $totalNetAmount = $this->bills()
+            ->where('account_id', $this->account_id)
+            ->sum('net_amount') ?? 0;
+
+        $totalPaidAmount = $this->bills()
+            ->where('account_id', $this->account_id)
+            ->sum('paid_amount') ?? 0;
+
+        return (float) ($totalNetAmount - $totalPaidAmount);
+    }
+
+    /**
+     * Recalculate and update customer balance based on bills
+     *
+     * @return bool
+     */
+    public function recalculateBalance(): bool
+    {
+        $newBalance = $this->calculateBalance();
+        $this->balance = $newBalance;
+        return $this->save();
     }
 }
 
