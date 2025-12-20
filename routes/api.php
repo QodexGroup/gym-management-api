@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Account\MembershipPlanController;
+use App\Http\Controllers\Account\UsersController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Core\CustomerController;
 use App\Http\Controllers\Core\CustomerProgressController;
@@ -19,6 +20,15 @@ Route::middleware([FirebaseAuthMiddleware::class])->prefix('auth')->group(functi
 });
 
 Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
+
+    Route::prefix('users')->group(function () {
+        Route::get('/', [UsersController::class, 'getAllUsers']);
+        Route::post('/', [UsersController::class, 'createUser']);
+        Route::put('/{id}', [UsersController::class, 'updateUser']);
+        Route::delete('/{id}', [UsersController::class, 'deleteUser']);
+        Route::put('/{id}/deactivate', [UsersController::class, 'deactivateUser']);
+    });
+
     Route::prefix('membership-plans')->group(function () {
         Route::get('/', [MembershipPlanController::class, 'getAllMembershipPlan']);
         Route::post('/', [MembershipPlanController::class, 'store']);

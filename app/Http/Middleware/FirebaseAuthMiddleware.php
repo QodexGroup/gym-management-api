@@ -27,12 +27,13 @@ class FirebaseAuthMiddleware
             $verifiedToken = FirebaseService::auth()->verifyIdToken($token);
             $firebaseUid = $verifiedToken->claims()->get('sub');
 
-            // Fetch or create local user
-            $user = User::where('firebase_uid', $firebaseUid)->first();
+            // Fetch user with permissions
+            $user = User::with('permissions')->where('firebase_uid', $firebaseUid)->first();
 
             if (!$user) {
-                return response()->json(['message' => 'Unauthorized'], 401);
+                return response()->json(['message' => 'User not found'], 401);
             }
+
             $request->attributes->set('user', $user);
 
         } catch (\Exception $e) {
