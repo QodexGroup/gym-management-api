@@ -21,16 +21,4 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
-    })
-    ->withSchedule(function ($schedule) {
-        // Schedule membership expiration notifications - Run daily at 9:00 AM
-        $schedule->command('membership:check-expiration')
-            ->dailyAt('09:00')
-            ->timezone('Asia/Manila');
-
-        // Schedule membership status update - Run daily at midnight
-        $schedule->command('membership:update-expired-status')
-            ->dailyAt('00:00')
-            ->timezone('Asia/Manila');
-    })
-    ->create();
+    })->create();
