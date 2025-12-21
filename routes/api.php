@@ -27,6 +27,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::put('/{id}', [UsersController::class, 'updateUser']);
         Route::delete('/{id}', [UsersController::class, 'deleteUser']);
         Route::put('/{id}/deactivate', [UsersController::class, 'deactivateUser']);
+        Route::put('/{id}/reset-password', [UsersController::class, 'resetPassword']);
     });
 
     Route::prefix('membership-plans')->group(function () {

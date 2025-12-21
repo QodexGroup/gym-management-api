@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\Auth\FirebaseService;
 use Closure;
 use Illuminate\Http\Request;
+use Kreait\Firebase\Exception\Auth\FailedToVerifyToken;
 use Symfony\Component\HttpFoundation\Response;
 
 class FirebaseAuthMiddleware
@@ -36,8 +37,10 @@ class FirebaseAuthMiddleware
 
             $request->attributes->set('user', $user);
 
+        } catch (FailedToVerifyToken $e) {
+            return response()->json(['message' => 'Invalid or expired token'], 401);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Invalid token'], 401);
+            return response()->json(['message' => 'Authentication failed'], 401);
         }
 
         return $next($request);

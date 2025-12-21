@@ -2,20 +2,11 @@
 
 namespace App\Http\Requests\Account;
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Requests\GenericRequest;
 use Illuminate\Validation\Rule;
 
-class UserRequest extends FormRequest
+class UserRequest extends GenericRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /**
      * Get the validation rules that apply to the request.
      *
@@ -24,17 +15,19 @@ class UserRequest extends FormRequest
     public function rules(): array
     {
         $userId = $this->route('id'); // For update requests
-        $accountId = Auth::user()->account_id; // Get account_id from authenticated user
+        $userData = $this->getUserData(); // Get user data from GenericRequest
+        $accountId = $userData?->account_id; // Get account_id from authenticated user
 
-        return [
+        return array_merge(parent::rules(), [
             'firstname' => ['required', 'string', 'max:255'],
-            'lastname' => ['nullable', 'string', 'max:255'],
+            'lastname' => ['required', 'string', 'max:255'],
             'email' => [
-                'nullable',
+                $this->isMethod('post') ? 'required' : 'nullable',
                 'email',
                 'max:255',
                 Rule::unique('users', 'email')
                     ->where('account_id', $accountId)
+                    ->whereNull('deleted_at')
                     ->ignore($userId),
             ],
             'password' => [
@@ -48,7 +41,7 @@ class UserRequest extends FormRequest
             'firebaseUid' => ['nullable', 'string', 'max:255'],
             'permissions' => ['nullable', 'array'],
             'permissions.*' => ['string'],
-        ];
+        ]);
     }
 
     /**
@@ -60,6 +53,8 @@ class UserRequest extends FormRequest
     {
         return [
             'firstname.required' => 'First name is required.',
+            'lastname.required' => 'Last name is required.',
+            'email.required' => 'Email is required.',
             'email.email' => 'Please provide a valid email address.',
             'email.unique' => 'This email address is already in use.',
             'password.required' => 'Password is required.',

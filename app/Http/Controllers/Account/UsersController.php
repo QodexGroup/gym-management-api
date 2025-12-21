@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Account;
 
 use App\Helpers\ApiResponse;
 use App\Http\Requests\Account\UserRequest;
+use App\Http\Requests\Account\ResetPasswordRequest;
+use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Account\UserResource;
 use App\Repositories\Account\UsersRepository;
 use App\Services\Account\UsersService;
@@ -20,12 +22,14 @@ class UsersController
     }
 
     /**
+     * @param GenericRequest $request
      * @return JsonResponse
      */
-    public function getAllUsers(): JsonResponse
+    public function getAllUsers(GenericRequest $request): JsonResponse
     {
-        $users = $this->usersRepository->getAllUsers();
-        return ApiResponse::success(UserResource::collection($users));
+        $data = $request->getGenericData();
+        $users = $this->usersRepository->getAllUsers($data);
+        return ApiResponse::success($users);
     }
 
     /**
@@ -35,7 +39,8 @@ class UsersController
      */
     public function createUser(UserRequest $request): JsonResponse
     {
-        $user = $this->usersService->createUser($request->validated());
+        $genericData = $request->getGenericDataWithValidated();
+        $user = $this->usersService->createUser($genericData);
         return ApiResponse::success(new UserResource($user), 'User created successfully');
     }
 
@@ -47,29 +52,47 @@ class UsersController
      */
     public function updateUser(UserRequest $request, $id): JsonResponse
     {
-        $user = $this->usersService->updateUser($id, $request->validated());
+        $genericData = $request->getGenericDataWithValidated();
+        $user = $this->usersService->updateUser($id, $genericData);
         return ApiResponse::success(new UserResource($user), 'User updated successfully');
     }
 
     /**
+     * @param GenericRequest $request
      * @param int $id
      *
      * @return JsonResponse
      */
-    public function deleteUser(int $id): JsonResponse
+    public function deleteUser(GenericRequest $request, int $id): JsonResponse
     {
-        $this->usersRepository->deleteUser($id);
+        $data = $request->getGenericData();
+        $this->usersService->deleteUser($id, $data->userData->account_id);
         return ApiResponse::success(null, 'User deleted successfully');
     }
 
     /**
+     * @param GenericRequest $request
      * @param int $id
      *
      * @return JsonResponse
      */
-    public function deactivateUser(int $id): JsonResponse
+    public function deactivateUser(GenericRequest $request, int $id): JsonResponse
     {
-        $this->usersRepository->deactivateUser($id);
+        $data = $request->getGenericData();
+        $this->usersRepository->deactivateUser($id, $data->userData->account_id);
         return ApiResponse::success(null, 'User deactivated successfully');
+    }
+
+    /**
+     * @param ResetPasswordRequest $request
+     * @param int $id
+     *
+     * @return JsonResponse
+     */
+    public function resetPassword(ResetPasswordRequest $request, int $id): JsonResponse
+    {
+        $genericData = $request->getGenericDataWithValidated();
+        $user = $this->usersService->resetPassword($id, $genericData);
+        return ApiResponse::success(new UserResource($user), 'Password reset successfully');
     }
 }
