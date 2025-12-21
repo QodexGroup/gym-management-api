@@ -93,3 +93,8 @@ Route::prefix('notifications')->group(function () {
     Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
 });
 
+Route::prefix('notification-preferences')->group(function () {
+    Route::get('/', [\App\Http\Controllers\NotificationPreferenceController::class, 'index']);
+    Route::post('/', [\App\Http\Controllers\NotificationPreferenceController::class, 'update']);
+});
+

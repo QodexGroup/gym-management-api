@@ -16,9 +16,57 @@ use Illuminate\Support\Facades\Mail;
 
 class NotificationService
 {
+    private static $emailQueueCounter = 0;
+
     public function __construct(
-        protected NotificationRepository $notificationRepository
+        protected NotificationRepository $notificationRepository,
+        protected \App\Repositories\Core\NotificationPreferenceRepository $preferenceRepository
     ) {
+    }
+
+    /**
+     * Get the delay in seconds for the next email in queue.
+     * Increments by 10 seconds for each email to respect Mailtrap's rate limits.
+     * Mailtrap free tier: 10 seconds per email (rolling window)
+     *
+     * @return int
+     */
+    private function getEmailQueueDelay(): int
+    {
+        return self::$emailQueueCounter++ * 10; // 0s, 10s, 20s, 30s, etc.
+    }
+
+    /**
+     * Check if membership expiry notifications are enabled.
+     *
+     * @return bool
+     */
+    private function shouldSendMembershipExpiryNotification(): bool
+    {
+        $prefs = $this->preferenceRepository->getByAccountId(1);
+        return $prefs?->membership_expiry_enabled ?? true;
+    }
+
+    /**
+     * Check if payment alert notifications are enabled.
+     *
+     * @return bool
+     */
+    private function shouldSendPaymentAlertNotification(): bool
+    {
+        $prefs = $this->preferenceRepository->getByAccountId(1);
+        return $prefs?->payment_alerts_enabled ?? true;
+    }
+
+    /**
+     * Check if new registration notifications are enabled.
+     *
+     * @return bool
+     */
+    private function shouldSendNewRegistrationNotification(): bool
+    {
+        $prefs = $this->preferenceRepository->getByAccountId(1);
+        return $prefs?->new_registrations_enabled ?? true;
     }
 
     /**
@@ -29,6 +77,15 @@ class NotificationService
      */
     public function createMembershipExpiringNotification(CustomerMembership $membership): void
     {
+        // Check if membership expiry notifications are enabled
+        if (!$this->shouldSendMembershipExpiryNotification()) {
+            Log::info('Membership expiry notifications disabled', [
+                'customer_id' => $membership->customer_id,
+                'membership_id' => $membership->id
+            ]);
+            return;
+        }
+
         try {
             $customer = $membership->customer;
             
@@ -106,6 +163,15 @@ class NotificationService
      */
     public function createPaymentReceivedNotification(CustomerPayment $payment): void
     {
+        // Check if payment alert notifications are enabled
+        if (!$this->shouldSendPaymentAlertNotification()) {
+            Log::info('Payment alert notifications disabled', [
+                'payment_id' => $payment->id,
+                'customer_id' => $payment->customer_id
+            ]);
+            return;
+        }
+
         try {
             $customer = $payment->customer;
             $bill = $payment->bill;
@@ -172,6 +238,14 @@ class NotificationService
      */
     public function createCustomerRegisteredNotification(Customer $customer): void
     {
+        // Check if new registration notifications are enabled
+        if (!$this->shouldSendNewRegistrationNotification()) {
+            Log::info('New registration notifications disabled', [
+                'customer_id' => $customer->id
+            ]);
+            return;
+        }
+
         try {
             // Send welcome email to customer
             $this->sendCustomerRegistrationEmail($customer);
@@ -235,13 +309,18 @@ class NotificationService
         }
 
         try {
-            Mail::to($customer->email)->send(new MembershipExpiringMail($customer, $membership));
-            Log::info('Membership expiring email sent', [
+            // Dispatch job to queue with 1-second delay to respect Mailtrap's rate limit
+            // Each subsequent job will be delayed by 1 second from the previous one
+            $delay = now()->addSeconds($this->getEmailQueueDelay());
+            \App\Jobs\SendMembershipExpiringEmail::dispatch($customer, $membership)->delay($delay);
+            
+            Log::info('Membership expiring email queued', [
                 'customer_id' => $customer->id,
-                'email' => $customer->email
+                'email' => $customer->email,
+                'delay_seconds' => $delay->diffInSeconds(now())
             ]);
         } catch (\Throwable $th) {
-            Log::error('Error sending membership expiring email', [
+            Log::error('Error queuing membership expiring email', [
                 'error' => $th->getMessage(),
                 'customer_id' => $customer->id
             ]);
@@ -263,14 +342,16 @@ class NotificationService
         }
 
         try {
-            Mail::to($customer->email)->send(new PaymentConfirmationMail($customer, $payment));
-            Log::info('Payment confirmation email sent', [
+            // Dispatch job to queue for async processing with rate limiting
+            \App\Jobs\SendPaymentConfirmationEmail::dispatch($customer, $payment);
+            
+            Log::info('Payment confirmation email queued', [
                 'customer_id' => $customer->id,
                 'email' => $customer->email,
                 'payment_id' => $payment->id
             ]);
         } catch (\Throwable $th) {
-            Log::error('Error sending payment confirmation email', [
+            Log::error('Error queuing payment confirmation email', [
                 'error' => $th->getMessage(),
                 'customer_id' => $customer->id
             ]);
@@ -291,13 +372,15 @@ class NotificationService
         }
 
         try {
-            Mail::to($customer->email)->send(new CustomerRegistrationMail($customer));
-            Log::info('Customer registration email sent', [
+            // Dispatch job to queue for async processing with rate limiting
+            \App\Jobs\SendCustomerRegistrationEmail::dispatch($customer);
+            
+            Log::info('Customer registration email queued', [
                 'customer_id' => $customer->id,
                 'email' => $customer->email
             ]);
         } catch (\Throwable $th) {
-            Log::error('Error sending customer registration email', [
+            Log::error('Error queuing customer registration email', [
                 'error' => $th->getMessage(),
                 'customer_id' => $customer->id
             ]);

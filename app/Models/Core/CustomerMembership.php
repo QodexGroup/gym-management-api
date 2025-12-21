@@ -11,7 +11,7 @@ use Illuminate\Support\Carbon;
 
 class CustomerMembership extends Model
 {
-    use HasFactory, HasCamelCaseAttributes, SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     /**
      * The table associated with the model.
@@ -52,7 +52,7 @@ class CustomerMembership extends Model
      */
     public function customer()
     {
-        return $this->belongsTo(Customer::class, 'customer_id');
+        return $this->belongsTo(Customer::class, 'customer_id')->withTrashed();
     }
 
     /**
