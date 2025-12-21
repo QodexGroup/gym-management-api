@@ -94,7 +94,7 @@ class GenericData
      * @param string $defaultDirection
      * @return Builder
      */
-    public function applySorts(Builder $query, string $defaultField = 'created_at', string $defaultDirection = 'desc'): Builder
+    public function applySorts(Builder $query, string $defaultField = 'updated_at', string $defaultDirection = 'desc'): Builder
     {
         if (!empty($this->sorts)) {
             foreach ($this->sorts as $sort) {
