@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Core;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\GenericRequest;
 use Illuminate\Validation\Rule;
 
-class CustomerBillRequest extends FormRequest
+class CustomerBillRequest extends GenericRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,8 +22,7 @@ class CustomerBillRequest extends FormRequest
      */
     public function rules(): array
     {
-
-        return [
+        return array_merge(parent::rules(), [
             'customerId' => ['required', 'integer', 'exists:tb_customers,id'],
             'grossAmount' => ['required', 'numeric', 'min:0'],
             'discountPercentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -34,7 +33,7 @@ class CustomerBillRequest extends FormRequest
             'billType' => ['required', 'string', 'max:255'],
             'membershipPlanId' => ['nullable','integer'],
             'customService' => ['nullable','string','max:255'],
-        ];
+        ]);
     }
 
     /**

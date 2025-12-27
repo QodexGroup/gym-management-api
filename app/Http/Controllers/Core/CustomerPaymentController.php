@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Core;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\CustomerPaymentRequest;
+use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Core\CustomerPaymentResource;
 use App\Services\Core\CustomerPaymentService;
 use Illuminate\Http\JsonResponse;
@@ -26,10 +27,13 @@ class CustomerPaymentController extends Controller
      */
     public function addPayment(CustomerPaymentRequest $request, int $billId): JsonResponse
     {
-        $validated = $request->validated();
-        $validated['customerBillId'] = $billId;
+        $genericData = $request->getGenericDataWithValidated();
 
-        $payment = $this->customerPaymentService->addPayment($validated);
+        // Add billId to the data
+        $genericData->getData()->customerBillId = $billId;
+        $genericData->syncDataArray();
+
+        $payment = $this->customerPaymentService->addPayment($genericData);
 
         return ApiResponse::success(new CustomerPaymentResource($payment), 'Payment added successfully', 201);
     }
@@ -37,12 +41,14 @@ class CustomerPaymentController extends Controller
     /**
      * Delete a payment.
      *
+     * @param GenericRequest $request
      * @param int $id
      * @return JsonResponse
      */
-    public function deletePayment(int $id): JsonResponse
+    public function deletePayment(GenericRequest $request, int $id): JsonResponse
     {
-        $this->customerPaymentService->deletePayment($id);
+        $data = $request->getGenericData();
+        $this->customerPaymentService->deletePayment($id, $data->userData->account_id, $data->userData->id);
 
         return ApiResponse::success(null, 'Payment deleted successfully');
     }
@@ -50,12 +56,14 @@ class CustomerPaymentController extends Controller
     /**
      * Get all payments for a bill.
      *
+     * @param GenericRequest $request
      * @param int $billId
      * @return JsonResponse
      */
-    public function getBillPayments(int $billId): JsonResponse
+    public function getBillPayments(GenericRequest $request, int $billId): JsonResponse
     {
-        $payments = $this->customerPaymentService->getPaymentsForBill($billId);
+        $data = $request->getGenericData();
+        $payments = $this->customerPaymentService->getPaymentsForBill($billId, $data->userData->account_id);
 
         return ApiResponse::success(CustomerPaymentResource::collection($payments));
     }

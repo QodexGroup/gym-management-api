@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Http\Requests\Core;
+namespace App\Http\Requests\Account;
 
 use App\Http\Requests\GenericRequest;
-use Illuminate\Validation\Rule;
 
-class CustomerMembershipRequest extends GenericRequest
+class ResetPasswordRequest extends GenericRequest
 {
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -23,16 +23,21 @@ class CustomerMembershipRequest extends GenericRequest
     public function rules(): array
     {
         return array_merge(parent::rules(), [
-            'membershipPlanId' => [
-                'required',
-                'integer',
-                'exists:tb_membership_plan,id',
-            ],
-            'membershipStartDate' => [
-                'nullable',
-                'date',
-            ],
+            'password' => ['required', 'string', 'min:6'],
         ]);
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'password.required' => 'Password is required.',
+            'password.min' => 'Password must be at least 6 characters.',
+        ];
     }
 }
 

@@ -6,10 +6,9 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\CustomerRequest;
 use App\Http\Requests\Core\CustomerMembershipRequest;
+use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Core\CustomerResource;
 use App\Http\Resources\Core\CustomerMembershipResource;
-use App\Http\Resources\Core\TrainerResource;
-use App\Models\User;
 use App\Repositories\Core\CustomerRepository;
 use App\Repositories\Account\MembershipPlanRepository;
 use App\Services\Core\CustomerService;
@@ -21,31 +20,34 @@ class CustomerController extends Controller
 {
     public function __construct(
         private CustomerRepository $repository,
-        private CustomerService $customerService,
-        private MembershipPlanRepository $membershipPlanRepository
+        private CustomerService $customerService
     ) {
     }
 
     /**
-     * Get all customers by account_id with pagination (50 per page)
+     * Get all customers by account_id with pagination, filtering, and sorting
      *
+     * @param GenericRequest $request
      * @return JsonResponse
      */
-    public function getCustomers(): JsonResponse
+    public function getCustomers(GenericRequest $request): JsonResponse
     {
-        $customers = $this->repository->getAll();
+        $data = $request->getGenericData();
+        $customers = $this->repository->getAll($data);
         return ApiResponse::success(CustomerResource::collection($customers)->response()->getData(true));
     }
 
     /**
      * Get a customer by id
      *
+     * @param GenericRequest $request
      * @param int $id
      * @return JsonResponse
      */
-    public function getCustomer(int $id): JsonResponse
+    public function getCustomer(GenericRequest $request, int $id): JsonResponse
     {
-        $customer = $this->repository->getById($id);
+        $data = $request->getGenericData();
+        $customer = $this->repository->findCustomerById($id, $data->userData->account_id);
         return ApiResponse::success(new CustomerResource($customer));
     }
 
@@ -57,8 +59,8 @@ class CustomerController extends Controller
      */
     public function store(CustomerRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $customer = $this->customerService->create($data);
+        $genericData = $request->getGenericDataWithValidated();
+        $customer = $this->customerService->create($genericData);
         return ApiResponse::success(new CustomerResource($customer), 'Customer created successfully', 201);
     }
 
@@ -71,39 +73,23 @@ class CustomerController extends Controller
      */
     public function updateCustomer(CustomerRequest $request, int $id): JsonResponse
     {
-        $data = $request->validated();
-        $customer = $this->customerService->update($id, $data);
+        $genericData = $request->getGenericDataWithValidated();
+        $customer = $this->customerService->update($id, $genericData);
         return ApiResponse::success(new CustomerResource($customer), 'Customer updated successfully');
     }
 
     /**
      * Delete a customer (soft delete)
      *
+     * @param GenericRequest $request
      * @param int $id
      * @return JsonResponse
      */
-    public function delete(int $id): JsonResponse
+    public function delete(GenericRequest $request, int $id): JsonResponse
     {
-        $this->repository->delete($id);
+        $data = $request->getGenericData();
+        $this->repository->delete($id, $data->userData->account_id);
         return ApiResponse::success(null, 'Customer deleted successfully');
-    }
-
-    /**
-     * Get all trainers (users) for selection
-     *
-     * @return JsonResponse
-     */
-    public function getTrainers(): JsonResponse
-    {
-         // For now, return dummy trainer (id: 1, name: Jomilen Dela Torre)
-        $dummyTrainer = new User();
-        $dummyTrainer->id = 1;
-        $dummyTrainer->name = 'Jomilen Dela Torre';
-        $dummyTrainer->email = 'jomilen@example.com';
-
-    return ApiResponse::success([new TrainerResource($dummyTrainer)]);
-
-        return ApiResponse::success([new TrainerResource($dummyTrainer)]);
     }
 
     /**
@@ -116,8 +102,8 @@ class CustomerController extends Controller
     public function createOrUpdateMembership(CustomerMembershipRequest $request, int $id): JsonResponse
     {
         try {
-            $data = $request->validated();
-            $membership = $this->customerService->createOrUpdateMembership($id, $data);
+            $genericData = $request->getGenericDataWithValidated();
+            $membership = $this->customerService->createOrUpdateMembership($id, $genericData);
 
             return ApiResponse::success([
                 'membership' => new CustomerMembershipResource($membership),

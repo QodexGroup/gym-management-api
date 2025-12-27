@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Core;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\CustomerBillRequest;
+use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Core\CustomerBillResource;
 use App\Repositories\Core\CustomerBillRepository;
 use App\Services\Core\CustomerBillService;
@@ -19,15 +20,16 @@ class CustomerBillController extends Controller
     }
 
     /**
-     * Get all bills for a specific customer
+     * Get all bills for a specific customer with pagination, filtering, and sorting
      *
-     * @param int $customerId
+     * @param GenericRequest $request
      * @return JsonResponse
      */
-    public function getCustomerBills(int $customerId): JsonResponse
+    public function getCustomerBills(GenericRequest $request): JsonResponse
     {
-        $bills = $this->repository->getByCustomerId($customerId);
-        return ApiResponse::success(CustomerBillResource::collection($bills)->response()->getData(true));
+        $data = $request->getGenericData();
+        $bills = $this->repository->getByCustomerId($data);
+        return ApiResponse::success($bills);
     }
 
     /**
@@ -38,8 +40,8 @@ class CustomerBillController extends Controller
      */
     public function createBill(CustomerBillRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $bill = $this->customerBillService->create($data);
+        $genericData = $request->getGenericDataWithValidated();
+        $bill = $this->customerBillService->create($genericData);
         return ApiResponse::success(new CustomerBillResource($bill), 'Bill created successfully', 201);
     }
 
@@ -52,20 +54,22 @@ class CustomerBillController extends Controller
      */
     public function updateBill(CustomerBillRequest $request, int $id): JsonResponse
     {
-        $data = $request->validated();
-        $bill = $this->customerBillService->updateBill($id, $data);
+        $genericData = $request->getGenericDataWithValidated();
+        $bill = $this->customerBillService->updateBill($id, $genericData);
         return ApiResponse::success(new CustomerBillResource($bill), 'Bill updated successfully');
     }
 
     /**
      * Delete a bill
      *
+     * @param GenericRequest $request
      * @param int $id
      * @return JsonResponse
      */
-    public function delete(int $id): JsonResponse
+    public function delete(GenericRequest $request, int $id): JsonResponse
     {
-        $this->customerBillService->deleteBill($id);
+        $data = $request->getGenericData();
+        $this->customerBillService->deleteBill($id, $data->userData->account_id);
         return ApiResponse::success(null, 'Bill deleted successfully');
     }
 }

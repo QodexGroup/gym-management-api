@@ -17,21 +17,22 @@ class CustomerScanService
 
     /**
      * @param int $id
+     * @param int $accountId
      *
      * @return array
      */
-    public function deleteScan(int $id): array
+    public function deleteScan(int $id, int $accountId): array
     {
         try {
             // Get files directly using the repository to ensure we get them
-            $files = $this->customerFileRepository->getFilesByFileable(CustomerScans::class, $id);
+            $files = $this->customerFileRepository->getFilesByFileable(CustomerScans::class, $id, $accountId);
             $fileUrls = $files->pluck('file_url')->toArray();
 
             // Delete file records from database
-            $this->customerFileRepository->deleteFilesByFileable(CustomerScans::class, $id);
+            $this->customerFileRepository->deleteFilesByFileable(CustomerScans::class, $id, $accountId);
 
             // Delete the scan record
-            $this->customerScanRepository->deleteScan($id);
+            $this->customerScanRepository->deleteScan($id, $accountId);
 
             return $fileUrls;
         } catch (\Throwable $th) {

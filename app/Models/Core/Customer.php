@@ -3,14 +3,17 @@
 namespace App\Models\Core;
 
 use App\Models\User;
+use App\Traits\BelongsToManyWithNullCheck;
+use App\Traits\HasBelongsToManyWithNullCheck;
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class Customer extends Model
 {
-    use HasFactory, HasCamelCaseAttributes, SoftDeletes;
+    use HasFactory, HasCamelCaseAttributes, SoftDeletes, HasBelongsToManyWithNullCheck;
 
     /**
      * The table associated with the model.
@@ -98,18 +101,24 @@ class Customer extends Model
     public function trainers()
     {
         return $this->belongsToMany(User::class, 'tb_customer_trainor', 'customer_id', 'trainer_id')
+            ->wherePivotNotNull('customer_id')
+            ->wherePivotNotNull('trainer_id')
+            ->whereNull('users.deleted_at') // Exclude soft-deleted trainers
             ->withTimestamps();
     }
 
     /**
      * Get the current trainer for the customer (most recently assigned).
+     * Uses belongsToManyWithNullCheck to avoid Laravel's eager loading bug.
+     *
+     * @return BelongsToManyWithNullCheck
      */
-    public function currentTrainer()
+    public function currentTrainer(): BelongsToManyWithNullCheck
     {
-        return $this->belongsToMany(User::class, 'tb_customer_trainor', 'customer_id', 'trainer_id')
+        return $this->belongsToManyWithNullCheck(User::class, 'tb_customer_trainor', 'customer_id', 'trainer_id')
+            ->whereNull('users.deleted_at')
             ->withTimestamps()
-            ->orderByPivot('created_at', 'desc')
-            ->limit(1);
+            ->orderByPivot('created_at', 'desc');
     }
 
     /**

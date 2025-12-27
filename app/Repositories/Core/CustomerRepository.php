@@ -3,72 +3,95 @@
 namespace App\Repositories\Core;
 
 use App\Constant\CustomerMembershipConstant;
+use App\Helpers\GenericData;
 use App\Models\Account\MembershipPlan;
 use App\Models\Core\Customer;
 use App\Models\Core\CustomerMembership;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CustomerRepository
 {
     /**
-     * Get all customers for account_id = 1 with pagination (50 per page)
+     * Get all customers with pagination, filtering, sorting, and relations
      *
+     * @param GenericData $genericData
      * @return LengthAwarePaginator
      */
-    public function getAll(): LengthAwarePaginator
+    public function getAll(GenericData $genericData): LengthAwarePaginator
     {
-        return Customer::where('account_id', 1)
-            ->with(['currentMembership.membershipPlan', 'currentTrainer'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(50);
+        $query = Customer::where('account_id', $genericData->userData->account_id);
+
+        // Apply relations, filters, and sorts using GenericData methods
+        $query = $genericData->applyRelations($query, ['currentMembership.membershipPlan', 'currentTrainer']);
+        $query = $genericData->applyFilters($query);
+        $query = $genericData->applySorts($query);
+
+        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+
     }
 
     /**
      * Create a new customer
      *
-     * @param array $data
+     * @param GenericData $genericData
      * @return Customer
      */
-    public function create(array $data): Customer
+    public function create(GenericData $genericData): Customer
     {
-        return Customer::create($data);
+        // Ensure account_id is set in data
+        $genericData->getData()->account_id = $genericData->userData->account_id;
+        $genericData->syncDataArray();
+
+        return Customer::create($genericData->data)->fresh();
     }
 
     /**
-     * @param int $id
+     * Get a customer by ID
      *
+     * @param int $id
+     * @param int $accountId
      * @return Customer
      */
-    public function getById(int $id): Customer
+    public function findCustomerById(int $id, int $accountId): Customer
     {
-        return Customer::where('account_id', 1)
-            ->with(['currentMembership.membershipPlan', 'currentTrainer'])
-            ->findOrFail($id);
+        return Customer::where('id', $id)
+            ->where('account_id', $accountId)
+            ->with([
+                'currentMembership.membershipPlan',
+                'currentTrainer'
+            ])
+            ->firstOrFail();
     }
 
     /**
      * Update a customer
      *
      * @param int $id
-     * @param array $data
-     * @return bool
+     * @param GenericData $genericData
+     * @return Customer
      */
-    public function update(int $id, array $data): bool
+    public function update(int $id, GenericData $genericData): Customer
     {
-        $customer = Customer::where('account_id', 1)->findOrFail($id);
-        return $customer->update($data);
+        $customer = $this->findCustomerById($id, $genericData->userData->account_id);
+        $customer->update($genericData->data);
+        return $customer->fresh();
     }
 
     /**
      * Delete a customer (soft delete)
      *
      * @param int $id
+     * @param int $accountId
      * @return bool
      */
-    public function delete(int $id): bool
+    public function delete(int $id, int $accountId): bool
     {
-        $customer = Customer::where('account_id', 1)->findOrFail($id);
+        $customer = $this->findCustomerById($id, $accountId);
         return $customer->delete();
     }
 
