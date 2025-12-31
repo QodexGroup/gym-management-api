@@ -3,6 +3,7 @@
 namespace App\Services\Core;
 
 use App\Constant\CustomerBillConstant;
+use App\Helpers\GenericData;
 use App\Models\Core\CustomerBill;
 use App\Models\Core\CustomerPayment;
 use App\Repositories\Core\CustomerBillRepository;
@@ -17,25 +18,30 @@ class CustomerPaymentService
         private CustomerPaymentRepository $paymentRepository,
         private CustomerBillRepository $billRepository,
         private CustomerRepository $customerRepository,
+        private NotificationService $notificationService,
     ) {
     }
 
     /**
      * Add a payment for a customer bill.
      *
-     * @param array $data
+     * @param GenericData $genericData
      * @return CustomerPayment
      */
-    public function addPayment(array $data): CustomerPayment
+    public function addPayment(GenericData $genericData): CustomerPayment
     {
         try {
-            return DB::transaction(function () use ($data) {
-                $customerId = (int) $data['customerId'];
-                $billId = (int) $data['customerBillId'];
-                $amount = (float) $data['amount'];
+            return DB::transaction(function () use ($genericData) {
+                $data = $genericData->getData();
+                $accountId = $genericData->userData->account_id;
+                $updatedBy = $genericData->userData->id;
+
+                $customerId = (int) $data->customerId;
+                $billId = (int) $data->customerBillId;
+                $amount = (float) $data->amount;
 
                 /** @var CustomerBill $bill */
-                $bill = $this->billRepository->getById($billId);
+                $bill = $this->billRepository->findBillById($billId, $accountId);
 
                 if ($bill->customer_id !== $customerId) {
                     throw new \RuntimeException('Bill does not belong to the specified customer.');
@@ -49,32 +55,27 @@ class CustomerPaymentService
                     throw new \RuntimeException('Invalid payment amount.');
                 }
 
-                // Prepare data for creation
-                $payload = [
-                    'customerId' => $customerId,
-                    'customerBillId' => $billId,
-                    'amount' => $amount,
-                    'paymentMethod' => $data['paymentMethod'] ?? 'cash',
-                    'paymentDate' => $data['paymentDate'],
-                    'referenceNumber' => $data['referenceNumber'] ?? null,
-                    'remarks' => $data['remarks'] ?? null,
-                    'accountId' => 1,
-                    'createdBy' => $data['createdBy'] ?? 1,
-                    'updatedBy' => $data['updatedBy'] ?? 1,
-                ];
+                // Ensure paymentMethod has a default value
+                if (!isset($genericData->getData()->paymentMethod)) {
+                    $genericData->getData()->paymentMethod = 'cash';
+                    $genericData->syncDataArray();
+                }
 
                 /** @var CustomerPayment $payment */
-                $payment = $this->paymentRepository->create($payload);
+                $payment = $this->paymentRepository->create($genericData);
 
                 // Update bill paid amount and status via dedicated repository method
                 $newPaidAmount = $paidAmount + $amount;
                 $newStatus = $this->determineBillStatus($bill->net_amount, $newPaidAmount);
 
-                $this->billRepository->updatePaidAmount($billId, $newPaidAmount, $newStatus);
+                $this->billRepository->updatePaidAmount($billId, $accountId, $newPaidAmount, $newStatus, $updatedBy);
 
                 // Recalculate customer balance using existing model method
-                $customer = $this->customerRepository->getById($customerId);
+                $customer = $this->customerRepository->findCustomerById($customerId, $accountId);
                 $customer->recalculateBalance();
+
+                // Send payment notification
+                $this->notificationService->createPaymentReceivedNotification($payment);
 
                 return $payment->fresh(['customer', 'bill', 'creator', 'updater']);
             });
@@ -91,33 +92,35 @@ class CustomerPaymentService
      * Delete a payment and update bill & customer balance.
      *
      * @param int $id
+     * @param int $accountId
+     * @param int $updatedBy
      * @return bool
      */
-    public function deletePayment(int $id): bool
+    public function deletePayment(int $id, int $accountId, int $updatedBy): bool
     {
         try {
-            DB::transaction(function () use ($id) {
+            DB::transaction(function () use ($id, $accountId, $updatedBy) {
                 /** @var CustomerPayment $payment */
-                $payment = $this->paymentRepository->getById($id);
+                $payment = $this->paymentRepository->getById($id, $accountId);
 
                 $billId = (int) $payment->customer_bill_id;
                 $customerId = (int) $payment->customer_id;
 
                 /** @var CustomerBill $bill */
-                $bill = $this->billRepository->getById($billId);
-                $customer = $this->customerRepository->getById($customerId);
+                $bill = $this->billRepository->findBillById($billId, $accountId);
+                $customer = $this->customerRepository->findCustomerById($customerId, $accountId);
 
                 $amount = (float) $payment->amount;
 
                 // Soft delete the payment
-                $this->paymentRepository->delete($id, $bill->id);
+                $this->paymentRepository->delete($id, $billId, $accountId);
 
                 // Recalculate bill paid amount and status via dedicated repository method
                 $currentPaid = (float) $bill->paid_amount;
                 $newPaidAmount = max(0, $currentPaid - $amount);
                 $newStatus = $this->determineBillStatus($bill->net_amount, $newPaidAmount);
 
-                $this->billRepository->updatePaidAmount($billId, $newPaidAmount, $newStatus);
+                $this->billRepository->updatePaidAmount($billId, $accountId, $newPaidAmount, $newStatus, $updatedBy);
 
                 // Recalculate customer balance
                 $customer->recalculateBalance();
@@ -137,11 +140,12 @@ class CustomerPaymentService
      * Get all payments for a given bill.
      *
      * @param int $billId
+     * @param int $accountId
      * @return \Illuminate\Database\Eloquent\Collection<int, CustomerPayment>
      */
-    public function getPaymentsForBill(int $billId)
+    public function getPaymentsForBill(int $billId, int $accountId)
     {
-        return $this->paymentRepository->getByBillId($billId);
+        return $this->paymentRepository->getByBillId($billId, $accountId);
     }
 
     /**

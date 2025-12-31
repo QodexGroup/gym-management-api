@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Core;
 
 use App\Helpers\ApiResponse;
+use App\Http\Requests\GenericRequest;
 use App\Http\Requests\Core\CustomerProgressRequest;
 use App\Http\Resources\Core\CustomerProgressResource;
 use App\Repositories\Core\CustomerProgressRepository;
@@ -17,43 +18,41 @@ class CustomerProgressController
     )
     {}
 
-    public function getAllCustomerProgress($customerId): JsonResponse
+    public function getAllCustomerProgress(GenericRequest $request): JsonResponse
     {
-        $customerProgress = $this->customerProgressRepository->getAllProgress((int)$customerId);
-        return ApiResponse::success(CustomerProgressResource::collection($customerProgress)->response()->getData(true));
+        $genericData = $request->getGenericData();
+        $customerProgress = $this->customerProgressRepository->getAllProgress($genericData);
+        return ApiResponse::success($customerProgress);
     }
 
     /**
      * Get a specific progress record by ID
      *
-     * @param int $customerId
+     * @param GenericRequest $request
      * @param int $id
      * @return JsonResponse
      */
-    public function getProgressById($id): JsonResponse
+    public function getProgressById(GenericRequest $request, $id): JsonResponse
     {
-        $customerProgress = $this->customerProgressRepository->getProgressById((int)$id);
+        $genericData = $request->getGenericData();
+        $customerProgress = $this->customerProgressRepository->getProgressById((int)$id, $genericData->userData->account_id);
         return ApiResponse::success(new CustomerProgressResource($customerProgress));
     }
 
     /**
-     * @param int $customerId
      * @param CustomerProgressRequest $request
      *
      * @return JsonResponse
      */
-    public function createProgress($customerId, CustomerProgressRequest $request): JsonResponse
+    public function createProgress(CustomerProgressRequest $request): JsonResponse
     {
-        $validated = $request->validated();
-        $validated['customerId'] = (int)$customerId;
-
-        $customerProgress = $this->customerProgressRepository->createProgress($validated);
+        $genericData = $request->getGenericDataWithValidated();
+        $customerProgress = $this->customerProgressRepository->createProgress($genericData);
 
         return ApiResponse::success(new CustomerProgressResource($customerProgress->load('files')), 'Progress record created successfully', 201);
     }
 
     /**
-     * @param int $customerId
      * @param int $id
      * @param CustomerProgressRequest $request
      *
@@ -61,23 +60,23 @@ class CustomerProgressController
      */
     public function updateProgress($id, CustomerProgressRequest $request): JsonResponse
     {
-        $validated = $request->validated();
-
-        $customerProgress = $this->customerProgressRepository->updateProgress((int)$id, $validated);
+        $genericData = $request->getGenericDataWithValidated();
+        $customerProgress = $this->customerProgressRepository->updateProgress((int)$id, $genericData);
 
         return ApiResponse::success(new CustomerProgressResource($customerProgress), 'Progress record updated successfully');
     }
 
     /**
-     * @param int $customerId
+     * @param GenericRequest $request
      * @param int $id
      *
      * @return JsonResponse
      */
-    public function deleteProgress($id): JsonResponse
+    public function deleteProgress(GenericRequest $request, $id): JsonResponse
     {
         try {
-            $fileUrls = $this->customerProgressService->deleteProgress((int)$id);
+            $genericData = $request->getGenericData();
+            $fileUrls = $this->customerProgressService->deleteProgress((int)$id, $genericData->userData->account_id);
 
             return ApiResponse::success([
                 'fileUrls' => $fileUrls, // Return file URLs for frontend to delete from Firebase

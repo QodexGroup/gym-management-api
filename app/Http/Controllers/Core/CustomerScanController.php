@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Core;
 
 use App\Helpers\ApiResponse;
+use App\Http\Requests\GenericRequest;
 use App\Http\Requests\Core\CustomerScanRequest;
 use App\Http\Resources\Core\CustomerScanResource;
 use App\Repositories\Core\CustomerScanRepository;
 use App\Services\Core\CustomerScanService;
-use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class CustomerScanController
@@ -19,38 +19,39 @@ class CustomerScanController
     {}
 
     /**
+     * @param GenericRequest $request
      * @return JsonResponse
      */
-    public function getAllCustomerScans($customerId): JsonResponse
+    public function getAllCustomerScans(GenericRequest $request): JsonResponse
     {
-        $customerScans = $this->customerScanRepository->getAllScans((int)$customerId);
-        return ApiResponse::success(CustomerScanResource::collection($customerScans)->response()->getData(true));
+        $genericData = $request->getGenericData();
+        $customerScans = $this->customerScanRepository->getAllScans($genericData);
+        return ApiResponse::success($customerScans);
     }
 
     /**
      * Get scans by customer ID and scan type
      *
-     * @param int $customerId
+     * @param GenericRequest $request
      * @param string $scanType
      * @return JsonResponse
      */
-    public function getScansByType($customerId, $scanType): JsonResponse
+    public function getScansByType(GenericRequest $request, $scanType): JsonResponse
     {
-        $scans = $this->customerScanRepository->getScansByType((int)$customerId, $scanType);
+        $genericData = $request->getGenericData();
+        $scans = $this->customerScanRepository->getScansByType($genericData, $scanType);
         return ApiResponse::success(CustomerScanResource::collection($scans));
     }
 
     /**
-     * @param $customerId
      * @param CustomerScanRequest $request
      *
      * @return JsonResponse
      */
-    public function createScan($customerId, CustomerScanRequest $request): JsonResponse
+    public function createScan(CustomerScanRequest $request): JsonResponse
     {
-        $validated = $request->validated();
-        $validated['customerId'] = (int)$customerId;
-        $customerScan = $this->customerScanRepository->createScan($validated);
+        $genericData = $request->getGenericDataWithValidated();
+        $customerScan = $this->customerScanRepository->createScan($genericData);
         return ApiResponse::success(new CustomerScanResource($customerScan->load('files')), 'Scan created successfully', 201);
     }
 
@@ -62,20 +63,22 @@ class CustomerScanController
      */
     public function updateCustomerScan($id, CustomerScanRequest $request): JsonResponse
     {
-        $validated = $request->validated();
-        $customerScan = $this->customerScanRepository->updateScan((int)$id, $validated);
+        $genericData = $request->getGenericDataWithValidated();
+        $customerScan = $this->customerScanRepository->updateScan((int)$id, $genericData);
         return ApiResponse::success(new CustomerScanResource($customerScan), 'Scan updated successfully');
     }
 
     /**
+     * @param GenericRequest $request
      * @param $id
      *
      * @return JsonResponse
      */
-    public function deleteCustomerScan($id): JsonResponse
+    public function deleteCustomerScan(GenericRequest $request, $id): JsonResponse
     {
         try {
-            $fileUrls = $this->customerScanService->deleteScan((int)$id);
+            $genericData = $request->getGenericData();
+            $fileUrls = $this->customerScanService->deleteScan((int)$id, $genericData->userData->account_id);
 
             return ApiResponse::success([
                 'fileUrls' => $fileUrls, // Return file URLs for frontend to delete from Firebase

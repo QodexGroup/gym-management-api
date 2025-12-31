@@ -2,18 +2,10 @@
 
 namespace App\Http\Requests\Core;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\GenericRequest;
 
-class CustomerRequest extends FormRequest
+class CustomerRequest extends GenericRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /**
      * Get the validation rules that apply to the request.
      *
@@ -21,7 +13,7 @@ class CustomerRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return array_merge(parent::rules(), [
             'firstName' => ['required', 'string', 'max:255'],
             'lastName' => ['required', 'string', 'max:255'],
             'gender' => ['nullable', 'string', 'in:Male,Female,Other'],
@@ -45,7 +37,7 @@ class CustomerRequest extends FormRequest
             'emergencyContactAddress' => ['nullable', 'string'],
             'membershipPlanId' => ['nullable', 'integer'],
             'currentTrainerId' => ['nullable', 'integer'],
-        ];
+        ]);
     }
 }
 

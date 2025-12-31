@@ -2,18 +2,10 @@
 
 namespace App\Http\Requests\Core;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\GenericRequest;
 
-class CustomerPaymentRequest extends FormRequest
+class CustomerPaymentRequest extends GenericRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /**
      * Get the validation rules that apply to the request.
      *
@@ -21,14 +13,14 @@ class CustomerPaymentRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return array_merge(parent::rules(), [
             'customerId' => ['required', 'integer', 'exists:tb_customers,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'paymentDate' => ['required', 'date'],
             'paymentMethod' => ['required', 'string'],
             'referenceNumber' => ['nullable', 'string', 'max:255'],
             'remarks' => ['nullable', 'string', 'max:1000'],
-        ];
+        ]);
     }
 }
 

@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Core;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\GenericRequest;
 
-class CustomerProgressRequest extends FormRequest
+class CustomerProgressRequest extends GenericRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -21,8 +21,9 @@ class CustomerProgressRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return array_merge(parent::rules(), [
             // Required fields
+            'customerId' => ['required', 'integer'],
             'recordedDate' => ['required', 'date'],
             'dataSource' => ['required', 'string', 'in:manual,inbody,styku'],
 
@@ -55,6 +56,6 @@ class CustomerProgressRequest extends FormRequest
             // Notes
             'notes' => ['nullable', 'string'],
             'customerScanId' => ['nullable', 'integer', 'exists:tb_customer_scans,id'],
-        ];
+        ]);
     }
 }

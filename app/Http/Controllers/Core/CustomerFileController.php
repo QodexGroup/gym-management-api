@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Core;
 
 use App\Helpers\ApiResponse;
+use App\Http\Requests\GenericRequest;
 use App\Http\Requests\Core\CustomerFileRequest;
 use App\Http\Resources\Core\CustomerFileResource;
 use App\Models\Core\CustomerProgress;
@@ -29,8 +30,8 @@ class CustomerFileController
      */
     public function createProgressFile($progressId, CustomerFileRequest $request): JsonResponse
     {
-        $validated = $request->validated();
-        $file = $this->fileService->createFile(CustomerProgress::class, (int)$progressId, $validated);
+        $genericData = $request->getGenericDataWithValidated();
+        $file = $this->fileService->createFile(CustomerProgress::class, (int)$progressId, $genericData);
 
         return ApiResponse::success(new CustomerFileResource($file), 'File saved successfully', 201);
     }
@@ -45,8 +46,8 @@ class CustomerFileController
      */
     public function createScanFile($scanId, CustomerFileRequest $request): JsonResponse
     {
-        $validated = $request->validated();
-        $file = $this->fileService->createFile(CustomerScans::class, (int)$scanId, $validated);
+        $genericData = $request->getGenericDataWithValidated();
+        $file = $this->fileService->createFile(CustomerScans::class, (int)$scanId, $genericData);
 
         return ApiResponse::success(new CustomerFileResource($file), 'File saved successfully', 201);
     }
@@ -54,12 +55,14 @@ class CustomerFileController
     /**
      * Delete a file record
      *
+     * @param GenericRequest $request
      * @param int $id
      * @return JsonResponse
      */
-    public function deleteFile($id): JsonResponse
+    public function deleteFile(GenericRequest $request, $id): JsonResponse
     {
-        $result = $this->fileService->deleteFile((int)$id);
+        $genericData = $request->getGenericData();
+        $result = $this->fileService->deleteFile((int)$id, $genericData->userData->account_id);
 
         if (!$result) {
             return ApiResponse::error('File not found', 404);
@@ -71,12 +74,13 @@ class CustomerFileController
     /**
      * Get all files for a customer
      *
-     * @param int $customerId
+     * @param GenericRequest $request
      * @return JsonResponse
      */
-    public function getFilesByCustomerId($customerId): JsonResponse
+    public function getFilesByCustomerId(GenericRequest $request): JsonResponse
     {
-        $files = $this->customerFileRepository->getFilesByCustomerId((int)$customerId);
+        $genericData = $request->getGenericData();
+        $files = $this->customerFileRepository->getFilesByCustomerId($genericData);
         return ApiResponse::success(CustomerFileResource::collection($files));
     }
 }

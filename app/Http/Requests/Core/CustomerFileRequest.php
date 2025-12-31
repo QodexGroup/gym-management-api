@@ -2,18 +2,10 @@
 
 namespace App\Http\Requests\Core;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\GenericRequest;
 
-class CustomerFileRequest extends FormRequest
+class CustomerFileRequest extends GenericRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /**
      * Get the validation rules that apply to the request.
      *
@@ -21,7 +13,7 @@ class CustomerFileRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return array_merge(parent::rules(), [
             'customerId' => ['required', 'integer'],
             'remarks' => ['required', 'string'],
             'fileName' => ['required', 'string', 'max:255'],
@@ -29,6 +21,6 @@ class CustomerFileRequest extends FormRequest
             'fileSize' => ['nullable', 'numeric', 'min:0'], // File size in KB (numeric)
             'mimeType' => ['nullable', 'string', 'max:100'],
             'fileDate' => ['required', 'date'],
-        ];
+        ]);
     }
 }

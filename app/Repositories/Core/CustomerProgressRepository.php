@@ -2,67 +2,86 @@
 
 namespace App\Repositories\Core;
 
+use App\Helpers\GenericData;
 use App\Models\Core\CustomerProgress;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class CustomerProgressRepository
 {
-    public function getAllProgress(int $customerId): LengthAwarePaginator
+    public function getAllProgress(GenericData $genericData): LengthAwarePaginator
     {
-        return CustomerProgress::where('account_id', 1)
-            ->where('customer_id', $customerId)
-            ->with(['files', 'scan.files'])
-            ->orderBy('recorded_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate(50);
+        $accountId = $genericData->userData->account_id;
+        $query = CustomerProgress::where('account_id', $accountId)
+            ->where('customer_id', $genericData->customerId);
+
+        // Set default relations if not specified
+        if (empty($genericData->relations)) {
+            $genericData->relations = [
+                'files' => function ($query) use ($accountId) {
+                    $query->where('account_id', $accountId);
+                },
+                'scan.files' => function ($query) use ($accountId) {
+                    $query->where('account_id', $accountId);
+                }
+            ];
+        }
+
+        $genericData->applyRelations($query);
+        $genericData->applyFilters($query);
+        $genericData->applySorts($query);
+
+        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
     }
 
     /**
-     * @param array $data
+     * @param GenericData $genericData
      *
      * @return CustomerProgress
      */
-    public function createProgress(array $data): CustomerProgress
+    public function createProgress(GenericData $genericData): CustomerProgress
     {
-        // Set account_id to 1 by default
-        $data['accountId'] = 1;
+        $data = $genericData->data;
+        $data['account_id'] = $genericData->userData->account_id;
+        $data['uploaded_by'] = $genericData->userData->id;
         return CustomerProgress::create($data);
     }
 
     /**
      * @param int $id
-     * @param array $data
+     * @param GenericData $genericData
      *
      * @return CustomerProgress
      */
-    public function updateProgress(int $id, array $data): CustomerProgress
+    public function updateProgress(int $id, GenericData $genericData): CustomerProgress
     {
-        $customerProgress = $this->getProgressById($id);
-
-        $customerProgress->update($data);
+        $customerProgress = $this->getProgressById($id, $genericData->userData->account_id);
+        $customerProgress->uploaded_by = $genericData->userData->id;
+        $customerProgress->update($genericData->data);
         return $customerProgress->fresh(['files']);
     }
 
     /**
      * @param int $id
+     * @param int $accountId
      *
      * @return CustomerProgress
      */
-    public function getProgressById(int $id): CustomerProgress
+    public function getProgressById(int $id, int $accountId): CustomerProgress
     {
         return CustomerProgress::where('id', $id)
-            ->where('account_id', 1)
+            ->where('account_id', $accountId)
             ->with(['files', 'scan.files'])
             ->firstOrFail();
     }
 
     /**
      * @param int $id
+     * @param int $accountId
      *
      * @return bool
      */
-    public function deleteProgress(int $id): bool
+    public function deleteProgress(int $id, int $accountId): bool
     {
-        return CustomerProgress::where('id', $id)->where('account_id', 1)->delete();
+        return CustomerProgress::where('id', $id)->where('account_id', $accountId)->delete();
     }
 }

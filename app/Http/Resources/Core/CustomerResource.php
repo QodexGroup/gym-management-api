@@ -2,9 +2,9 @@
 
 namespace App\Http\Resources\Core;
 
+use App\Http\Resources\Account\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\DB;
 
 class CustomerResource extends JsonResource
 {
@@ -43,40 +43,14 @@ class CustomerResource extends JsonResource
             'currentMembership' => $this->whenLoaded('currentMembership', function () {
                 return new CustomerMembershipResource($this->currentMembership);
             }),
-            'currentTrainer' => $this->getCurrentTrainerData(),
+            'currentTrainer' => $this->whenLoaded('currentTrainer', function () {
+                $trainer = $this->currentTrainer->first();
+                return $trainer ? new UserResource($trainer) : null;
+            }),
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
             'deletedAt' => $this->deleted_at,
         ];
-    }
-
-    /**
-     * Get current trainer data, checking pivot table if relationship is empty
-     *
-     * @return array|null|TrainerResource
-     */
-    private function getCurrentTrainerData()
-    {
-        // Check if currentTrainer relationship is loaded and has data
-        if ($this->relationLoaded('currentTrainer') && $this->currentTrainer->isNotEmpty()) {
-            return new TrainerResource($this->currentTrainer->first());
-        }
-
-        // Check pivot table directly for trainer_id = 1
-        $hasTrainer = DB::table('tb_customer_trainor')
-            ->where('customer_id', $this->id)
-            ->where('trainer_id', 1)
-            ->exists();
-
-        if ($hasTrainer) {
-            return [
-                'id' => 1,
-                'name' => 'Jomilen Dela Torre',
-                'email' => 'jomilen@example.com',
-            ];
-        }
-
-        return null;
     }
 }
 

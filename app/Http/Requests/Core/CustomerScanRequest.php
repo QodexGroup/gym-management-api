@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Core;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\GenericRequest;
 
-class CustomerScanRequest extends FormRequest
+class CustomerScanRequest extends GenericRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -19,10 +19,11 @@ class CustomerScanRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return array_merge(parent::rules(), [
+            'customerId' => ['required', 'integer'],
             'scanType' => ['required', 'string', 'in:inbody,styku'],
             'scanDate' => ['required', 'date'],
             'notes' => ['nullable', 'string'],
-        ];
+        ]);
     }
 }

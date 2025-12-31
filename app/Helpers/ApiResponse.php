@@ -50,5 +50,15 @@ class ApiResponse
 
         return response()->json($response, $statusCode);
     }
+
+    /**
+     * @param null $data
+     *
+     * @return JsonResponse
+     */
+    public static function data($data = null):JsonResponse
+    {
+        return response()->json($data);
+    }
 }
 

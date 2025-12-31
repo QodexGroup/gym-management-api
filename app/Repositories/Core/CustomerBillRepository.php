@@ -2,72 +2,79 @@
 
 namespace App\Repositories\Core;
 
+use App\Helpers\GenericData;
 use App\Models\Core\CustomerBill;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 class CustomerBillRepository
 {
-
     /**
      * Create a new bill
      *
-     * @param array $data
+     * @param GenericData $genericData
      * @return CustomerBill
      */
-    public function create(array $data): CustomerBill
+    public function create(GenericData $genericData): CustomerBill
     {
-        // Set defaults
-        $data['accountId'] = 1;
-        $data['paidAmount'] = $data['paidAmount'] ?? 0;
-        $data['createdBy'] = $data['createdBy'] ?? 1;
-        $data['updatedBy'] = $data['updatedBy'] ?? 1;
+        // Ensure account_id is set in data
+        $genericData->getData()->accountId = $genericData->userData->account_id;
+        $genericData->getData()->paidAmount = $genericData->getData()->paidAmount ?? 0;
+        $genericData->getData()->createdBy = $genericData->getData()->createdBy ?? $genericData->userData->id;
+        $genericData->getData()->updatedBy = $genericData->getData()->updatedBy ?? $genericData->userData->id;
+        $genericData->syncDataArray();
 
-        return CustomerBill::create($data);
+        return CustomerBill::create($genericData->data)->fresh();
     }
 
     /**
-     * Get a bill by id
+     * Find a bill by ID and account ID
      *
      * @param int $id
+     * @param int $accountId
      * @return CustomerBill
      */
-    public function getById(int $id): CustomerBill
+    public function findBillById(int $id, int $accountId): CustomerBill
     {
-        return CustomerBill::where('account_id', 1)
+        return CustomerBill::where('id', $id)
+            ->where('account_id', $accountId)
             ->with(['creator', 'updater', 'membershipPlan'])
-            ->findOrFail($id);
+            ->firstOrFail();
     }
 
     /**
      * Update a bill
      *
      * @param int $id
-     * @param array $data
+     * @param GenericData $genericData
      * @return CustomerBill
      */
-    public function update(int $id, array $data): CustomerBill
+    public function update(int $id, GenericData $genericData): CustomerBill
     {
-        $bill = CustomerBill::where('account_id', 1)->findOrFail($id);
+        $bill = $this->findBillById($id, $genericData->userData->account_id);
         // Set updatedBy if not provided
-        $data['updatedBy'] = $data['updatedBy'] ?? 1;
-        $bill->update($data);
-        return $bill->fresh(['creator', 'updater']);
+        $genericData->getData()->updatedBy = $genericData->getData()->updatedBy ?? $genericData->userData->id;
+        $genericData->syncDataArray();
+        $bill->update($genericData->data);
+        return $bill->fresh(['creator', 'updater', 'membershipPlan']);
     }
 
     /**
      * Update bill paid amount and status (used by payments)
      *
      * @param int $id
+     * @param int $accountId
      * @param float $paidAmount
      * @param string $status
+     * @param int $updatedBy
      * @return CustomerBill
      */
-    public function updatePaidAmount(int $id, float $paidAmount, string $status): CustomerBill
+    public function updatePaidAmount(int $id, int $accountId, float $paidAmount, string $status, int $updatedBy): CustomerBill
     {
-        $bill = CustomerBill::where('account_id', 1)->findOrFail($id);
+        $bill = $this->findBillById($id, $accountId);
         $bill->paid_amount = $paidAmount;
         $bill->bill_status = $status;
-        $bill->updated_by = 1;
+        $bill->updated_by = $updatedBy;
         $bill->save();
 
         return $bill->fresh(['creator', 'updater']);
@@ -77,26 +84,34 @@ class CustomerBillRepository
      * Delete a bill
      *
      * @param int $id
+     * @param int $accountId
      * @return bool
      */
-    public function delete(int $id): bool
+    public function delete(int $id, int $accountId): bool
     {
-        $bill = CustomerBill::where('account_id', 1)->findOrFail($id);
+        $bill = $this->findBillById($id, $accountId);
         return $bill->delete();
     }
 
     /**
-     * Get bills by customer ID
+     * Get bills by customer ID with pagination, filtering, and sorting
      *
      * @param int $customerId
+     * @param GenericData $genericData
      * @return LengthAwarePaginator
      */
-    public function getByCustomerId(int $customerId): LengthAwarePaginator
+    public function getByCustomerId(GenericData $genericData): LengthAwarePaginator
     {
-        return CustomerBill::where('customer_id', $customerId)
-            ->with(['creator', 'updater', 'membershipPlan'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(50);
+        $query = CustomerBill::where('customer_id', $genericData->customerId)
+            ->where('account_id', $genericData->userData->account_id);
+
+        // Apply relations, filters, and sorts using GenericData methods
+        $query = $genericData->applyRelations($query, ['creator', 'updater', 'membershipPlan']);
+        $query = $genericData->applyFilters($query);
+        $query = $genericData->applySorts($query);
+
+        // Always return paginated results
+        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
     }
 }
 

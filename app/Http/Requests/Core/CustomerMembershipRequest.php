@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Core;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\GenericRequest;
 use Illuminate\Validation\Rule;
 
-class CustomerMembershipRequest extends FormRequest
+class CustomerMembershipRequest extends GenericRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,7 +22,7 @@ class CustomerMembershipRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return array_merge(parent::rules(), [
             'membershipPlanId' => [
                 'required',
                 'integer',
@@ -32,7 +32,7 @@ class CustomerMembershipRequest extends FormRequest
                 'nullable',
                 'date',
             ],
-        ];
+        ]);
     }
 }
 

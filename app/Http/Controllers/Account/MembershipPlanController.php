@@ -3,64 +3,62 @@
 namespace App\Http\Controllers\Account;
 
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Controller;
 use App\Http\Requests\Account\MembershipPlanRequest;
+use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Account\MembershipPlanResource;
 use App\Repositories\Account\MembershipPlanRepository;
 use Illuminate\Http\JsonResponse;
 
-class MembershipPlanController extends Controller
+class MembershipPlanController
 {
     public function __construct(
-        private MembershipPlanRepository $repository
+        private MembershipPlanRepository $membershipPlanRepository
     ) {
     }
 
     /**
-     * Get all membership plans by account_id
-     *
+     * @param GenericRequest $request
      * @return JsonResponse
      */
-    public function getAllMembershipPlan(): JsonResponse
+    public function getAllMembershipPlan(GenericRequest $request): JsonResponse
     {
-        $plans = $this->repository->getAll();
-        return ApiResponse::success(MembershipPlanResource::collection($plans));
+        $data = $request->getGenericData();
+        $plans = $this->membershipPlanRepository->getAllMembershipPlans($data);
+        return ApiResponse::success($plans);
     }
 
     /**
-     * Create a new membership plan
-     *
      * @param MembershipPlanRequest $request
      * @return JsonResponse
      */
     public function store(MembershipPlanRequest $request): JsonResponse
     {
-        $plan = $this->repository->create($request->validated());
+        $genericData = $request->getGenericDataWithValidated();
+        $plan = $this->membershipPlanRepository->createMembershipPlan($genericData);
         return ApiResponse::success(new MembershipPlanResource($plan), 'Membership plan created successfully', 201);
     }
 
     /**
-     * Update a membership plan
-     *
      * @param MembershipPlanRequest $request
      * @param int $id
      * @return JsonResponse
      */
     public function updateMembershipPlan(MembershipPlanRequest $request, int $id): JsonResponse
     {
-        $plan = $this->repository->update($id, $request->validated());
+        $genericData = $request->getGenericDataWithValidated();
+        $plan = $this->membershipPlanRepository->updateMembershipPlan($id, $genericData);
         return ApiResponse::success(new MembershipPlanResource($plan), 'Membership plan updated successfully');
     }
 
     /**
-     * Delete a membership plan (soft delete)
-     *
+     * @param GenericRequest $request
      * @param int $id
      * @return JsonResponse
      */
-    public function delete(int $id): JsonResponse
+    public function delete(GenericRequest $request, int $id): JsonResponse
     {
-        $this->repository->delete($id);
+        $data = $request->getGenericData();
+        $this->membershipPlanRepository->deleteMembershipPlan($id, $data->userData->account_id);
         return ApiResponse::success(null, 'Membership plan deleted successfully');
     }
 }

@@ -51,10 +51,14 @@ class CustomerProgressResource extends JsonResource
             'customerScanId' => $this->customer_scan_id,
             'notes' => $this->notes,
             'recordedDate' => $this->recorded_date,
-            'files' => CustomerFileResource::collection($this->resource->getRelation('files')),
+            'files' => $this->whenLoaded('files', function () {
+                return CustomerFileResource::collection($this->files);
+            }, []),
             'scan' => $this->when(
-                $this->resource->relationLoaded('scan') && ($scan = $this->resource->getRelation('scan'))?->relationLoaded('files'),
-                fn() => CustomerFileResource::collection($scan->getRelation('files')),
+                $this->relationLoaded('scan') && $this->scan && $this->scan->relationLoaded('files'),
+                function () {
+                    return CustomerFileResource::collection($this->scan->files);
+                },
                 []
             ),
             'customer' => $this->whenLoaded('customer', function () {

@@ -2,18 +2,10 @@
 
 namespace App\Http\Requests\Account;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\GenericRequest;
 
-class MembershipPlanRequest extends FormRequest
+class MembershipPlanRequest extends GenericRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /**
      * Get the validation rules that apply to the request.
      *
@@ -21,15 +13,14 @@ class MembershipPlanRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return array_merge(parent::rules(), [
             'planName' => ['required', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:1'],
             'planPeriod' => ['required', 'integer', 'min:1'],
             'planInterval' => ['required', 'string'],
             'features' => ['nullable', 'array'],
             'features.*' => ['nullable', 'string'],
-        ];
+        ]);
     }
-
 }
 
