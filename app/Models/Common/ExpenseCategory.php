@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Core;
+namespace App\Models\Common;
 
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

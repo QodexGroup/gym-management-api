@@ -28,7 +28,7 @@ class GenericRequest extends FormRequest
             'page' => ['nullable', 'integer', 'min:1'],
             'pagelimit' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'filters' => ['nullable', 'array'],
-            'relations' => ['nullable', 'array'],
+            'relations' => ['nullable', 'string'],
             'sorts' => ['nullable', 'array'],
             'customerId' => ['nullable', 'integer'],
         ];
@@ -37,13 +37,45 @@ class GenericRequest extends FormRequest
     /**
      * Prepare the data for validation.
      * Set default values for page and pagelimit if not provided.
+     * Parse JSON strings for relations, filters, and sorts.
      */
     protected function prepareForValidation(): void
     {
-        $this->merge([
+        $data = [
             'page' => $this->input('page', 1),
             'pagelimit' => $this->input('pagelimit', 50),
-        ]);
+        ];
+
+
+        if ($this->has('filters')) {
+            $filters = $this->input('filters');
+            if (is_string($filters)) {
+                $decoded = json_decode($filters, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $data['filters'] = $decoded;
+                } else {
+                    $data['filters'] = [];
+                }
+            } else {
+                $data['filters'] = $filters;
+            }
+        }
+
+        if ($this->has('sorts')) {
+            $sorts = $this->input('sorts');
+            if (is_string($sorts)) {
+                $decoded = json_decode($sorts, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $data['sorts'] = $decoded;
+                } else {
+                    $data['sorts'] = [];
+                }
+            } else {
+                $data['sorts'] = $sorts;
+            }
+        }
+
+        $this->merge($data);
     }
 
     /**
@@ -129,7 +161,15 @@ class GenericRequest extends FormRequest
         $params->page = $this->getPage();
         $params->pageSize = $this->getPageLimit();
         $params->filters = $this->input('filters', []);
-        $params->relations = $this->input('relations', []);
+
+        // Parse relations as comma-separated string and explode to array
+        $relations = $this->input('relations');
+        if (is_string($relations) && !empty($relations)) {
+            $params->relations = array_map('trim', explode(',', $relations));
+        } else {
+            $params->relations = [];
+        }
+
         $params->sorts = $this->input('sorts', []);
         $params->customerId = $this->input('customerId') ? (int)$this->input('customerId') : null;
 

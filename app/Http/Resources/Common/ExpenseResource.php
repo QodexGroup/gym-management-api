@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Resources\Core;
+namespace App\Http\Resources\Common;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -19,10 +19,7 @@ class ExpenseResource extends JsonResource
             'accountId' => $this->account_id,
             'categoryId' => $this->category_id,
             'category' => $this->whenLoaded('category', function () {
-                return [
-                    'id' => $this->category->id,
-                    'name' => $this->category->name,
-                ];
+                return new ExpenseCategoryResource($this->category);
             }),
             'description' => $this->description,
             'amount' => $this->amount,

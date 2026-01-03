@@ -9,8 +9,8 @@ use App\Http\Controllers\Core\CustomerScanController;
 use App\Http\Controllers\Core\CustomerFileController;
 use App\Http\Controllers\Core\CustomerBillController;
 use App\Http\Controllers\Core\CustomerPaymentController;
-use App\Http\Controllers\Core\ExpenseController;
-use App\Http\Controllers\Core\ExpenseCategoryController;
+use App\Http\Controllers\Common\ExpenseController;
+use App\Http\Controllers\Common\ExpenseCategoryController;
 use App\Http\Controllers\Core\NotificationController;
 use App\Http\Middleware\FirebaseAuthMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -42,16 +42,19 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
     Route::prefix('expenses')->group(function () {
         Route::get('/', [ExpenseController::class, 'getAllExpenses']);
-        Route::post('/', [ExpenseController::class, 'store']);
+        Route::get('/{id}', [ExpenseController::class, 'getExpenseById']);
+        Route::post('/', [ExpenseController::class, 'createExpense']);
         Route::put('/{id}', [ExpenseController::class, 'updateExpense']);
-        Route::delete('/{id}', [ExpenseController::class, 'delete']);
+        Route::put('/{id}/post', [ExpenseController::class, 'postExpense']);
+        Route::delete('/{id}', [ExpenseController::class, 'deleteExpense']);
     });
 
     Route::prefix('expense-categories')->group(function () {
         Route::get('/', [ExpenseCategoryController::class, 'getAllExpenseCategories']);
-        Route::post('/', [ExpenseCategoryController::class, 'store']);
-        Route::put('/{id}', [ExpenseCategoryController::class, 'updateExpenseCategory']);
-        Route::delete('/{id}', [ExpenseCategoryController::class, 'delete']);
+        Route::get('/{id}', [ExpenseCategoryController::class, 'getCategoryById']);
+        Route::post('/', [ExpenseCategoryController::class, 'createCategory']);
+        Route::put('/{id}', [ExpenseCategoryController::class, 'updateCategory']);
+        Route::delete('/{id}', [ExpenseCategoryController::class, 'deleteCategory']);
     });
 
     Route::prefix('customers')->group(function () {
