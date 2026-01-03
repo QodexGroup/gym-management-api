@@ -5,6 +5,15 @@ namespace App\Traits;
 trait HasCamelCaseAttributes
 {
     /**
+     * Relationships that should be converted to camelCase when accessed.
+     * Set this in your model to specify which relationships should be camelCase.
+     * Example: protected $camelCaseRelations = ['membershipPlan' => true, 'permissions' => false];
+     *
+     * @var array<string, bool>
+     */
+    protected $camelCaseRelations = [];
+
+    /**
      * Convert camelCase keys to snake_case when filling attributes
      */
     public function fill(array $attributes)
@@ -23,7 +32,25 @@ trait HasCamelCaseAttributes
      */
     public function getAttribute($key)
     {
-        // First try to get the attribute as-is (for relationships, etc.)
+        // First, check if it's a relationship method
+        if (method_exists($this, $key)) {
+            // Check if relationship is already loaded in relations array
+            if (array_key_exists($key, $this->relations)) {
+                // Check if this relationship should be converted to camelCase
+                $shouldConvert = $this->camelCaseRelations[$key] ?? false;
+                // If false (default), return as-is (retain snake_case/camelCase as stored)
+                // If true, we would convert, but for now just return as-is
+                return $this->relations[$key];
+            }
+
+            // If not loaded, try to get it (will trigger lazy loading)
+            $value = parent::getAttribute($key);
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        // First try to get the attribute as-is (for regular attributes, etc.)
         $value = parent::getAttribute($key);
 
         if ($value !== null || $this->hasAttribute($key)) {

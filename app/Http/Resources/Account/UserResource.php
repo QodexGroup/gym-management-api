@@ -26,7 +26,7 @@ class UserResource extends JsonResource
             'status' => $this->status,
             'firebaseUid' => $this->firebase_uid,
             'permissions' => $this->whenLoaded('permissions', function () {
-                return UserPermissionResource::collection($this->permissions);
+                return $this->permissions->pluck('permission')->toArray();
             }, []),
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
