@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Core;
+namespace App\Http\Requests\Common;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\GenericRequest;
 
-class ExpenseCategoryRequest extends FormRequest
+class ExpenseCategoryRequest extends GenericRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -21,9 +21,9 @@ class ExpenseCategoryRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return array_merge(parent::rules(), [
             'name' => ['required', 'string', 'max:255'],
-        ];
+        ]);
     }
 }
 
