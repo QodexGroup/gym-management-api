@@ -122,13 +122,22 @@ class DashboardService
                 $customerName = 'Unknown';
             }
             
+            // Determine status based on days until expiry
+            if ($membership->membership_end_date->isPast()) {
+                $status = 'expired';
+            } elseif ($daysUntilExpiry <= 7) {
+                $status = 'expiring';
+            } else {
+                $status = 'active';
+            }
+            
             return [
                 'id' => $membership->customer->id,
                 'name' => $customerName,
                 'email' => $membership->customer->email,
                 'membership' => $membership->membershipPlan->plan_name ?? 'N/A',
                 'membershipExpiry' => $membership->membership_end_date->format('Y-m-d'),
-                'membershipStatus' => $daysUntilExpiry <= 7 ? 'expired' : 'expiring',
+                'membershipStatus' => $status,
                 'avatar' => $membership->customer->photo ?? null,
             ];
         })->toArray();
@@ -141,8 +150,19 @@ class DashboardService
      */
     private function getMembershipDistribution(): array
     {
+        // Get the latest membership ID for each customer
+        $latestMembershipIds = CustomerMembership::select('id')
+            ->whereIn('id', function($query) {
+                $query->selectRaw('MAX(id)')
+                    ->from('tb_customer_membership')
+                    ->where('status', 'Active')
+                    ->groupBy('customer_id');
+            })
+            ->pluck('id');
+
+        // Get distribution based on latest memberships only
         $distribution = CustomerMembership::select('membership_plan_id', DB::raw('count(*) as count'))
-            ->where('status', 'Active')
+            ->whereIn('id', $latestMembershipIds)
             ->groupBy('membership_plan_id')
             ->with('membershipPlan')
             ->get();
