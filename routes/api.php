@@ -9,8 +9,9 @@ use App\Http\Controllers\Core\CustomerScanController;
 use App\Http\Controllers\Core\CustomerFileController;
 use App\Http\Controllers\Core\CustomerBillController;
 use App\Http\Controllers\Core\CustomerPaymentController;
-use App\Http\Controllers\Common\ExpenseController;
-use App\Http\Controllers\Common\ExpenseCategoryController;
+use App\Http\Controllers\Core\DashboardController;
+use App\Http\Controllers\Core\ExpenseController;
+use App\Http\Controllers\Core\ExpenseCategoryController;
 use App\Http\Controllers\Core\NotificationController;
 use App\Http\Middleware\FirebaseAuthMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -18,6 +19,11 @@ use Illuminate\Support\Facades\Route;
 // Auth routes (protected)
 Route::middleware([FirebaseAuthMiddleware::class])->prefix('auth')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
+});
+
+// Dashboard routes (protected)
+Route::middleware([FirebaseAuthMiddleware::class])->prefix('dashboard')->group(function () {
+    Route::get('/stats', [DashboardController::class, 'getStats']);
 });
 
 Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
