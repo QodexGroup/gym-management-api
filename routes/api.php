@@ -3,6 +3,8 @@
 use App\Http\Controllers\Account\MembershipPlanController;
 use App\Http\Controllers\Account\UsersController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Common\ExpenseCategoryController;
+use App\Http\Controllers\Common\ExpenseController;
 use App\Http\Controllers\Core\CustomerController;
 use App\Http\Controllers\Core\CustomerProgressController;
 use App\Http\Controllers\Core\CustomerScanController;
@@ -10,8 +12,6 @@ use App\Http\Controllers\Core\CustomerFileController;
 use App\Http\Controllers\Core\CustomerBillController;
 use App\Http\Controllers\Core\CustomerPaymentController;
 use App\Http\Controllers\Core\DashboardController;
-use App\Http\Controllers\Core\ExpenseController;
-use App\Http\Controllers\Core\ExpenseCategoryController;
 use App\Http\Controllers\Core\NotificationController;
 use App\Http\Middleware\FirebaseAuthMiddleware;
 use Illuminate\Support\Facades\Route;
