@@ -4,31 +4,31 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/gym-management-api-queue:$SHORT_SHA'
+      - 'gcr.io/$PROJECT_ID/gym-management-api-worker:$SHORT_SHA'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/gym-management-api-queue:latest'
+      - 'gcr.io/$PROJECT_ID/gym-management-api-worker:latest'
       - '.'
 
   # Push the Docker image to GCR
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/gym-management-api-queue:$SHORT_SHA'
+      - 'gcr.io/$PROJECT_ID/gym-management-api-worker:$SHORT_SHA'
 
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/gym-management-api-queue:latest'
+      - 'gcr.io/$PROJECT_ID/gym-management-api-worker:latest'
 
-  # Deploy to Cloud Run as a queue worker service
+  # Deploy to Cloud Run as a background worker service (queue + scheduler)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
-      - 'gym-management-api-queue'
+      - 'gym-management-api-worker'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/gym-management-api-queue:$SHORT_SHA'
+      - 'gcr.io/$PROJECT_ID/gym-management-api-worker:$SHORT_SHA'
       - '--region'
       - 'asia-southeast1'
       - '--platform'
@@ -55,12 +55,11 @@ steps:
       - '--command'
       - 'sh'
       - '--args'
-      - '-c,cd /app && php artisan queue:work --sleep=3 --tries=3 --max-time=3600 & php -S 0.0.0.0:8080 -t public'
+      - '-c,cd /app && php artisan queue:work --sleep=3 --tries=3 --max-time=3600 & php artisan schedule:work & php -S 0.0.0.0:8080 -t public'
 
 images:
-  - 'gcr.io/$PROJECT_ID/gym-management-api-queue:$SHORT_SHA'
-  - 'gcr.io/$PROJECT_ID/gym-management-api-queue:latest'
+  - 'gcr.io/$PROJECT_ID/gym-management-api-worker:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/gym-management-api-worker:latest'
 
 options:
   logging: CLOUD_LOGGING_ONLY
-
