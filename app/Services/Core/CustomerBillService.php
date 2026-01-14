@@ -10,6 +10,7 @@ use App\Repositories\Core\CustomerBillRepository;
 use App\Repositories\Core\CustomerRepository;
 use App\Models\Core\CustomerBill;
 use App\Models\Core\CustomerMembership;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -39,13 +40,36 @@ class CustomerBillService
                 if($data->billType == CustomerBillConstant::BILL_TYPE_CUSTOM_AMOUNT) {
                     $bill = $this->customerBillRepository->create($genericData);
                 }
+                elseif($data->billType == CustomerBillConstant::BILL_TYPE_REACTIVATION_FEE) {
+                    // Handle reactivation fee - void expired membership balances
+                    $this->voidExpiredMembershipBills($customerId, $accountId);
+                    $bill = $this->customerBillRepository->create($genericData);
+                }
                 else{
                     // this is for membership subscription
                     $membershipPlanId = $data->membershipPlanId ?? null;
-                    // set customer membership plan id
+
                     if ($membershipPlanId) {
-                        $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById($membershipPlanId, $accountId);
-                        $this->customerRepository->createMembership($accountId, $customerId, $membershipPlan);
+                        $customer = $this->customerRepository->findCustomerById($customerId, $accountId);
+                        $currentMembership = $customer->currentMembership;
+                        $billDate = isset($data->billDate)
+                            ? Carbon::parse($data->billDate)
+                            : Carbon::now();
+
+                        // Only create membership immediately if:
+                        // 1. No existing membership (new member), OR
+                        // 2. Bill is for current/expired period (not a future renewal)
+                        $isNewMember = !$currentMembership;
+                        $isCurrentPeriod = $currentMembership &&
+                            $billDate->lessThanOrEqualTo(Carbon::parse($currentMembership->membership_end_date)->startOfDay());
+
+                        if ($isNewMember || $isCurrentPeriod) {
+                            // Create membership for new members or current period bills
+                            $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById($membershipPlanId, $accountId);
+                            $this->customerRepository->createMembership($accountId, $customerId, $membershipPlan, $billDate);
+                        }
+                        // For future renewal bills: don't create membership yet, wait for payment
+                        // (Same behavior as automated bills)
                     }
 
                     $bill = $this->customerBillRepository->create($genericData);
@@ -103,10 +127,27 @@ class CustomerBillService
                                 ->update(['status' => CustomerMembershipConstant::STATUS_DEACTIVATED]);
                         }
 
-                        // Create new membership
-                        $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById($newMembershipPlanId, $accountId);
-                        $this->customerRepository->createMembership($accountId, $customerId, $membershipPlan);
+                        // Create new membership only if bill is for current period
+                        $customer = $this->customerRepository->findCustomerById($customerId, $accountId);
+                        $currentMembership = $customer->currentMembership;
+                        $billDate = isset($data->billDate)
+                            ? Carbon::parse($data->billDate)
+                            : Carbon::now();
+
+                        $isNewMember = !$currentMembership;
+                        $isCurrentPeriod = $currentMembership &&
+                            $billDate->lessThanOrEqualTo(Carbon::parse($currentMembership->membership_end_date)->startOfDay());
+
+                        if ($isNewMember || $isCurrentPeriod) {
+                            $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById($newMembershipPlanId, $accountId);
+                            $this->customerRepository->createMembership($accountId, $customerId, $membershipPlan, $billDate);
+                        }
+                        // For future renewal bills: don't create membership yet, wait for payment
                     }
+                }
+                elseif($data->billType == CustomerBillConstant::BILL_TYPE_REACTIVATION_FEE) {
+                    // Handle reactivation fee - void expired membership balances
+                    $this->voidExpiredMembershipBills($customerId, $accountId);
                 }
 
                 // Update the bill
@@ -147,6 +188,10 @@ class CustomerBillService
                 if ($bill->bill_status === CustomerBillConstant::BILL_STATUS_PAID) {
                     throw new \RuntimeException('Cannot delete a fully paid bill. Please delete payments instead.');
                 }
+                // Do not allow deleting voided bills
+                if ($bill->bill_status === CustomerBillConstant::BILL_STATUS_VOIDED) {
+                    throw new \RuntimeException('Cannot delete a voided bill.');
+                }
                 $customerId = $bill->customer_id;
                 $this->customerBillRepository->delete($id, $accountId);
                 $customer = $this->customerRepository->findCustomerById($customerId, $accountId);
@@ -164,6 +209,46 @@ class CustomerBillService
                 'trace' => $th->getTraceAsString(),
             ]);
             throw $th;
+        }
+    }
+
+    /**
+     * Void expired membership bills by setting net_amount to paid_amount
+     * This effectively cancels any outstanding balance from expired memberships
+     *
+     * @param int $customerId
+     * @param int $accountId
+     * @return void
+     */
+    private function voidExpiredMembershipBills(int $customerId, int $accountId): void
+    {
+        // Get expired membership plan IDs from repository
+        $expiredMembershipPlanIds = $this->customerRepository->getExpiredMembershipPlanIds($customerId, $accountId);
+
+        if (empty($expiredMembershipPlanIds)) {
+            return;
+        }
+
+        // Find expired membership bills with outstanding balance from repository
+        $expiredMembershipBills = $this->customerBillRepository->findExpiredMembershipBillsWithOutstandingBalance(
+            $customerId,
+            $accountId,
+            $expiredMembershipPlanIds
+        );
+
+        // Loop through bills and void each one using repository method
+        $voidedCount = 0;
+        foreach ($expiredMembershipBills as $bill) {
+            $this->customerBillRepository->voidBill($bill->id, $accountId, $bill->paid_amount);
+            $voidedCount++;
+        }
+
+        if ($voidedCount > 0) {
+            Log::info('Voided expired membership bills', [
+                'customer_id' => $customerId,
+                'account_id' => $accountId,
+                'bills_voided' => $voidedCount,
+            ]);
         }
     }
 

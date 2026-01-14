@@ -2,8 +2,11 @@
 
 namespace App\Repositories\Core;
 
+use App\Constant\CustomerBillConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\CustomerBill;
+use App\Models\Core\CustomerMembership;
+use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -25,6 +28,70 @@ class CustomerBillRepository
         $genericData->syncDataArray();
 
         return CustomerBill::create($genericData->data)->fresh();
+    }
+
+    /**
+     * Create an automated bill for membership renewal
+     *
+     * @param int $accountId
+     * @param int $customerId
+     * @param int $membershipPlanId
+     * @param float $grossAmount
+     * @param Carbon $billDate
+     * @return CustomerBill
+     */
+    public function createAutomatedBill(int $accountId, int $customerId, int $membershipPlanId, float $grossAmount, Carbon $billDate): CustomerBill
+    {
+        return CustomerBill::create([
+            'account_id' => $accountId,
+            'customer_id' => $customerId,
+            'membership_plan_id' => $membershipPlanId,
+            'bill_type' => CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION,
+            'bill_status' => CustomerBillConstant::BILL_STATUS_ACTIVE,
+            'bill_date' => $billDate,
+            'gross_amount' => $grossAmount,
+            'discount_percentage' => 0,
+            'net_amount' => $grossAmount,
+            'paid_amount' => 0,
+        ]);
+    }
+
+    /**
+     * Check if an automated bill exists for a membership renewal period
+     *
+     * @param int $customerId
+     * @param int $accountId
+     * @param int $membershipPlanId
+     * @param Carbon $expectedBillDate
+     * @return bool
+     */
+    public function automatedBillExists(int $customerId, int $accountId, int $membershipPlanId, Carbon $expectedBillDate): bool
+    {
+        return CustomerBill::where('customer_id', $customerId)
+            ->where('account_id', $accountId)
+            ->where('membership_plan_id', $membershipPlanId)
+            ->where('bill_type', CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION)
+            ->whereDate('bill_date', $expectedBillDate->toDateString())
+            ->exists();
+    }
+
+    /**
+     * Find automated bill for a membership renewal period
+     *
+     * @param int $customerId
+     * @param int $accountId
+     * @param int $membershipPlanId
+     * @param Carbon $expectedBillDate
+     * @return CustomerBill|null
+     */
+    public function findAutomatedBill(int $customerId, int $accountId, int $membershipPlanId, Carbon $expectedBillDate): ?CustomerBill
+    {
+        return CustomerBill::where('customer_id', $customerId)
+            ->where('account_id', $accountId)
+            ->where('membership_plan_id', $membershipPlanId)
+            ->where('bill_type', CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION)
+            ->whereDate('bill_date', $expectedBillDate->toDateString())
+            ->first();
     }
 
     /**
@@ -112,6 +179,71 @@ class CustomerBillRepository
 
         // Always return paginated results
         return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+    }
+
+    /**
+     * Find expired membership bills with outstanding balance
+     *
+     * @param int $customerId
+     * @param int $accountId
+     * @param array $expiredMembershipPlanIds
+     * @return Collection
+     */
+    public function findExpiredMembershipBillsWithOutstandingBalance(int $customerId, int $accountId, array $expiredMembershipPlanIds): Collection
+    {
+        if (empty($expiredMembershipPlanIds)) {
+            return collect([]);
+        }
+
+        return CustomerBill::where('customer_id', $customerId)
+            ->where('account_id', $accountId)
+            ->where('bill_type', CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION)
+            ->whereIn('membership_plan_id', $expiredMembershipPlanIds)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+            ->whereRaw('net_amount > paid_amount')
+            ->get();
+    }
+
+    /**
+     * Void a bill by setting net_amount to paid_amount and status to voided
+     *
+     * @param int $billId
+     * @param int $accountId
+     * @param float $paidAmount
+     * @return CustomerBill
+     */
+    public function voidBill(int $billId, int $accountId, float $paidAmount): CustomerBill
+    {
+        $bill = $this->findBillById($billId, $accountId);
+        $bill->net_amount = $paidAmount;
+        $bill->bill_status = CustomerBillConstant::BILL_STATUS_VOIDED;
+        $bill->save();
+
+        return $bill->fresh();
+    }
+
+    /**
+     * Check if a bill is a renewal bill (for extending membership)
+     *
+     * @param CustomerBill $bill
+     * @param CustomerMembership|null $membership
+     * @return bool
+     */
+    public function isRenewalBill(CustomerBill $bill, ?CustomerMembership $membership): bool
+    {
+        if ($bill->bill_type !== CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION || !$bill->membership_plan_id) {
+            return false;
+        }
+
+        if (!$membership) {
+            return false;
+        }
+
+        $billDate = Carbon::parse($bill->bill_date)->startOfDay();
+        $membershipEndDate = Carbon::parse($membership->membership_end_date)->startOfDay();
+
+        // Renewal bill: bill_date >= membership_end_date
+        return $billDate->greaterThanOrEqualTo($membershipEndDate);
     }
 }
 
