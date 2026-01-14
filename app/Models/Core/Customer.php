@@ -2,6 +2,7 @@
 
 namespace App\Models\Core;
 
+use App\Constant\CustomerBillConstant;
 use App\Models\User;
 use App\Traits\BelongsToManyWithNullCheck;
 use App\Traits\HasBelongsToManyWithNullCheck;
@@ -156,6 +157,7 @@ class Customer extends Model
     /**
      * Calculate customer balance from bills
      * Balance = Total Net Amount - Total Paid Amount
+     * Excludes voided bills from calculation
      *
      * @return float
      */
@@ -163,10 +165,12 @@ class Customer extends Model
     {
         $totalNetAmount = $this->bills()
             ->where('account_id', $this->account_id)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
             ->sum('net_amount') ?? 0;
 
         $totalPaidAmount = $this->bills()
             ->where('account_id', $this->account_id)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
             ->sum('paid_amount') ?? 0;
 
         return (float) ($totalNetAmount - $totalPaidAmount);

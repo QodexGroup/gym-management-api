@@ -213,14 +213,32 @@ class CustomerBillRepository
      * @param float $paidAmount
      * @return CustomerBill
      */
-    public function voidBill(int $billId, int $accountId, float $paidAmount): CustomerBill
+    public function voidBill(int $billId, int $accountId): CustomerBill
     {
         $bill = $this->findBillById($billId, $accountId);
-        $bill->net_amount = $paidAmount;
         $bill->bill_status = CustomerBillConstant::BILL_STATUS_VOIDED;
         $bill->save();
 
         return $bill->fresh();
+    }
+
+    /**
+     * Find membership subscription bills with outstanding balance for a specific membership plan
+     *
+     * @param int $customerId
+     * @param int $accountId
+     * @param int $membershipPlanId
+     * @return Collection
+     */
+    public function findMembershipBillsWithOutstandingBalance(int $customerId, int $accountId, int $membershipPlanId): Collection
+    {
+        return CustomerBill::where('customer_id', $customerId)
+            ->where('account_id', $accountId)
+            ->where('membership_plan_id', $membershipPlanId)
+            ->where('bill_type', CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+            ->whereRaw('net_amount > paid_amount')
+            ->get();
     }
 
 }

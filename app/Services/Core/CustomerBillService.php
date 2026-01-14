@@ -243,7 +243,7 @@ class CustomerBillService
         // Loop through bills and void each one using repository method
         $voidedCount = 0;
         foreach ($expiredMembershipBills as $bill) {
-            $this->customerBillRepository->voidBill($bill->id, $accountId, $bill->paid_amount);
+            $this->customerBillRepository->voidBill($bill->id, $accountId);
             $voidedCount++;
         }
 
@@ -293,7 +293,7 @@ class CustomerBillService
         $isSameDate = $billDate->equalTo($membershipEndDate);
         $billCreatedAfterMembership = $billCreatedAt->greaterThan($membershipCreatedAt);
         $billCreatedOnOrAfterEndDate = $billCreatedAt->greaterThanOrEqualTo($membershipEndDate);
-        
+
         return $billDate->greaterThan($membershipEndDate) ||
             ($isSameDate && ($billCreatedAfterMembership || $billCreatedOnOrAfterEndDate));
     }

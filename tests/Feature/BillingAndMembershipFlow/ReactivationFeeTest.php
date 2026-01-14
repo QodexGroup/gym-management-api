@@ -49,9 +49,9 @@ class ReactivationFeeTest extends BillingAndMembershipFlowTestCase
 
         $reactivationBill = $this->billService->create($genericData);
 
-        // Assert expired bill was voided
+        // Assert expired bill was voided (status changed, amounts preserved)
         $expiredBill->refresh();
-        $this->assertEquals(0, (float) $expiredBill->net_amount, 'Expired bill net_amount should be voided');
+        $this->assertEquals(1000.00, (float) $expiredBill->net_amount, 'Expired bill net_amount should be preserved');
         $this->assertEquals(CustomerBillConstant::BILL_STATUS_VOIDED, $expiredBill->bill_status, 'Expired bill should be marked as voided');
     }
 

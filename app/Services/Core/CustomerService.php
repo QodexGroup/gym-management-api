@@ -3,6 +3,7 @@
 namespace App\Services\Core;
 
 use App\Constant\CustomerBillConstant;
+use App\Constant\CustomerMembershipConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\Customer;
 use App\Models\Core\CustomerMembership;
@@ -120,18 +121,44 @@ class CustomerService
             $data = $genericData->getData();
 
             return DB::transaction(function () use ($accountId, $customerId, $genericData, $data) {
+                // Get current active membership before creating new one
+                $customer = $this->repository->findCustomerById($customerId, $accountId);
+                $oldMembership = $customer->currentMembership;
+
                 /** @var MembershipPlan $membershipPlan */
                 $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById($data->membershipPlanId, $accountId);
 
                 $startDate = Carbon::parse($data->membershipStartDate ?? Carbon::now());
 
+                // Create new membership (this will deactivate old active memberships)
                 $membership = $this->repository->createMembership($accountId, $customerId, $membershipPlan, $startDate);
                 $membership->load('membershipPlan');
 
-                // Reuse GenericData for bill creation (update data property)
-                // Convert object back to array for data property
-                $genericData->data = json_decode(json_encode($data), true);
-                $this->createBillFromCustomerMembership($customerId, $membershipPlan->id, $genericData);
+                // If there was an old membership, void its bills with outstanding balance
+                if ($oldMembership) {
+                    $oldBills = $this->customerBillRepository->findMembershipBillsWithOutstandingBalance(
+                        $customerId,
+                        $accountId,
+                        $oldMembership->membership_plan_id
+                    );
+
+                    foreach ($oldBills as $oldBill) {
+                        $this->customerBillRepository->voidBill($oldBill->id, $accountId);
+                    }
+                }
+
+                // Create automated bill for the new membership period (bill date = membership start date)
+                $this->customerBillRepository->createAutomatedBill(
+                    $accountId,
+                    $customerId,
+                    $membershipPlan->id,
+                    $membershipPlan->price,
+                    $startDate
+                );
+
+                // Recalculate customer balance
+                $customer->refresh();
+                $customer->recalculateBalance();
 
                 return $membership;
             });
