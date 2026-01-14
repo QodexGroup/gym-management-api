@@ -43,7 +43,9 @@ class CheckMembershipExpiration extends Command
      */
     public function handle()
     {
-        $this->info('Checking for expiring memberships...');
+        if ($this->output) {
+            $this->info('Checking for expiring memberships...');
+        }
 
         $threshold = NotificationConstant::MEMBERSHIP_EXPIRATION_DAYS_THRESHOLD;
         $thresholdDate = Carbon::now()->addDays($threshold);
@@ -55,7 +57,9 @@ class CheckMembershipExpiration extends Command
             ->with(['customer', 'membershipPlan'])
             ->get();
 
-        $this->info("Found {$expiringMemberships->count()} memberships expiring within {$threshold} days.");
+        if ($this->output) {
+            $this->info("Found {$expiringMemberships->count()} memberships expiring within {$threshold} days.");
+        }
 
         $notificationsSent = 0;
 
@@ -85,14 +89,22 @@ class CheckMembershipExpiration extends Command
                         $nextPeriodStartDate
                     );
 
-                    $this->line("✓ Created automated bill for {$membership->customer->first_name} {$membership->customer->last_name} (Next period: {$nextPeriodStartDate->format('M d, Y')} - {$nextPeriodEndDate->format('M d, Y')})");
+                    if ($this->output) {
+                        $this->line("✓ Created automated bill for {$membership->customer->first_name} {$membership->customer->last_name} (Next period: {$nextPeriodStartDate->format('M d, Y')} - {$nextPeriodEndDate->format('M d, Y')})");
+                    }
                 } else {
-                    $this->line("✓ Automated bill already exists for {$membership->customer->first_name} {$membership->customer->last_name}");
+                    if ($this->output) {
+                        $this->line("✓ Automated bill already exists for {$membership->customer->first_name} {$membership->customer->last_name}");
+                    }
                 }
 
-                $this->line("✓ Notification sent for {$membership->customer->first_name} {$membership->customer->last_name}");
+                if ($this->output) {
+                    $this->line("✓ Notification sent for {$membership->customer->first_name} {$membership->customer->last_name}");
+                }
             } catch (\Throwable $th) {
-                $this->error("✗ Failed to process membership ID {$membership->id} for customer ID {$membership->customer_id}: {$th->getMessage()}");
+                if ($this->output) {
+                    $this->error("✗ Failed to process membership ID {$membership->id} for customer ID {$membership->customer_id}: {$th->getMessage()}");
+                }
                 Log::error('Error in membership expiration check', [
                     'membership_id' => $membership->id,
                     'customer_id' => $membership->customer_id,
@@ -102,7 +114,9 @@ class CheckMembershipExpiration extends Command
             }
         }
 
-        $this->info("Membership expiration check completed. {$notificationsSent} notifications sent.");
+        if ($this->output) {
+            $this->info("Membership expiration check completed. {$notificationsSent} notifications sent.");
+        }
         Log::info('Membership expiration check completed', [
             'total_expiring' => $expiringMemberships->count(),
             'notifications_sent' => $notificationsSent,

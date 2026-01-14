@@ -58,13 +58,17 @@ class CustomerBillService
 
                         // Only create membership immediately if:
                         // 1. No existing membership (new member), OR
-                        // 2. Bill is for current/expired period (not a future renewal)
+                        // 2. Current membership is expired, OR
+                        // 3. Bill is for current/expired period (not a future renewal)
                         $isNewMember = !$currentMembership;
+                        $isExpiredMembership = $currentMembership &&
+                            $currentMembership->status === CustomerMembershipConstant::STATUS_EXPIRED;
                         $isCurrentPeriod = $currentMembership &&
+                            !$isExpiredMembership &&
                             $billDate->lessThanOrEqualTo(Carbon::parse($currentMembership->membership_end_date)->startOfDay());
 
-                        if ($isNewMember || $isCurrentPeriod) {
-                            // Create membership for new members or current period bills
+                        if ($isNewMember || $isExpiredMembership || $isCurrentPeriod) {
+                            // Create membership for new members, expired memberships, or current period bills
                             $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById($membershipPlanId, $accountId);
                             $this->customerRepository->createMembership($accountId, $customerId, $membershipPlan, $billDate);
                         }
@@ -250,6 +254,48 @@ class CustomerBillService
                 'bills_voided' => $voidedCount,
             ]);
         }
+    }
+
+    /**
+     * Check if a bill is a renewal bill (for extending membership)
+     * A renewal bill is one that is for a period starting after the current membership ends
+     *
+     * To avoid extending on old bills, we only consider it a renewal if:
+     * 1. bill_date > membership_end_date (definitely a future period bill)
+     * 2. OR bill_date == membership_end_date AND bill was created after the membership was created
+     *    (this indicates it's a renewal bill, not an old bill from when membership was created)
+     *
+     * @param CustomerBill $bill
+     * @param CustomerMembership|null $membership
+     * @return bool
+     */
+    public function isRenewalBill(CustomerBill $bill, ?CustomerMembership $membership): bool
+    {
+        if ($bill->bill_type !== CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION || !$bill->membership_plan_id) {
+            return false;
+        }
+
+        if (!$membership) {
+            return false;
+        }
+
+        $billDate = Carbon::parse($bill->bill_date)->startOfDay();
+        $membershipEndDate = Carbon::parse($membership->membership_end_date)->startOfDay();
+        $billCreatedAt = Carbon::parse($bill->created_at);
+        $membershipCreatedAt = Carbon::parse($membership->created_at);
+
+        // Renewal bill if:
+        // 1. bill_date > membership_end_date (definitely future period)
+        // 2. OR bill_date == membership_end_date AND:
+        //    - Bill was created after membership was created (renewal bill, not old bill), OR
+        //    - Bill was created on/after the membership_end_date (automated bill created when membership is about to expire)
+        //    This distinguishes renewal bills from old bills created when membership started
+        $isSameDate = $billDate->equalTo($membershipEndDate);
+        $billCreatedAfterMembership = $billCreatedAt->greaterThan($membershipCreatedAt);
+        $billCreatedOnOrAfterEndDate = $billCreatedAt->greaterThanOrEqualTo($membershipEndDate);
+        
+        return $billDate->greaterThan($membershipEndDate) ||
+            ($isSameDate && ($billCreatedAfterMembership || $billCreatedOnOrAfterEndDate));
     }
 
 }

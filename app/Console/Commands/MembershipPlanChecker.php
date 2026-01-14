@@ -41,7 +41,9 @@ class MembershipPlanChecker extends Command
      */
     public function handle()
     {
-        $this->info('Checking for expired memberships...');
+        if ($this->output) {
+            $this->info('Checking for expired memberships...');
+        }
 
         // Find all active memberships that have expired
         $expiredMemberships = CustomerMembership::where('account_id', 1)
@@ -50,7 +52,9 @@ class MembershipPlanChecker extends Command
             ->with(['customer', 'membershipPlan'])
             ->get();
 
-        $this->info("Found {$expiredMemberships->count()} expired memberships to check.");
+        if ($this->output) {
+            $this->info("Found {$expiredMemberships->count()} expired memberships to check.");
+        }
 
         $updatedCount = 0;
         $skippedCount = 0;
@@ -73,7 +77,9 @@ class MembershipPlanChecker extends Command
                         ? "{$membership->customer->first_name} {$membership->customer->last_name}"
                         : "Customer ID {$membership->customer_id}";
 
-                    $this->line("⊘ Skipped {$customerName} - Automated bill has payment (Bill ID: {$automatedBill->id}, Paid: {$automatedBill->paid_amount})");
+                    if ($this->output) {
+                        $this->line("⊘ Skipped {$customerName} - Automated bill has payment (Bill ID: {$automatedBill->id}, Paid: {$automatedBill->paid_amount})");
+                    }
                     continue;
                 }
 
@@ -87,7 +93,9 @@ class MembershipPlanChecker extends Command
                     ? "{$membership->customer->first_name} {$membership->customer->last_name}"
                     : "Customer ID {$membership->customer_id}";
 
-                $this->line("✓ Updated membership for {$customerName} to Expired");
+                if ($this->output) {
+                    $this->line("✓ Updated membership for {$customerName} to Expired");
+                }
 
                 Log::info('Membership status updated to expired', [
                     'membership_id' => $membership->id,
@@ -97,7 +105,9 @@ class MembershipPlanChecker extends Command
                     'bill_paid' => $automatedBill ? ($automatedBill->paid_amount > 0) : false,
                 ]);
             } catch (\Throwable $th) {
-                $this->error("✗ Failed to update membership ID {$membership->id}: {$th->getMessage()}");
+                if ($this->output) {
+                    $this->error("✗ Failed to update membership ID {$membership->id}: {$th->getMessage()}");
+                }
 
                 Log::error('Error updating expired membership status', [
                     'membership_id' => $membership->id,
@@ -108,7 +118,9 @@ class MembershipPlanChecker extends Command
             }
         }
 
-        $this->info("Membership status update completed. {$updatedCount} memberships updated to Expired, {$skippedCount} skipped (payment made).");
+        if ($this->output) {
+            $this->info("Membership status update completed. {$updatedCount} memberships updated to Expired, {$skippedCount} skipped (payment made).");
+        }
 
         Log::info('Membership status update completed', [
             'total_expired' => $expiredMemberships->count(),

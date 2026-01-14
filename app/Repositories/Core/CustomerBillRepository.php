@@ -23,6 +23,7 @@ class CustomerBillRepository
         // Ensure account_id is set in data
         $genericData->getData()->accountId = $genericData->userData->account_id;
         $genericData->getData()->paidAmount = $genericData->getData()->paidAmount ?? 0;
+        $genericData->getData()->discountPercentage = $genericData->getData()->discountPercentage ?? 0;
         $genericData->getData()->createdBy = $genericData->getData()->createdBy ?? $genericData->userData->id;
         $genericData->getData()->updatedBy = $genericData->getData()->updatedBy ?? $genericData->userData->id;
         $genericData->syncDataArray();
@@ -222,28 +223,5 @@ class CustomerBillRepository
         return $bill->fresh();
     }
 
-    /**
-     * Check if a bill is a renewal bill (for extending membership)
-     *
-     * @param CustomerBill $bill
-     * @param CustomerMembership|null $membership
-     * @return bool
-     */
-    public function isRenewalBill(CustomerBill $bill, ?CustomerMembership $membership): bool
-    {
-        if ($bill->bill_type !== CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION || !$bill->membership_plan_id) {
-            return false;
-        }
-
-        if (!$membership) {
-            return false;
-        }
-
-        $billDate = Carbon::parse($bill->bill_date)->startOfDay();
-        $membershipEndDate = Carbon::parse($membership->membership_end_date)->startOfDay();
-
-        // Renewal bill: bill_date >= membership_end_date
-        return $billDate->greaterThanOrEqualTo($membershipEndDate);
-    }
 }
 

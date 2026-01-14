@@ -21,6 +21,7 @@ class CustomerPaymentService
         private CustomerBillRepository $billRepository,
         private CustomerRepository $customerRepository,
         private MembershipPlanRepository $membershipPlanRepository,
+        private CustomerBillService $billService,
         private NotificationService $notificationService,
     ) {
     }
@@ -224,12 +225,12 @@ class CustomerPaymentService
                 return;
             }
 
-            // Check if bill_date matches or is after the membership end date (renewal bill)
-            $billDate = Carbon::parse($bill->bill_date)->startOfDay();
-            $membershipEndDate = Carbon::parse($membership->membership_end_date)->startOfDay();
+            // Check if this is a renewal bill (for extending membership)
+            $isRenewalBill = $this->billService->isRenewalBill($bill, $membership);
 
-            // Renewal bill: bill_date >= membership_end_date
-            if ($billDate->greaterThanOrEqualTo($membershipEndDate)) {
+            if ($isRenewalBill) {
+                $billDate = Carbon::parse($bill->bill_date)->startOfDay();
+                $membershipEndDate = Carbon::parse($membership->membership_end_date)->startOfDay();
                 $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById($bill->membership_plan_id, $accountId);
 
                 // New start date = bill date (or membership end date, whichever is later)
