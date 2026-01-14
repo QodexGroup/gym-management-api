@@ -1,0 +1,112 @@
+# PR Test Runner - Runs only changed/new test files in PRs
+# Dynamically detects and runs test files that are new or modified in the PR
+# Skips tests that already exist in master branch
+
+name: Run Tests on PR
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - master
+
+jobs:
+  detect-changed-tests:
+    runs-on: ubuntu-latest
+    outputs:
+      test-files: ${{ steps.changed-tests.outputs.files }}
+      has-tests: ${{ steps.changed-tests.outputs.has-tests }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history to compare with master
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Get changed test files
+        id: changed-tests
+        run: |
+          # Get all changed files in the PR (new, modified, or renamed)
+          CHANGED_FILES=$(git diff --name-only --diff-filter=AMR origin/master...HEAD)
+
+          # Filter only test files (files in tests/ directory with .php extension)
+          CHANGED_TEST_FILES=$(echo "$CHANGED_FILES" | grep -E "^tests/.*\.php$" || true)
+
+          # Check if any test files were changed
+          if [ -z "$CHANGED_TEST_FILES" ]; then
+            echo "ℹ️ No test files changed in this PR"
+            echo "has-tests=false" >> $GITHUB_OUTPUT
+            echo "files=[]" >> $GITHUB_OUTPUT
+          else
+            echo "📝 Found changed test files:"
+            echo "$CHANGED_TEST_FILES"
+
+            # Convert to JSON array format for matrix strategy
+            TEST_FILES_JSON=$(echo "$CHANGED_TEST_FILES" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            echo "files=$TEST_FILES_JSON" >> $GITHUB_OUTPUT
+            echo "has-tests=true" >> $GITHUB_OUTPUT
+          fi
+
+  run-tests:
+    needs: detect-changed-tests
+    if: needs.detect-changed-tests.outputs.has-tests == 'true'
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test-file: ${{ fromJson(needs.detect-changed-tests.outputs.test-files) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_mysql, pdo_sqlite
+          coverage: none
+
+      - name: Copy .env file
+        run: |
+          if [ -f .env.example ]; then
+            cp .env.example .env
+          else
+            echo "⚠️ .env.example not found, creating minimal .env"
+            echo "APP_ENV=testing" > .env
+            echo "APP_KEY=" >> .env
+          fi
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Generate application key
+        run: php artisan key:generate --ansi
+
+      - name: Run test
+        run: |
+          echo "🧪 Running test: ${{ matrix.test-file }}"
+          php artisan test "${{ matrix.test-file }}" --colors=always
+
+  test-summary:
+    needs: [detect-changed-tests, run-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Summary
+        run: |
+          if [ "${{ needs.detect-changed-tests.outputs.has-tests }}" == "false" ]; then
+            echo "ℹ️ No test files were changed in this PR. Skipping test execution."
+            exit 0
+          fi
+
+          if [ "${{ needs.run-tests.result }}" == "success" ]; then
+            echo "✅ All changed tests passed!"
+            echo "Test files executed: ${{ needs.detect-changed-tests.outputs.test-files }}"
+          else
+            echo "❌ Some tests failed. Please check the test results above."
+            echo "Failed test files: ${{ needs.detect-changed-tests.outputs.test-files }}"
+            exit 1
+          fi
