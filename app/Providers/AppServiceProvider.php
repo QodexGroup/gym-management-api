@@ -24,8 +24,9 @@ class AppServiceProvider extends ServiceProvider
     {
         // Configure rate limiter for email sending jobs
         // Mailtrap free tier limit: 1 email per 10 seconds (rolling window)
+        // Using perMinute(6) = 6 emails per minute ≈ 1 email per 10 seconds
         RateLimiter::for('emails', function ($job) {
-            return Limit::perSeconds(10, 1)->by('email-sending');
+            return Limit::perMinute(6)->by('email-sending');
         });
     }
 }
