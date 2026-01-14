@@ -8,12 +8,11 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Schedule membership status update - Run daily at midnight
+// Schedule membership status update - Run daily at midnight (Asia/Manila)
 Schedule::command('membership:update-expired-status')
-    ->dailyAt('00:00')
-    ->timezone('Asia/Manila');
-// Schedule membership expiration notifications - Run daily at 9:00 AM
+    ->dailyAt('00:00');
+
+// Schedule membership expiration notifications - Run daily at 9:00 AM (Asia/Manila)
 Schedule::command('membership:check-expiration')
-    ->dailyAt('09:00')
-    ->timezone('Asia/Manila');
+    ->dailyAt('09:00');
 
