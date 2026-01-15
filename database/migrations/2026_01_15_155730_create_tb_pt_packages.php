@@ -1,0 +1,39 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('tb_pt_packages', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('account_id');
+            $table->unsignedBigInteger('category_id');
+            $table->string('package_name');
+            $table->text('description')->nullable();
+            $table->integer('number_of_sessions');
+            $table->integer('duration_per_session')->comment('in minutes');
+            $table->decimal('price', 10, 2);
+            $table->text('features')->nullable();
+            $table->softDeletes();
+            $table->timestamps();
+
+
+            $table->foreign('category_id')->references('id')->on('tb_pt_categories')->onDelete('cascade');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('tb_pt_packages');
+    }
+};
