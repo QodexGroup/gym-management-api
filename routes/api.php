@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Account\ClassScheduleController;
 use App\Http\Controllers\Account\MembershipPlanController;
 use App\Http\Controllers\Account\PtCategoryController;
 use App\Http\Controllers\Account\PtPackageController;
@@ -57,6 +58,15 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
     Route::prefix('pt-categories')->group(function () {
         Route::get('/', [PtCategoryController::class, 'getAllPtCategories']);
+    });
+
+    Route::prefix('class-schedules')->group(function () {
+        Route::get('/', [ClassScheduleController::class, 'getAllClassSchedules']);
+        Route::get('/my-schedules', [ClassScheduleController::class, 'getMyClassSchedules']);
+        Route::get('/coach/{coachId}', [ClassScheduleController::class, 'getClassSchedulesByCoachId']);
+        Route::post('/', [ClassScheduleController::class, 'store']);
+        Route::put('/{id}', [ClassScheduleController::class, 'updateClassSchedule']);
+        Route::delete('/{id}', [ClassScheduleController::class, 'delete']);
     });
 
     Route::prefix('expenses')->group(function () {
