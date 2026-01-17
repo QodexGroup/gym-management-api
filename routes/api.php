@@ -1,6 +1,10 @@
 <?php
 
+use App\Http\Controllers\Account\ClassScheduleController;
+use App\Http\Controllers\Account\ClassScheduleSessionController;
 use App\Http\Controllers\Account\MembershipPlanController;
+use App\Http\Controllers\Account\PtCategoryController;
+use App\Http\Controllers\Account\PtPackageController;
 use App\Http\Controllers\Account\UsersController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Common\ExpenseCategoryController;
@@ -44,6 +48,30 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::post('/', [MembershipPlanController::class, 'store']);
         Route::put('/{id}', [MembershipPlanController::class, 'updateMembershipPlan']);
         Route::delete('/{id}', [MembershipPlanController::class, 'delete']);
+    });
+
+    Route::prefix('pt-packages')->group(function () {
+        Route::get('/', [PtPackageController::class, 'getAllPtPackages']);
+        Route::post('/', [PtPackageController::class, 'store']);
+        Route::put('/{id}', [PtPackageController::class, 'updatePtPackage']);
+        Route::delete('/{id}', [PtPackageController::class, 'delete']);
+    });
+
+    Route::prefix('pt-categories')->group(function () {
+        Route::get('/', [PtCategoryController::class, 'getAllPtCategories']);
+    });
+
+    Route::prefix('class-schedules')->group(function () {
+        Route::get('/', [ClassScheduleController::class, 'getAllClassSchedules']);
+        Route::get('/my-schedules', [ClassScheduleController::class, 'getMyClassSchedules']);
+        Route::get('/coach/{coachId}', [ClassScheduleController::class, 'getClassSchedulesByCoachId']);
+        Route::post('/', [ClassScheduleController::class, 'store']);
+        Route::put('/{id}', [ClassScheduleController::class, 'updateClassSchedule']);
+        Route::delete('/{id}', [ClassScheduleController::class, 'delete']);
+    });
+
+    Route::prefix('class-schedule-sessions')->group(function () {
+        Route::get('/', [ClassScheduleSessionController::class, 'getAllSessions']);
     });
 
     Route::prefix('expenses')->group(function () {
