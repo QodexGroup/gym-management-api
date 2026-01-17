@@ -18,6 +18,10 @@ jobs:
     # Skip deployment if PR is closed
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -119,6 +123,9 @@ jobs:
     # Clean up preview service when PR is closed
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
