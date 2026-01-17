@@ -18,7 +18,9 @@ class ClassScheduleSessionResource extends JsonResource
             'id' => $this->id,
             'accountId' => $this->account_id,
             'classScheduleId' => $this->class_schedule_id,
-            'classSchedule' => $this->whenLoaded('classSchedule', fn() => new ClassScheduleResource($this->classSchedule)),
+            'classSchedule' => $this->whenLoaded('classSchedule', function () {
+                return new ClassScheduleResource($this->classSchedule);
+            }),
             'startTime' => $this->start_time,
             'endTime' => $this->end_time,
             'attendanceCount' => $this->attendance_count,

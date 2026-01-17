@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Account\ClassScheduleController;
+use App\Http\Controllers\Account\ClassScheduleSessionController;
 use App\Http\Controllers\Account\MembershipPlanController;
 use App\Http\Controllers\Account\PtCategoryController;
 use App\Http\Controllers\Account\PtPackageController;
@@ -67,6 +68,10 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::post('/', [ClassScheduleController::class, 'store']);
         Route::put('/{id}', [ClassScheduleController::class, 'updateClassSchedule']);
         Route::delete('/{id}', [ClassScheduleController::class, 'delete']);
+    });
+
+    Route::prefix('class-schedule-sessions')->group(function () {
+        Route::get('/', [ClassScheduleSessionController::class, 'getAllSessions']);
     });
 
     Route::prefix('expenses')->group(function () {
