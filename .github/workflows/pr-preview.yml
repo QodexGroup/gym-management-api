@@ -8,6 +8,11 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
 env:
   PROJECT_ID: gymhubtech-67e6f
   REGION: asia-southeast1
