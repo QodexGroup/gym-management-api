@@ -49,21 +49,32 @@ jobs:
           gcloud auth configure-docker gcr.io --quiet
           gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
 
+      - name: Prepare Branch Name for Service
+        id: branch-name
+        run: |
+          # Get branch name and sanitize it for Cloud Run service name
+          # Cloud Run service names: lowercase letters, numbers, and hyphens only, max 63 chars
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          BRANCH_SANITIZED=$(echo "${BRANCH_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50)
+          SERVICE_SUFFIX="${BRANCH_SANITIZED}"
+          echo "SERVICE_SUFFIX=${SERVICE_SUFFIX}" >> $GITHUB_OUTPUT
+          echo "Branch: ${BRANCH_NAME} -> Service suffix: ${SERVICE_SUFFIX}"
+
       - name: Build Docker image
         run: |
-          docker build -t gcr.io/$PROJECT_ID/$SERVICE_NAME:pr-${{ github.event.pull_request.number }} \
-            -t gcr.io/$PROJECT_ID/$SERVICE_NAME:pr-${{ github.event.pull_request.number }}-${{ github.sha }} .
+          docker build -t gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ steps.branch-name.outputs.SERVICE_SUFFIX }} \
+            -t gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ steps.branch-name.outputs.SERVICE_SUFFIX }}-${{ github.sha }} .
 
       - name: Push Docker image to GCR
         run: |
-          docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-          docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:pr-${{ github.event.pull_request.number }}
+          docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ steps.branch-name.outputs.SERVICE_SUFFIX }}-${{ github.sha }}
+          docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ steps.branch-name.outputs.SERVICE_SUFFIX }}
 
       - name: Deploy to Cloud Run Preview Service
         id: deploy
         run: |
-          SERVICE_URL=$(gcloud run deploy $SERVICE_NAME-pr-${{ github.event.pull_request.number }} \
-            --image gcr.io/$PROJECT_ID/$SERVICE_NAME:pr-${{ github.event.pull_request.number }}-${{ github.sha }} \
+          SERVICE_URL=$(gcloud run deploy $SERVICE_NAME-${{ steps.branch-name.outputs.SERVICE_SUFFIX }} \
+            --image gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ steps.branch-name.outputs.SERVICE_SUFFIX }}-${{ github.sha }} \
             --region $REGION \
             --platform managed \
             --allow-unauthenticated \
@@ -148,15 +159,22 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Prepare Branch Name for Cleanup
+        id: branch-name-cleanup
+        run: |
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          BRANCH_SANITIZED=$(echo "${BRANCH_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50)
+          echo "SERVICE_SUFFIX=${BRANCH_SANITIZED}" >> $GITHUB_OUTPUT
+
       - name: Delete Preview Service
         run: |
-          gcloud run services delete $SERVICE_NAME-pr-${{ github.event.pull_request.number }} \
+          gcloud run services delete $SERVICE_NAME-${{ steps.branch-name-cleanup.outputs.SERVICE_SUFFIX }} \
             --region $REGION \
             --quiet || echo "Service already deleted or does not exist"
 
       - name: Delete Preview Images
         run: |
-          gcloud container images delete gcr.io/$PROJECT_ID/$SERVICE_NAME:pr-${{ github.event.pull_request.number }} \
+          gcloud container images delete gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ steps.branch-name-cleanup.outputs.SERVICE_SUFFIX }} \
             --quiet || echo "Image already deleted or does not exist"
-          gcloud container images delete gcr.io/$PROJECT_ID/$SERVICE_NAME:pr-${{ github.event.pull_request.number }}-* \
+          gcloud container images delete gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ steps.branch-name-cleanup.outputs.SERVICE_SUFFIX }}-* \
             --quiet || echo "Images already deleted or do not exist"
