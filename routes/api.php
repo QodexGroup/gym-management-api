@@ -15,6 +15,7 @@ use App\Http\Controllers\Core\CustomerScanController;
 use App\Http\Controllers\Core\CustomerFileController;
 use App\Http\Controllers\Core\CustomerBillController;
 use App\Http\Controllers\Core\CustomerPaymentController;
+use App\Http\Controllers\Core\ClassSessionBookingController;
 use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Core\NotificationController;
 use App\Http\Middleware\FirebaseAuthMiddleware;
@@ -72,6 +73,15 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
     Route::prefix('class-schedule-sessions')->group(function () {
         Route::get('/', [ClassScheduleSessionController::class, 'getAllSessions']);
+        Route::put('/{id}', [ClassScheduleSessionController::class, 'updateSession']);
+    });
+
+    Route::prefix('class-session-bookings')->group(function () {
+        Route::get('/', [ClassSessionBookingController::class, 'getBookingSessions']);
+        Route::post('/', [ClassSessionBookingController::class, 'bookSession']);
+        Route::get('/session/{sessionId}', [ClassSessionBookingController::class, 'getBookingsBySession']);
+        Route::put('/{bookingId}/attendance', [ClassSessionBookingController::class, 'updateAttendanceStatus']);
+        Route::put('/session/{sessionId}/mark-all-attended', [ClassSessionBookingController::class, 'markAllAsAttended']);
     });
 
     Route::prefix('expenses')->group(function () {

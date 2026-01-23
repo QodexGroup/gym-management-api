@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Account;
 
+use App\Constant\ClassSessionBookingStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\ClassScheduleSession;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -18,6 +19,18 @@ class ClassScheduleSessionRepository
     public function getAllSessions(GenericData $genericData): LengthAwarePaginator|Collection
     {
         $query = ClassScheduleSession::where('account_id', $genericData->userData->account_id);
+
+        $query->whereDate('start_time', '>=', $genericData->filters['startDate']);
+            unset($genericData->filters['startDate']);
+
+        $query->whereDate('start_time', '<=', $genericData->filters['endDate']);
+            unset($genericData->filters['endDate']);
+
+        $query->withCount([
+            'bookings as attendance_count' => function ($q) {
+                $q->where('status', '!=', ClassSessionBookingStatusConstant::STATUS_CANCELLED);
+            }
+        ]);
 
         // Apply relations, filters, and sorts using GenericData methods
         $query = $genericData->applyRelations($query);
@@ -70,6 +83,39 @@ class ClassScheduleSessionRepository
         return ClassScheduleSession::where('class_schedule_id', $classScheduleId)
             ->where('account_id', $accountId)
             ->delete();
+    }
+
+    /**
+     * Update a session
+     *
+     * @param int $id
+     * @param array $data
+     * @param int $accountId
+     * @return ClassScheduleSession
+     */
+    public function updateSession(int $id, array $data, int $accountId): ClassScheduleSession
+    {
+        $session = ClassScheduleSession::where('id', $id)
+            ->where('account_id', $accountId)
+            ->firstOrFail();
+
+        $session->update($data);
+        return $session->fresh();
+    }
+
+    /**
+     * Get a session by ID
+     *
+     * @param int $id
+     * @param int $accountId
+     * @return ClassScheduleSession
+     */
+    public function getSessionById(int $id, int $accountId): ClassScheduleSession
+    {
+        return ClassScheduleSession::where('id', $id)
+            ->where('account_id', $accountId)
+            ->with('classSchedule')
+            ->firstOrFail();
     }
 
     /**
