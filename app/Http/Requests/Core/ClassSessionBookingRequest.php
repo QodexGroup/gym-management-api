@@ -17,9 +17,14 @@ class ClassSessionBookingRequest extends GenericRequest
         $rules = parent::rules();
 
         // Add booking-specific rules based on route
-        $rules['sessionId'] = ['required', 'integer', 'exists:tb_class_schedule_sessions,id'];
-        $rules['customerId'] = ['required', 'integer', 'exists:tb_customers,id'];
-        $rules['notes'] = ['nullable', 'string', 'max:1000'];
+        if ( $this->isMethod('post')) {
+            $rules['sessionId'] = ['required', 'integer', 'exists:tb_class_schedule_sessions,id'];
+            $rules['customerId'] = ['required', 'integer', 'exists:tb_customers,id'];
+            $rules['notes'] = ['nullable', 'string', 'max:1000'];
+        }
+
+        $rules['status'] = 'string|nullable';
+
 
         return $rules;
     }

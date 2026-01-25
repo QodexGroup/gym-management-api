@@ -73,6 +73,7 @@ class ClassSessionBookingRepository
     {
         return ClassSessionBooking::where('class_schedule_session_id', $sessionId)
             ->where('account_id', $genericData->userData->account_id)
+            ->where('status', '=', ClassSessionBookingStatusConstant::STATUS_BOOKED)
             ->update([
                 'status' => ClassSessionBookingStatusConstant::STATUS_ATTENDED,
                 'updated_by' => $genericData->userData->id,
