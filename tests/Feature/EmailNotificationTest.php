@@ -121,7 +121,7 @@ class EmailNotificationTest extends TestCase
         $this->notificationService->createMembershipExpiringNotification($membership);
 
         // Assert that membership expiring email was sent
-        Mail::assertSent(MembershipExpiringMail::class, function ($mail) {
+        Mail::assertSent(MembershipExpiringMail::class, function ($mail) use ($membership) {
             return $mail->customer->id === $this->customer->id
                 && $mail->membership->id === $membership->id
                 && $mail->hasTo($this->customer->email);
