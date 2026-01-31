@@ -58,6 +58,24 @@ class CustomerBillRepository
     }
 
     /**
+     * @param GenericData $genericData
+     *
+     * @return CustomerBill
+     */
+    public function createAutomatedBillForPtPackage(GenericData $genericData): CustomerBill
+    {
+        $genericData->getData()->accountId = $genericData->userData->account_id;
+        $genericData->getData()->createdBy =  $genericData->userData->id;
+        $genericData->getData()->updatedBy = $genericData->userData->id;
+        $genericData->getData()->billType = CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION;
+        $genericData->getData()->billStatus = CustomerBillConstant::BILL_STATUS_ACTIVE;
+        $genericData->getData()->billDate = Carbon::now();
+        $genericData->syncDataArray();
+
+        return CustomerBill::create($genericData->data)->fresh();
+    }
+
+    /**
      * Check if an automated bill exists for a membership renewal period
      *
      * @param int $customerId

@@ -3,10 +3,12 @@
 namespace App\Repositories\Core;
 
 use App\Constant\CustomerMembershipConstant;
+use App\Constant\CustomerPtPackageConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\MembershipPlan;
 use App\Models\Core\Customer;
 use App\Models\Core\CustomerMembership;
+use App\Models\Core\CustomerPtPackage;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -226,6 +228,24 @@ class CustomerRepository
             ->where('status', '!=', CustomerMembershipConstant::STATUS_EXPIRED)
             ->orderBy('membership_end_date', 'desc')
             ->first();
+    }
+
+    /**
+     * @param int $customerId
+     * @param GenericData $genericData
+     *
+     * @return CustomerPtPackage
+     */
+    public function createPtPackage(int $customerId, GenericData $genericData): CustomerPtPackage
+    {
+        $genericData->getData()->account_id = $genericData->userData->account_id;
+        $genericData->getData()->customer_id = $customerId;
+        $genericData->getData()->status = CustomerPtPackageConstant::STATUS_ACTIVE;
+        $genericData->getData()->created_by = $genericData->userData->id;
+        $genericData->getData()->updated_by = $genericData->userData->id;
+        $genericData->syncDataArray();
+
+        return CustomerPtPackage::create($genericData->data)->fresh();
     }
 }
 

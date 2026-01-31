@@ -6,9 +6,11 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\CustomerRequest;
 use App\Http\Requests\Core\CustomerMembershipRequest;
+use App\Http\Requests\Core\CustomerPtPackageRequest;
 use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Core\CustomerResource;
 use App\Http\Resources\Core\CustomerMembershipResource;
+use App\Http\Resources\Core\CustomerPtPackageResource;
 use App\Repositories\Core\CustomerRepository;
 use App\Repositories\Account\MembershipPlanRepository;
 use App\Services\Core\CustomerService;
@@ -110,6 +112,31 @@ class CustomerController extends Controller
             ], 'Membership created/updated successfully');
         } catch (\Throwable $th) {
             Log::error('Error creating/updating customer membership', [
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString()
+            ]);
+            return ApiResponse::error('Failed to create/update membership: ' . $th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Create or update customer membership
+     *
+     * @param CustomerPtPackageRequest $request
+     * @param int $id Customer ID
+     * @return JsonResponse
+     */
+    public function createPtPackage(CustomerPtPackageRequest $request, int $customerId): JsonResponse
+    {
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $ptPackage = $this->customerService->createPtPackage($customerId, $genericData);
+
+            return ApiResponse::success([
+                'ptPackage' => new CustomerPtPackageResource($ptPackage),
+            ], 'PT Package created/updated successfully');
+        } catch (\Throwable $th) {
+            Log::error('Error creating/updating customer PT package', [
                 'error' => $th->getMessage(),
                 'trace' => $th->getTraceAsString()
             ]);

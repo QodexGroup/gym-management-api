@@ -108,6 +108,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::put('/{id}', [CustomerController::class, 'updateCustomer']);
         Route::delete('/{id}', [CustomerController::class, 'delete']);
         Route::post('/{id}/membership', [CustomerController::class, 'createOrUpdateMembership']);
+        Route::post('/{id}/pt-package', [CustomerController::class, 'createPtPackage']);
 
         // Customer Progress Routes
         Route::prefix('progress')->group(function () {
