@@ -18,6 +18,8 @@ use App\Http\Controllers\Core\CustomerPaymentController;
 use App\Http\Controllers\Core\ClassSessionBookingController;
 use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Core\NotificationController;
+use App\Http\Controllers\Core\ReportController;
+use App\Http\Controllers\Core\MyCollectionController;
 use App\Http\Middleware\FirebaseAuthMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +31,13 @@ Route::middleware([FirebaseAuthMiddleware::class])->prefix('auth')->group(functi
 // Dashboard routes (protected)
 Route::middleware([FirebaseAuthMiddleware::class])->prefix('dashboard')->group(function () {
     Route::get('/stats', [DashboardController::class, 'getStats']);
+    Route::get('/my-collection', [MyCollectionController::class, 'getStats']);
+});
+
+// Report routes (protected)
+Route::middleware([FirebaseAuthMiddleware::class])->prefix('reports')->group(function () {
+    Route::post('/check-export', [ReportController::class, 'checkExportSize']);
+    Route::post('/email', [ReportController::class, 'emailReport']);
 });
 
 Route::middleware([FirebaseAuthMiddleware::class])->group(function () {

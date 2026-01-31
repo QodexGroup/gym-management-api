@@ -31,6 +31,10 @@ class CustomerBillResource extends JsonResource
             'membershipPlan' => $this->whenLoaded('membershipPlan', function () {
                 return new MembershipPlanResource($this->membershipPlan);
             }),
+            'customerName' => $this->whenLoaded('customer', function () {
+                $c = $this->customer;
+                return trim(($c->first_name ?? '') . ' ' . ($c->last_name ?? '')) ?: 'N/A';
+            }),
             'createdBy' => $this->whenLoaded('creator', function () {
                 return [
                     'id' => $this->creator->id,

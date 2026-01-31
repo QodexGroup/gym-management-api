@@ -7,9 +7,11 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "barryvdh/laravel-dompdf": "^3.0",
         "kreait/firebase-php": "^7.24",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
+        "maatwebsite/excel": "^3.1",
         "mailersend/laravel-driver": "*"
     },
     "require-dev": {
