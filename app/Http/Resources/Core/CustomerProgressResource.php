@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Core;
 
+use App\Http\Resources\Account\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\Core\CustomerFileResource;
@@ -21,6 +22,7 @@ class CustomerProgressResource extends JsonResource
             'accountId' => $this->account_id,
             'customerId' => $this->customer_id,
             'recordedBy' => $this->recorded_by,
+            'recordedByUser' => new UserResource($this->recordedByUser),
 
             // Basic Measurements
             'weight' => $this->weight,

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Core;
 
+use App\Http\Resources\Account\UserResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\Core\CustomerFileResource;
 
@@ -17,6 +18,7 @@ class CustomerScanResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'uploadedByUser' => new UserResource($this->uploadedByUser),
             'scanType' => $this->scan_type,
             'scanDate' => $this->scan_date,
             'notes' => $this->notes,
