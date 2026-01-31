@@ -396,30 +396,24 @@ class NotificationService
      */
     public function getNotifications(int $page = 1, int $limit = 20): array
     {
-        $offset = ($page - 1) * $limit;
-        
-        $query = Notification::where('account_id', 1)
+        $offset = (int) (($page - 1) * $limit);
+        $limit = (int) max(1, $limit);
+
+        $baseQuery = Notification::where('account_id', 1)
             ->global()
             ->orderBy('created_at', 'desc');
 
-        // When user management is implemented, uncomment this for user-specific notifications
-        // $query = Notification::where('account_id', 1)
-        //     ->where(function($q) use ($userId) {
-        //         $q->where('user_id', $userId)
-        //           ->orWhereNull('user_id'); // Include global notifications
-        //     })
-        //     ->orderBy('created_at', 'desc');
-
-        $total = $query->count();
-        $notifications = $query->skip($offset)->take($limit)->get();
+        $total = (clone $baseQuery)->count();
+        $lastPage = $total > 0 ? (int) ceil($total / $limit) : 1;
+        $notifications = (clone $baseQuery)->offset($offset)->limit($limit)->get();
 
         return [
             'data' => $notifications,
             'pagination' => [
-                'current_page' => $page,
+                'current_page' => (int) $page,
                 'per_page' => $limit,
                 'total' => $total,
-                'last_page' => ceil($total / $limit),
+                'last_page' => $lastPage,
             ],
         ];
     }

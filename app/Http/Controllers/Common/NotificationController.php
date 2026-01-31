@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Controllers\Core;
+namespace App\Http\Controllers\Common;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Core\NotificationResource;
+use App\Http\Resources\Common\NotificationResource;
 use App\Services\Core\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,20 +26,22 @@ class NotificationController extends Controller
     {
         $page = $request->query('page', 1);
         $limit = $request->query('limit', 20);
-        $unreadOnly = $request->query('unread_only', false);
+        $unreadOnly = filter_var($request->query('unread_only', false), FILTER_VALIDATE_BOOLEAN);
 
         $result = $this->notificationService->getNotifications((int) $page, (int) $limit);
 
-        // Filter unread only if requested
         if ($unreadOnly) {
             $result['data'] = $result['data']->filter(function ($notification) {
                 return $notification->isUnread();
             })->values();
             $result['pagination']['total'] = $result['data']->count();
+            $result['pagination']['last_page'] = (int) max(1, ceil($result['pagination']['total'] / $limit));
         }
 
+        $notifications = NotificationResource::collection($result['data'])->resolve();
+
         return ApiResponse::success([
-            'notifications' => NotificationResource::collection($result['data']),
+            'notifications' => $notifications,
             'pagination' => $result['pagination'],
         ]);
     }
