@@ -79,6 +79,8 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
     Route::prefix('class-session-bookings')->group(function () {
         Route::get('/', [ClassSessionBookingController::class, 'getBookingSessions']);
         Route::post('/', [ClassSessionBookingController::class, 'bookSession']);
+        Route::get('/{bookingId}', [ClassSessionBookingController::class, 'getBookingById']);
+        Route::put('/{bookingId}', [ClassSessionBookingController::class, 'updateBooking']);
         Route::get('/session/{sessionId}', [ClassSessionBookingController::class, 'getBookingsBySession']);
         Route::put('/{bookingId}/attendance', [ClassSessionBookingController::class, 'updateAttendanceStatus']);
         Route::put('/session/{sessionId}/mark-all-attended', [ClassSessionBookingController::class, 'markAllAsAttended']);

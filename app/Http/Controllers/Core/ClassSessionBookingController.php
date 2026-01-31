@@ -79,6 +79,52 @@ class ClassSessionBookingController
     }
 
     /**
+     * Update a booking (customer, session, notes)
+     *
+     * @param ClassSessionBookingRequest $request
+     * @param int $bookingId
+     * @return JsonResponse
+     */
+    public function updateBooking(ClassSessionBookingRequest $request, int $bookingId): JsonResponse
+    {
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $booking = $this->bookingRepository->updateBooking($bookingId, $genericData);
+
+            if (!$booking) {
+                return ApiResponse::error('Booking not found', 404);
+            }
+
+            return ApiResponse::success(new ClassSessionBookingResource($booking), 'Booking updated successfully');
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * Get a specific booking by ID
+     *
+     * @param GenericRequest $request
+     * @param int $bookingId
+     * @return JsonResponse
+     */
+    public function getBookingById(GenericRequest $request, int $bookingId): JsonResponse
+    {
+        try {
+            $genericData = $request->getGenericData();
+            $booking = $this->bookingRepository->findBookingById($bookingId, $genericData);
+
+            if (!$booking) {
+                return ApiResponse::error('Booking not found', 404);
+            }
+
+            return ApiResponse::success(new ClassSessionBookingResource($booking));
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
      * Mark all bookings for a session as attended
      *
      * @param GenericRequest $request

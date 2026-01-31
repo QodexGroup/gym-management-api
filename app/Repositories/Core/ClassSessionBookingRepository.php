@@ -63,6 +63,43 @@ class ClassSessionBookingRepository
     }
 
     /**
+     * Update a booking (customer, session, notes)
+     *
+     * @param int $id
+     * @param GenericData $genericData
+     * @return ClassSessionBooking|null
+     */
+    public function updateBooking(int $id, GenericData $genericData): ?ClassSessionBooking
+    {
+        $booking = ClassSessionBooking::where('id', $id)
+            ->where('account_id', $genericData->userData->account_id)
+            ->firstOrFail();
+
+        // Merge updated_by with the data array
+        $updateData = array_merge($genericData->data, [
+            'updated_by' => $genericData->userData->id,
+        ]);
+
+        $booking->update($updateData);
+        return $booking->fresh();
+    }
+
+    /**
+     * Get a booking by ID
+     *
+     * @param int $id
+     * @param GenericData $genericData
+     * @return ClassSessionBooking|null
+     */
+    public function findBookingById(int $id, GenericData $genericData): ?ClassSessionBooking
+    {
+        return ClassSessionBooking::where('id', $id)
+            ->where('account_id', $genericData->userData->account_id)
+            ->with(['customer', 'classScheduleSession.classSchedule'])
+            ->first();
+    }
+
+    /**
      * Update all bookings for a session to the same status
      *
      * @param int $sessionId

@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Core;
 
 use App\Http\Requests\GenericRequest;
-use Illuminate\Validation\Rule;
 
 class ClassSessionBookingRequest extends GenericRequest
 {
@@ -14,18 +13,11 @@ class ClassSessionBookingRequest extends GenericRequest
      */
     public function rules(): array
     {
-        $rules = parent::rules();
-
-        // Add booking-specific rules based on route
-        if ( $this->isMethod('post')) {
-            $rules['sessionId'] = ['required', 'integer', 'exists:tb_class_schedule_sessions,id'];
-            $rules['customerId'] = ['required', 'integer', 'exists:tb_customers,id'];
-            $rules['notes'] = ['nullable', 'string', 'max:1000'];
-        }
-
-        $rules['status'] = 'string|nullable';
-
-
-        return $rules;
+        return array_merge(parent::rules(), [
+            'sessionId' => ['sometimes', 'integer', 'exists:tb_class_schedule_sessions,id'],
+            'customerId' => ['sometimes', 'integer', 'exists:tb_customers,id'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'status' => ['sometimes', 'string'],
+        ]);
     }
 }

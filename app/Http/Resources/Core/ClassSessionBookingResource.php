@@ -18,6 +18,7 @@ class ClassSessionBookingResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'customerId' => $this->customer_id,
             'sessionId' => $this->class_schedule_session_id,
             'classScheduleSession' => $this->whenLoaded('classScheduleSession', function () {
                 return new ClassScheduleSessionResource($this->classScheduleSession);
