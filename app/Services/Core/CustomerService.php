@@ -9,7 +9,9 @@ use App\Models\Core\Customer;
 use App\Models\Core\CustomerMembership;
 use App\Models\Account\MembershipPlan;
 use App\Models\Core\CustomerBill;
+use App\Models\Core\CustomerPtPackage;
 use App\Repositories\Account\MembershipPlanRepository;
+use App\Repositories\Account\PtPackageRepository;
 use App\Repositories\Core\CustomerRepository;
 use App\Repositories\Core\CustomerBillRepository;
 use Carbon\Carbon;
@@ -22,7 +24,8 @@ class CustomerService
         private CustomerRepository $repository,
         private MembershipPlanRepository $membershipPlanRepository,
         private CustomerBillRepository $customerBillRepository,
-        private NotificationService $notificationService
+        private NotificationService $notificationService,
+        private PtPackageRepository $ptPackageRepository,
     ) {
     }
 
@@ -161,6 +164,51 @@ class CustomerService
                 $customer->recalculateBalance();
 
                 return $membership;
+            });
+        } catch (\Throwable $th) {
+            Log::error('Error creating/updating customer membership', [
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString(),
+            ]);
+            throw $th;
+        }
+    }
+
+    /**
+     * Create or update a customer's PT package.
+     *
+     * @param int $customerId
+     * @param GenericData $genericData
+     * @return CustomerPtPackage
+     */
+    public function createPtPackage(int $customerId, GenericData $genericData): CustomerPtPackage
+    {
+        try {
+
+            return DB::transaction(function () use ( $customerId, $genericData) {
+
+                $data = $genericData->getData();
+                $accountId = $genericData->userData->account_id;
+
+                $customer = $this->repository->findCustomerById($customerId, $accountId);
+                // find selected pt package
+                $ptPackage = $this->ptPackageRepository->findPtPackageById($data->ptPackageId, $accountId);
+                // additional data for bill and customer pt package
+                $genericData->getData()->grossAmount = $ptPackage->price;
+                $genericData->getData()->netAmount = $ptPackage->price;
+                $genericData->getData()->numberOfSessionsRemaining = $ptPackage->number_of_sessions;
+
+                $customerPtPackage = $this->repository->createPtPackage($customerId, $genericData);
+                $customerPtPackage->load('ptPackage');
+
+                // Create automated bill for the new PT package
+                $this->customerBillRepository->createAutomatedBillForPtPackage($genericData);
+
+                // Recalculate customer balance
+                $customer->refresh();
+                $customer->recalculateBalance();
+
+                return $customerPtPackage;
             });
         } catch (\Throwable $th) {
             Log::error('Error creating/updating customer membership', [

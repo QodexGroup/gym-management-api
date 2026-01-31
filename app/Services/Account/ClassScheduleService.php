@@ -6,6 +6,7 @@ use App\Constant\RecurringIntervalConstant;
 use App\Constant\ScheduleTypeConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\ClassSchedule;
+use App\Models\Account\ClassScheduleSession;
 use App\Repositories\Account\ClassScheduleRepository;
 use App\Repositories\Account\ClassScheduleSessionRepository;
 use Carbon\Carbon;
@@ -134,6 +135,47 @@ class ClassScheduleService
             'created_by' => $genericData->userData->id,
             'updated_by' => $genericData->userData->id,
         ]);
+    }
+
+    /**
+     * Update a class schedule session (individual session update)
+     *
+     * @param int $sessionId
+     * @param GenericData $genericData
+     * @return ClassScheduleSession
+     */
+    public function updateClassScheduleSession(int $sessionId, GenericData $genericData): ClassScheduleSession
+    {
+        try {
+            return DB::transaction(function () use ($sessionId, $genericData) {
+                $accountId = $genericData->userData->account_id;
+                $data = $genericData->getData();
+
+                $updateData = [
+                    'updated_by' => $genericData->userData->id,
+                ];
+                // Update start_time if provided
+                if (isset($data->startTime)) {
+                    $updateData['start_time'] = Carbon::parse($data->startTime);
+
+                }
+                if (isset($data->startTime) && isset($data->duration)) {
+                    // Calculate end_time from start_time and duration
+                    $startTime = Carbon::parse($data->startTime);
+                    $updateData['end_time'] = $startTime->copy()->addMinutes($data->duration);
+                }
+                 $session = $this->sessionRepository->updateSession($sessionId, $updateData, $accountId);
+
+                return $session;
+            });
+        } catch (\Throwable $th) {
+            Log::error('Error updating class schedule session', [
+                'error' => $th->getMessage(),
+                'session_id' => $sessionId,
+                'trace' => $th->getTraceAsString(),
+            ]);
+            throw $th;
+        }
     }
 
     /**

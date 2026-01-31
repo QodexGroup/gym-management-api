@@ -3,10 +3,13 @@
 namespace App\Models\Account;
 
 use App\Models\User;
+use App\Models\Core\ClassSessionBooking;
+use App\Constant\ClassSessionBookingStatusConstant;
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ClassScheduleSession extends Model
 {
@@ -70,5 +73,37 @@ class ClassScheduleSession extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * Get all bookings for this session.
+     */
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(ClassSessionBooking::class, 'class_schedule_session_id');
+    }
+
+    /**
+     * Get the dynamic attendance count (excluding cancelled bookings).
+     * This accessor calculates the count from actual bookings.
+     * The repository uses withCount() to optimize this, which sets the attribute.
+     */
+    public function getAttendanceCountAttribute(): int
+    {
+        if (isset($this->attributes['attendance_count'])) {
+            return (int) $this->attributes['attendance_count'];
+        }
+
+        // Fallback: If the relationship is already loaded, use it
+        if ($this->relationLoaded('bookings')) {
+            return $this->bookings
+                ->where('status', '!=', ClassSessionBookingStatusConstant::STATUS_CANCELLED)
+                ->count();
+        }
+
+        // Final fallback: query the database
+        return $this->bookings()
+            ->where('status', '!=', ClassSessionBookingStatusConstant::STATUS_CANCELLED)
+            ->count();
     }
 }
