@@ -201,6 +201,69 @@ class CustomerBillRepository
     }
 
     /**
+     * Get all bills for the account (for reports) with pagination, filtering, and sorting.
+     * Optionally load customer relation for customer name.
+     *
+     * @param GenericData $genericData
+     * @return LengthAwarePaginator
+     */
+    public function getByAccountId(GenericData $genericData): LengthAwarePaginator
+    {
+        $query = CustomerBill::where('account_id', $genericData->userData->account_id);
+
+        $filters = $genericData->filters ?? [];
+        $dateFrom = $filters['dateFrom'] ?? $filters['date_from'] ?? null;
+        $dateTo = $filters['dateTo'] ?? $filters['date_to'] ?? null;
+        if ($dateFrom) {
+            $query->where('bill_date', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->where('bill_date', '<=', $dateTo);
+        }
+        $genericData->filters = array_diff_key($filters, array_flip(['dateFrom', 'dateTo', 'date_from', 'date_to']));
+
+        $query = $genericData->applyRelations($query, ['customer', 'membershipPlan']);
+        $query = $genericData->applyFilters($query);
+        $query = $genericData->applySorts($query);
+
+        return $query->orderByDesc('bill_date')->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+    }
+
+    /**
+     * Count bills for account within date range (for report export size check).
+     *
+     * @param int $accountId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return int
+     */
+    public function countByAccountAndDateRange(int $accountId, string $dateFrom, string $dateTo): int
+    {
+        return CustomerBill::where('account_id', $accountId)
+            ->where('bill_date', '>=', $dateFrom)
+            ->where('bill_date', '<=', $dateTo)
+            ->count();
+    }
+
+    /**
+     * Get all bills for account within date range for export (no pagination).
+     *
+     * @param int $accountId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return Collection<int, CustomerBill>
+     */
+    public function getForExport(int $accountId, string $dateFrom, string $dateTo): Collection
+    {
+        return CustomerBill::where('account_id', $accountId)
+            ->where('bill_date', '>=', $dateFrom)
+            ->where('bill_date', '<=', $dateTo)
+            ->with(['customer', 'membershipPlan'])
+            ->orderByDesc('bill_date')
+            ->get();
+    }
+
+    /**
      * Find expired membership bills with outstanding balance
      *
      * @param int $customerId
@@ -257,6 +320,93 @@ class CustomerBillRepository
             ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
             ->whereRaw('net_amount > paid_amount')
             ->get();
+    }
+
+    /**
+     * Sum PT package bill paid_amount for a coach in date range (for My Collection).
+     *
+     * @param int $accountId
+     * @param int $coachId created_by user id
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return float
+     */
+    public function getCoachPtEarningsForDateRange(int $accountId, int $coachId, string $dateFrom, string $dateTo): float
+    {
+        $sum = CustomerBill::where('account_id', $accountId)
+            ->where('created_by', $coachId)
+            ->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+            ->where('bill_date', '>=', $dateFrom)
+            ->where('bill_date', '<=', $dateTo)
+            ->sum('paid_amount');
+
+        return (float) $sum;
+    }
+
+    /**
+     * Coach PT earnings grouped by month (last N months).
+     *
+     * @param int $accountId
+     * @param int $coachId
+     * @param int $months
+     * @return array<array{month: string, earnings: float, target: float|null}>
+     */
+    public function getCoachPtEarningsByMonth(int $accountId, int $coachId, int $months = 6): array
+    {
+        $rows = CustomerBill::where('account_id', $accountId)
+            ->where('created_by', $coachId)
+            ->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+            ->selectRaw("DATE_FORMAT(bill_date, '%Y-%m') as month_key, SUM(paid_amount) as earnings")
+            ->groupBy('month_key')
+            ->orderByDesc('month_key')
+            ->limit($months)
+            ->get();
+
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = [
+                'month' => Carbon::createFromFormat('Y-m', $r->month_key)->format('M'),
+                'earnings' => (float) $r->earnings,
+                'target' => null,
+            ];
+        }
+        return array_reverse($out);
+    }
+
+    /**
+     * Coach PT earnings grouped by week within date range.
+     *
+     * @param int $accountId
+     * @param int $coachId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return array<array{week: string, sessions: int, earnings: float}>
+     */
+    public function getCoachPtEarningsByWeek(int $accountId, int $coachId, string $dateFrom, string $dateTo): array
+    {
+        $rows = CustomerBill::where('account_id', $accountId)
+            ->where('created_by', $coachId)
+            ->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+            ->where('bill_date', '>=', $dateFrom)
+            ->where('bill_date', '<=', $dateTo)
+            ->selectRaw("YEARWEEK(bill_date, 3) as week_key, SUM(paid_amount) as earnings, COUNT(*) as sessions")
+            ->groupBy('week_key')
+            ->orderBy('week_key')
+            ->get();
+
+        $out = [];
+        $i = 1;
+        foreach ($rows as $r) {
+            $out[] = [
+                'week' => 'Week ' . $i++,
+                'sessions' => (int) $r->sessions,
+                'earnings' => (float) $r->earnings,
+            ];
+        }
+        return $out;
     }
 
 }
