@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('tb_customer_pt_package', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('account_id');
-            $table->foreignId('customer_id')->constrained('tb_customer');
+            $table->foreignId('customer_id')->constrained('tb_customers');
             $table->foreignId('pt_package_id')->constrained('tb_pt_packages');
             $table->unsignedBigInteger('coach_id');
             $table->date('start_date');
@@ -25,7 +25,7 @@ return new class extends Migration
             $table->softDeletes();
             $table->timestamps();
 
-            $table->foreign('coach_id')->references('id')->on('tb_users')->onDelete('cascade');
+            $table->foreign('coach_id')->references('id')->on('users')->onDelete('cascade');
 
             $table->index('customer_id');
             $table->index('pt_package_id');
