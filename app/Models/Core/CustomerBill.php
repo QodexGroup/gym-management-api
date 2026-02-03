@@ -36,7 +36,7 @@ class CustomerBill extends Model
         'bill_date',
         'bill_status',
         'bill_type',
-        'membership_plan_id',
+        'billable_id',
         'custom_service',
         'created_by',
         'updated_by',

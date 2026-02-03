@@ -17,6 +17,7 @@ use App\Services\Core\CustomerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
 
 class CustomerController extends Controller
 {
@@ -120,28 +121,20 @@ class CustomerController extends Controller
     }
 
     /**
-     * Create or update customer membership
+     * Create pt package for a customer
      *
      * @param CustomerPtPackageRequest $request
-     * @param int $id Customer ID
+     * @param int $customerId Customer ID
      * @return JsonResponse
      */
     public function createPtPackage(CustomerPtPackageRequest $request, int $customerId): JsonResponse
     {
-        try {
-            $genericData = $request->getGenericDataWithValidated();
-            $ptPackage = $this->customerService->createPtPackage($customerId, $genericData);
-
-            return ApiResponse::success([
-                'ptPackage' => new CustomerPtPackageResource($ptPackage),
-            ], 'PT Package created/updated successfully');
-        } catch (\Throwable $th) {
-            Log::error('Error creating/updating customer PT package', [
-                'error' => $th->getMessage(),
-                'trace' => $th->getTraceAsString()
-            ]);
-            return ApiResponse::error('Failed to create/update membership: ' . $th->getMessage(), 500);
+        $genericData = $request->getGenericDataWithValidated();
+        $ptPackage = $this->customerService->createPtPackage($customerId, $genericData);
+        if (!$ptPackage) {
+            return ApiResponse::error('Failed to create PT package', Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+        return ApiResponse::success(new CustomerPtPackageResource($ptPackage), 'PT Package created successfully');
     }
 }
 

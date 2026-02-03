@@ -230,22 +230,6 @@ class CustomerRepository
             ->first();
     }
 
-    /**
-     * @param int $customerId
-     * @param GenericData $genericData
-     *
-     * @return CustomerPtPackage
-     */
-    public function createPtPackage(int $customerId, GenericData $genericData): CustomerPtPackage
-    {
-        $genericData->getData()->account_id = $genericData->userData->account_id;
-        $genericData->getData()->customer_id = $customerId;
-        $genericData->getData()->status = CustomerPtPackageConstant::STATUS_ACTIVE;
-        $genericData->getData()->created_by = $genericData->userData->id;
-        $genericData->getData()->updated_by = $genericData->userData->id;
-        $genericData->syncDataArray();
 
-        return CustomerPtPackage::create($genericData->data)->fresh();
-    }
 }
 

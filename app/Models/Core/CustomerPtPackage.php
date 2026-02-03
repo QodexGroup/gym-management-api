@@ -3,6 +3,7 @@
 namespace App\Models\Core;
 
 use App\Models\Account\PtPackage;
+use App\Models\User;
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -41,5 +42,12 @@ class CustomerPtPackage extends Model
     public function ptPackage(): BelongsTo
     {
         return $this->belongsTo(PtPackage::class, 'pt_package_id');
+    }
+    /**
+     * @return BelongsTo
+     */
+    public function coach(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'coach_id', 'id');
     }
 }

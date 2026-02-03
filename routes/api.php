@@ -18,6 +18,7 @@ use App\Http\Controllers\Core\CustomerPaymentController;
 use App\Http\Controllers\Core\ClassSessionBookingController;
 use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Common\NotificationController;
+use App\Http\Controllers\Core\CustomerPtPackageController;
 use App\Http\Middleware\FirebaseAuthMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -110,7 +111,10 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::put('/{id}', [CustomerController::class, 'updateCustomer']);
         Route::delete('/{id}', [CustomerController::class, 'delete']);
         Route::post('/{id}/membership', [CustomerController::class, 'createOrUpdateMembership']);
-        Route::post('/{id}/pt-package', [CustomerController::class, 'createPtPackage']);
+        Route::post('/{id}/pt-packages', [CustomerController::class, 'createPtPackage']);
+        Route::get('/{id}/pt-packages', [CustomerPtPackageController::class, 'getPtPackages']);
+
+        Route::delete('/pt-packages/{ptPackageId}', [CustomerPtPackageController::class, 'removePtPackage']);
 
         // Customer Progress Routes
         Route::prefix('progress')->group(function () {
