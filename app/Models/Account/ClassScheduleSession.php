@@ -3,13 +3,16 @@
 namespace App\Models\Account;
 
 use App\Models\User;
+use App\Models\Account\ClassSchedule;
 use App\Models\Core\ClassSessionBooking;
+use App\Models\Core\PtBooking;
 use App\Constant\ClassSessionBookingStatusConstant;
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class ClassScheduleSession extends Model
 {
@@ -81,6 +84,21 @@ class ClassScheduleSession extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(ClassSessionBooking::class, 'class_schedule_session_id');
+    }
+
+    /**
+     * Get PT bookings for this session through class schedule.
+     */
+    public function ptBookings(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            PtBooking::class,
+            ClassSchedule::class,
+            'id', // Foreign key on ClassSchedule table
+            'class_schedule_id', // Foreign key on PtBooking table
+            'class_schedule_id', // Local key on ClassScheduleSession table
+            'id' // Local key on ClassSchedule table
+        );
     }
 
     /**
