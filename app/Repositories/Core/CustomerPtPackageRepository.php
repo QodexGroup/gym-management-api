@@ -11,6 +11,20 @@ class CustomerPtPackageRepository
 {
 
     /**
+     * Find a customer PT package by ID
+     *
+     * @param int $customerPtPackageId
+     * @param int $accountId
+     * @return CustomerPtPackage
+     */
+    public function findCustomerPtPackageById(int $customerPtPackageId, int $accountId): CustomerPtPackage
+    {
+        return CustomerPtPackage::where('id', $customerPtPackageId)
+            ->where('account_id', $accountId)
+            ->firstOrFail();
+    }
+
+    /**
      * @param int $customerId
      * @param GenericData $genericData
      *
@@ -75,5 +89,23 @@ class CustomerPtPackageRepository
     public function updateCustomerPtPackage(int $ptPackageId, array $data): int
     {
         return CustomerPtPackage::where('id', $ptPackageId)->update($data);
+    }
+
+    /**
+     * Update the number of sessions of a customer PT package
+     *
+     * @param int $customerId
+     * @param int $ptPackageId
+     * @param GenericData $genericData
+     *
+     * @return int
+     */
+    public function updateCustomerPtPackageSessions(int $customerId, int $ptPackageId, GenericData $genericData): int
+    {
+        return CustomerPtPackage::where('id', $ptPackageId)
+            ->where('customer_id', $customerId)
+            ->where('account_id', $genericData->userData->account_id)
+            ->decrement('number_of_sessions_remaining', 1);
+
     }
 }

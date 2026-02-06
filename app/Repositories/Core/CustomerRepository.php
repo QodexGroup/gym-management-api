@@ -28,6 +28,18 @@ class CustomerRepository
     {
         $query = Customer::where('account_id', $genericData->userData->account_id);
 
+        // Handle search filter separately (searches across multiple fields)
+        if (isset($genericData->filters['search']) && !empty($genericData->filters['search'])) {
+            $searchTerm = $genericData->filters['search'];
+            unset($genericData->filters['search']); // Remove from filters to avoid double processing
+
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('first_name', 'LIKE', "%{$searchTerm}%")
+                  ->orWhere('last_name', 'LIKE', "%{$searchTerm}%")
+                  ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$searchTerm}%"]);
+            });
+        }
+
         // Apply relations, filters, and sorts using GenericData methods
         $query = $genericData->applyRelations($query, ['currentMembership.membershipPlan', 'currentTrainer']);
         $query = $genericData->applyFilters($query);

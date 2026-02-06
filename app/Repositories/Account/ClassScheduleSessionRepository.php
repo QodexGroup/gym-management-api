@@ -104,6 +104,50 @@ class ClassScheduleSessionRepository
     }
 
     /**
+     * Update attendance count on a session
+     *
+     * @param int $id
+     * @param int $accountId
+     * @return bool
+     */
+    public function updateAttendanceByClassScheduleId(int $classScheduleId, int $accountId): bool
+    {
+        return ClassScheduleSession::where('class_schedule_id', $classScheduleId)
+            ->where('account_id', $accountId)
+            ->increment('attendance_count');
+    }
+
+    /**
+     * Update attendance count on a session
+     *
+     * @param int $classScheduleId
+     * @param int $accountId
+     * @return bool
+     */
+    public function updateAttendanceCountIncrementById(int $id, int $accountId): bool
+    {
+        return ClassScheduleSession::where('id', $id)
+            ->where('account_id', $accountId)
+            ->increment('attendance_count');
+    }
+
+        /**
+     * Update attendance count on a session
+     *
+     * @param int $sessionId
+     * @param int $accountId
+     * @return bool
+     */
+    public function updateAttendanceCountSession(int $sessionId, int $accountId, $totalAttendanceCount): bool
+    {
+        $classScheduleSession = ClassScheduleSession::where('id', $sessionId)
+            ->where('account_id', $accountId)
+            ->firstOrFail();
+        $classScheduleSession->attendance_count += $totalAttendanceCount;
+        return $classScheduleSession->save();
+    }
+
+    /**
      * Get a session by ID
      *
      * @param int $id

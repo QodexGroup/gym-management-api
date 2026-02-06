@@ -85,7 +85,6 @@ class ClassScheduleRepository
     {
         // Ensure account_id is set in data
         $genericData->getData()->account_id = $genericData->userData->account_id;
-        $genericData->getData()->class_type = ClassTypeScheduleConstant::GROUP_CLASS;
         $genericData->getData()->created_by = $genericData->userData->id;
         $genericData->getData()->updated_by = $genericData->userData->id;
         $genericData->syncDataArray();

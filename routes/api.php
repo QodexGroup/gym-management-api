@@ -19,6 +19,7 @@ use App\Http\Controllers\Core\ClassSessionBookingController;
 use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Common\NotificationController;
 use App\Http\Controllers\Core\CustomerPtPackageController;
+use App\Http\Controllers\Core\PtBookingController;
 use App\Http\Middleware\FirebaseAuthMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -85,6 +86,17 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::get('/session/{sessionId}', [ClassSessionBookingController::class, 'getBookingsBySession']);
         Route::put('/{bookingId}/attendance', [ClassSessionBookingController::class, 'updateAttendanceStatus']);
         Route::put('/session/{sessionId}/mark-all-attended', [ClassSessionBookingController::class, 'markAllAsAttended']);
+    });
+
+    Route::prefix('pt-bookings')->group(function () {
+        Route::get('/', [PtBookingController::class, 'getPtBookings']);
+        Route::get('/coach/{coachId}', [PtBookingController::class, 'getCoachPtBookings']);
+        Route::get('/session/{sessionId}', [PtBookingController::class, 'getPtBookingsBySession']);
+        Route::post('/', [PtBookingController::class, 'create']);
+        Route::put('/{id}', [PtBookingController::class, 'update']);
+        Route::put('/{id}/cancel', [PtBookingController::class, 'markAsCancelled']);
+        Route::put('/{id}/attend', [PtBookingController::class, 'markAsAttended']);
+        Route::put('/{id}/no-show', [PtBookingController::class, 'markAsNoShow']);
     });
 
     Route::prefix('expenses')->group(function () {
