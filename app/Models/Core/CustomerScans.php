@@ -2,6 +2,7 @@
 
 namespace App\Models\Core;
 
+use App\Models\User;
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -45,5 +46,13 @@ class CustomerScans extends Model
     public function files(): MorphMany
     {
         return $this->morphMany(CustomerFiles::class, 'fileable');
+    }
+
+    /**
+     * Get the user that uploaded this scan.
+     */
+    public function uploadedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'uploaded_by', 'id');
     }
 }

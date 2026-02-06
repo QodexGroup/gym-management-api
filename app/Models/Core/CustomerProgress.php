@@ -2,6 +2,7 @@
 
 namespace App\Models\Core;
 
+use App\Models\User;
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -108,6 +109,14 @@ class CustomerProgress extends Model
     public function scan(): BelongsTo
     {
         return $this->belongsTo(CustomerScans::class, 'customer_scan_id', 'id');
+    }
+
+    /**
+     * Get the user that recorded this progress record.
+     */
+    public function recordedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recorded_by', 'id');
     }
 
 }

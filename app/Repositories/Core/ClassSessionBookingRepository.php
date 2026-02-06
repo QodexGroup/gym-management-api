@@ -6,6 +6,7 @@ use App\Constant\ClassSessionBookingStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\ClassSessionBooking;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Log;
 
 class ClassSessionBookingRepository
 {
@@ -78,6 +79,7 @@ class ClassSessionBookingRepository
         // Merge updated_by with the data array
         $updateData = array_merge($genericData->data, [
             'updated_by' => $genericData->userData->id,
+            'class_schedule_session_id' => $genericData->getData()->sessionId,
         ]);
 
         $booking->update($updateData);

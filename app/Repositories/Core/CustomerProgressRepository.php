@@ -42,7 +42,7 @@ class CustomerProgressRepository
     {
         $data = $genericData->data;
         $data['account_id'] = $genericData->userData->account_id;
-        $data['uploaded_by'] = $genericData->userData->id;
+        $data['recorded_by'] = $genericData->userData->id;
         return CustomerProgress::create($data);
     }
 
@@ -55,7 +55,7 @@ class CustomerProgressRepository
     public function updateProgress(int $id, GenericData $genericData): CustomerProgress
     {
         $customerProgress = $this->getProgressById($id, $genericData->userData->account_id);
-        $customerProgress->uploaded_by = $genericData->userData->id;
+        $customerProgress->recorded_by = $genericData->userData->id;
         $customerProgress->update($genericData->data);
         return $customerProgress->fresh(['files']);
     }
