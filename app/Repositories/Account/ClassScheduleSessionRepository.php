@@ -5,6 +5,7 @@ namespace App\Repositories\Account;
 use App\Constant\ClassSessionBookingStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\ClassScheduleSession;
+use App\Models\Core\PtBooking;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -18,32 +19,46 @@ class ClassScheduleSessionRepository
      */
     public function getAllSessions(GenericData $genericData): LengthAwarePaginator|Collection
     {
-        $query = ClassScheduleSession::where('account_id', $genericData->userData->account_id);
+        $accountId = $genericData->userData->account_id;
+        $startDate = $genericData->filters['startDate'] ?? null;
+        $endDate = $genericData->filters['endDate'] ?? null;
+        $ptBookingTable = (new PtBooking())->getTable();
 
-        $query->whereDate('start_time', '>=', $genericData->filters['startDate']);
-            unset($genericData->filters['startDate']);
+        // Remove date filters to avoid conflicts with applyFilters
+        $filters = $genericData->filters;
+        unset($filters['startDate'], $filters['endDate']);
+        $genericData->filters = $filters;
 
-        $query->whereDate('start_time', '<=', $genericData->filters['endDate']);
-            unset($genericData->filters['endDate']);
+        $query = ClassScheduleSession::query()
+            ->where('account_id', $accountId)
+            ->with('classSchedule')
+            ->withCount([
+                'bookings as attendance_count' => function ($q) {
+                    $q->where('status', '!=', ClassSessionBookingStatusConstant::STATUS_CANCELLED);
+                },
+                'ptBookings as pt_attendance_count' => function ($q) use ($accountId, $ptBookingTable) {
+                    $q->where("{$ptBookingTable}.account_id", $accountId)
+                      ->where("{$ptBookingTable}.status", '!=', ClassSessionBookingStatusConstant::STATUS_CANCELLED);
+                }
+            ]);
 
-        $query->withCount([
-            'bookings as attendance_count' => function ($q) {
-                $q->where('status', '!=', ClassSessionBookingStatusConstant::STATUS_CANCELLED);
-            }
-        ]);
+        if ($startDate) {
+            $query->whereDate('start_time', '>=', $startDate);
+        }
 
-        // Apply relations, filters, and sorts using GenericData methods
+        if ($endDate) {
+            $query->whereDate('start_time', '<=', $endDate);
+        }
+
         $query = $genericData->applyRelations($query);
         $query = $genericData->applyFilters($query);
         $query = $genericData->applySorts($query);
 
-        // Check if pagination is requested
-        if ($genericData->pageSize > 0) {
-            return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
-        }
-
-        return $query->get();
+        return $genericData->pageSize > 0
+            ? $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page)
+            : $query->get();
     }
+
 
     /**
      * Get sessions by class schedule ID
@@ -101,6 +116,50 @@ class ClassScheduleSessionRepository
 
         $session->update($data);
         return $session->fresh();
+    }
+
+    /**
+     * Update attendance count on a session
+     *
+     * @param int $id
+     * @param int $accountId
+     * @return bool
+     */
+    public function updateAttendanceByClassScheduleId(int $classScheduleId, int $accountId): bool
+    {
+        return ClassScheduleSession::where('class_schedule_id', $classScheduleId)
+            ->where('account_id', $accountId)
+            ->increment('attendance_count');
+    }
+
+    /**
+     * Update attendance count on a session
+     *
+     * @param int $classScheduleId
+     * @param int $accountId
+     * @return bool
+     */
+    public function updateAttendanceCountIncrementById(int $id, int $accountId): bool
+    {
+        return ClassScheduleSession::where('id', $id)
+            ->where('account_id', $accountId)
+            ->increment('attendance_count');
+    }
+
+        /**
+     * Update attendance count on a session
+     *
+     * @param int $sessionId
+     * @param int $accountId
+     * @return bool
+     */
+    public function updateAttendanceCountSession(int $sessionId, int $accountId, $totalAttendanceCount): bool
+    {
+        $classScheduleSession = ClassScheduleSession::where('id', $sessionId)
+            ->where('account_id', $accountId)
+            ->firstOrFail();
+        $classScheduleSession->attendance_count += $totalAttendanceCount;
+        return $classScheduleSession->save();
     }
 
     /**

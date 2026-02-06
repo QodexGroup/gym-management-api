@@ -18,6 +18,8 @@ use App\Http\Controllers\Core\CustomerPaymentController;
 use App\Http\Controllers\Core\ClassSessionBookingController;
 use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Common\NotificationController;
+use App\Http\Controllers\Core\CustomerPtPackageController;
+use App\Http\Controllers\Core\PtBookingController;
 use App\Http\Middleware\FirebaseAuthMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -86,6 +88,17 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::put('/session/{sessionId}/mark-all-attended', [ClassSessionBookingController::class, 'markAllAsAttended']);
     });
 
+    Route::prefix('pt-bookings')->group(function () {
+        Route::get('/', [PtBookingController::class, 'getPtBookings']);
+        Route::get('/coach/{coachId}', [PtBookingController::class, 'getCoachPtBookings']);
+        Route::get('/session/{sessionId}', [PtBookingController::class, 'getPtBookingsBySession']);
+        Route::post('/', [PtBookingController::class, 'create']);
+        Route::put('/{id}', [PtBookingController::class, 'update']);
+        Route::put('/{id}/cancel', [PtBookingController::class, 'markAsCancelled']);
+        Route::put('/{id}/attend', [PtBookingController::class, 'markAsAttended']);
+        Route::put('/{id}/no-show', [PtBookingController::class, 'markAsNoShow']);
+    });
+
     Route::prefix('expenses')->group(function () {
         Route::get('/', [ExpenseController::class, 'getAllExpenses']);
         Route::get('/{id}', [ExpenseController::class, 'getExpenseById']);
@@ -110,7 +123,10 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::put('/{id}', [CustomerController::class, 'updateCustomer']);
         Route::delete('/{id}', [CustomerController::class, 'delete']);
         Route::post('/{id}/membership', [CustomerController::class, 'createOrUpdateMembership']);
-        Route::post('/{id}/pt-package', [CustomerController::class, 'createPtPackage']);
+        Route::post('/{id}/pt-packages', [CustomerController::class, 'createPtPackage']);
+        Route::get('/{id}/pt-packages', [CustomerPtPackageController::class, 'getPtPackages']);
+
+        Route::delete('/pt-packages/{ptPackageId}', [CustomerPtPackageController::class, 'removePtPackage']);
 
         // Customer Progress Routes
         Route::prefix('progress')->group(function () {

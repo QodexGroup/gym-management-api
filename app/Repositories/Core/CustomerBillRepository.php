@@ -46,7 +46,7 @@ class CustomerBillRepository
         return CustomerBill::create([
             'account_id' => $accountId,
             'customer_id' => $customerId,
-            'membership_plan_id' => $membershipPlanId,
+            'billable_id' => $membershipPlanId,
             'bill_type' => CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION,
             'bill_status' => CustomerBillConstant::BILL_STATUS_ACTIVE,
             'bill_date' => $billDate,
@@ -70,6 +70,9 @@ class CustomerBillRepository
         $genericData->getData()->billType = CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION;
         $genericData->getData()->billStatus = CustomerBillConstant::BILL_STATUS_ACTIVE;
         $genericData->getData()->billDate = Carbon::now();
+        $genericData->getData()->paidAmount = 0;
+        $genericData->getData()->discountPercentage = 0;
+        $genericData->getData()->billableId = $genericData->getData()->ptPackageId;
         $genericData->syncDataArray();
 
         return CustomerBill::create($genericData->data)->fresh();
@@ -88,7 +91,7 @@ class CustomerBillRepository
     {
         return CustomerBill::where('customer_id', $customerId)
             ->where('account_id', $accountId)
-            ->where('membership_plan_id', $membershipPlanId)
+            ->where('billable_id', $membershipPlanId)
             ->where('bill_type', CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION)
             ->whereDate('bill_date', $expectedBillDate->toDateString())
             ->exists();
@@ -107,7 +110,7 @@ class CustomerBillRepository
     {
         return CustomerBill::where('customer_id', $customerId)
             ->where('account_id', $accountId)
-            ->where('membership_plan_id', $membershipPlanId)
+            ->where('billable_id', $membershipPlanId)
             ->where('bill_type', CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION)
             ->whereDate('bill_date', $expectedBillDate->toDateString())
             ->first();
@@ -217,7 +220,7 @@ class CustomerBillRepository
         return CustomerBill::where('customer_id', $customerId)
             ->where('account_id', $accountId)
             ->where('bill_type', CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION)
-            ->whereIn('membership_plan_id', $expiredMembershipPlanIds)
+            ->whereIn('billable_id', $expiredMembershipPlanIds)
             ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
             ->whereRaw('net_amount > paid_amount')
             ->get();
@@ -252,7 +255,7 @@ class CustomerBillRepository
     {
         return CustomerBill::where('customer_id', $customerId)
             ->where('account_id', $accountId)
-            ->where('membership_plan_id', $membershipPlanId)
+            ->where('billable_id', $membershipPlanId)
             ->where('bill_type', CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION)
             ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
             ->whereRaw('net_amount > paid_amount')

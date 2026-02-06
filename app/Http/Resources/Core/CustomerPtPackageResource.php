@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Core;
 
+use App\Http\Resources\Account\CoachResource;
 use App\Http\Resources\Account\PtPackageResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -23,6 +24,9 @@ class CustomerPtPackageResource extends JsonResource
             'numberOfSessionsRemaining' => $this->number_of_sessions_remaining,
             'ptPackage' => $this->whenLoaded('ptPackage', function () {
                 return new PtPackageResource($this->ptPackage);
+            }),
+            'coach' => $this->whenLoaded('coach', function () {
+                return new CoachResource($this->coach);
             }),
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
