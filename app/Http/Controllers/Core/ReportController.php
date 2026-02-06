@@ -5,7 +5,13 @@ namespace App\Http\Controllers\Core;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\CheckExportSizeRequest;
+use App\Http\Requests\Core\CollectionReportRequest;
+use App\Http\Requests\Core\ExpenseReportRequest;
+use App\Http\Requests\Core\SummaryReportRequest;
 use App\Mail\ReportEmailMail;
+use App\Modules\CollectionReport\CollectionReportExportService;
+use App\Modules\ExpenseReport\ExpenseReportExportService;
+use App\Modules\SummaryReport\SummaryReportExportService;
 use App\Services\Core\Export\ExportExcel;
 use App\Services\Core\Export\ExportPdf;
 use App\Services\Core\Export\ReportExportDataBuilder;
@@ -21,6 +27,9 @@ class ReportController extends Controller
         private ReportExportDataBuilder $exportDataBuilder,
         private ExportPdf $exportPdf,
         private ExportExcel $exportExcel,
+        private CollectionReportExportService $collectionReportExportService,
+        private ExpenseReportExportService $expenseReportExportService,
+        private SummaryReportExportService $summaryReportExportService,
     ) {
     }
 
@@ -94,5 +103,53 @@ class ReportController extends Controller
             'Report has been sent to your email.',
             202
         );
+    }
+
+    /**
+     * Get collection records or export if exportType is provided.
+     *
+     * @param CollectionReportRequest $request
+     * @return mixed
+     */
+    public function getCollectionRecords(CollectionReportRequest $request)
+    {
+        $collectionDto = $request->toCollectionReportDto();
+        if (empty($collectionDto->getExportType())) {
+            // Return JSON data (you can add a service method for this if needed)
+            return ApiResponse::success(['message' => 'Collection records endpoint - add data retrieval logic here']);
+        }
+        return $this->collectionReportExportService->export($collectionDto);
+    }
+
+    /**
+     * Get expense records or export if exportType is provided.
+     *
+     * @param ExpenseReportRequest $request
+     * @return mixed
+     */
+    public function getExpenseRecords(ExpenseReportRequest $request)
+    {
+        $expenseDto = $request->toExpenseReportDto();
+        if (empty($expenseDto->getExportType())) {
+            // Return JSON data (you can add a service method for this if needed)
+            return ApiResponse::success(['message' => 'Expense records endpoint - add data retrieval logic here']);
+        }
+        return $this->expenseReportExportService->export($expenseDto);
+    }
+
+    /**
+     * Get summary records or export if exportType is provided.
+     *
+     * @param SummaryReportRequest $request
+     * @return mixed
+     */
+    public function getSummaryRecords(SummaryReportRequest $request)
+    {
+        $summaryDto = $request->toSummaryReportDto();
+        if (empty($summaryDto->getExportType())) {
+            // Return JSON data (you can add a service method for this if needed)
+            return ApiResponse::success(['message' => 'Summary records endpoint - add data retrieval logic here']);
+        }
+        return $this->summaryReportExportService->export($summaryDto);
     }
 }

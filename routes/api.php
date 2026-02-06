@@ -38,6 +38,9 @@ Route::middleware([FirebaseAuthMiddleware::class])->prefix('dashboard')->group(f
 Route::middleware([FirebaseAuthMiddleware::class])->prefix('reports')->group(function () {
     Route::post('/check-export', [ReportController::class, 'checkExportSize']);
     Route::post('/email', [ReportController::class, 'emailReport']);
+    Route::post('/collection', [ReportController::class, 'getCollectionRecords']);
+    Route::post('/expense', [ReportController::class, 'getExpenseRecords']);
+    Route::post('/summary', [ReportController::class, 'getSummaryRecords']);
 });
 
 Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
