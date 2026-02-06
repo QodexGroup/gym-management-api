@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Constant\NotificationConstant;
 use App\Models\Core\CustomerMembership;
 use App\Repositories\Core\CustomerBillRepository;
+use App\Repositories\Core\CustomerRepository;
 use App\Services\Core\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -28,14 +29,17 @@ class CheckMembershipExpiration extends Command
 
     protected $notificationService;
     protected $customerBillRepository;
+    protected $customerRepository;
+
     /**
      * Create a new command instance.
      */
-    public function __construct(NotificationService $notificationService, CustomerBillRepository $customerBillRepository)
+    public function __construct(NotificationService $notificationService, CustomerBillRepository $customerBillRepository, CustomerRepository $customerRepository)
     {
         parent::__construct();
         $this->notificationService = $notificationService;
         $this->customerBillRepository = $customerBillRepository;
+        $this->customerRepository = $customerRepository;
     }
 
     /**
@@ -88,6 +92,10 @@ class CheckMembershipExpiration extends Command
                         $membership->membershipPlan->price,
                         $nextPeriodStartDate
                     );
+
+                    // Update customer balance after creating bill
+                    $customer = $this->customerRepository->findCustomerById($membership->customer_id, $membership->account_id);
+                    $customer->recalculateBalance();
 
                     if ($this->output) {
                         $this->line("✓ Created automated bill for {$membership->customer->first_name} {$membership->customer->last_name} (Next period: {$nextPeriodStartDate->format('M d, Y')} - {$nextPeriodEndDate->format('M d, Y')})");
