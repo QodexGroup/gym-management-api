@@ -4,6 +4,7 @@ namespace App\Services\Core;
 
 use App\Constant\ClassSessionBookingStatusConstant;
 use App\Helpers\GenericData;
+use App\Models\Core\ClassSessionBooking;
 use App\Repositories\Account\ClassScheduleSessionRepository;
 use App\Repositories\Core\ClassSessionBookingRepository;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +55,61 @@ class ClassSessionBookingService
 
             // Create booking
             $this->bookingRepository->createBooking($genericData);
+        });
+    }
+
+    /**
+     * Update attendance status for a specific booking
+     *
+     * @param int $bookingId
+     * @param GenericData $genericData
+     * @return ClassSessionBooking
+     * @throws \Exception
+     */
+    public function updateAttendanceStatus(int $bookingId, GenericData $genericData): ClassSessionBooking
+    {
+        return DB::transaction(function () use ($bookingId, $genericData) {
+            // Get booking to find session ID
+            $booking = $this->bookingRepository->findBookingById($bookingId, $genericData);
+
+            if (!$booking) {
+                throw new \Exception('Booking not found');
+            }
+
+            // Update booking status
+            $updated = $this->bookingRepository->updateBookingStatus($bookingId, $genericData);
+
+            if (!$updated) {
+                throw new \Exception('Failed to update booking status');
+            }
+            if($genericData->getData()->status == ClassSessionBookingStatusConstant::STATUS_ATTENDED) {
+
+                $sessionId = $booking->class_schedule_session_id;
+                $this->sessionRepository->updateAttendanceCountIncrementById($sessionId, $genericData->userData->account_id);
+            }
+
+            $booking->refresh();
+            return $booking;
+        });
+    }
+
+    /**
+     * Mark all bookings for a session as attended
+     *
+     * @param int $sessionId
+     * @param GenericData $genericData
+     * @return int Number of updated records
+     */
+    public function markAllAsAttended(int $sessionId, GenericData $genericData): int
+    {
+        return DB::transaction(function () use ($sessionId, $genericData) {
+            // Update all bookings status
+            $updatedCount = $this->bookingRepository->updateAllBookingsStatus($sessionId, $genericData);
+
+            // Sync attendance_count on related class schedule session
+            $this->sessionRepository->updateAttendanceCountSession($sessionId, $genericData->userData->account_id, $updatedCount);
+
+            return $updatedCount;
         });
     }
 

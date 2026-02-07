@@ -67,12 +67,9 @@ class ClassSessionBookingController
     {
         try {
             $genericData = $request->getGenericDataWithValidated();
-            $updated = $this->bookingRepository->updateBookingStatus($bookingId, $genericData);
-            if (!$updated) {
-                return ApiResponse::error('Booking not found or update failed', 404);
-            }
+            $booking = $this->bookingService->updateAttendanceStatus($bookingId, $genericData);
 
-            return ApiResponse::success(null, 'Attendance status updated successfully');
+            return ApiResponse::success(new ClassSessionBookingResource($booking), 'Attendance status updated successfully');
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 400);
         }
@@ -135,8 +132,8 @@ class ClassSessionBookingController
     {
         try {
             $genericData = $request->getGenericDataWithValidated();
-            $this->bookingRepository->updateAllBookingsStatus($sessionId, $genericData);
-            return ApiResponse::success(null, 'All bookings marked as attended');
+            $updatedCount = $this->bookingService->markAllAsAttended($sessionId, $genericData);
+            return ApiResponse::success($updatedCount, 'All bookings marked as attended');
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 400);
         }

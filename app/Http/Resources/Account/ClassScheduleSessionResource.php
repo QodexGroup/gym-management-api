@@ -24,6 +24,7 @@ class ClassScheduleSessionResource extends JsonResource
             'startTime' => $this->start_time,
             'endTime' => $this->end_time,
             'attendanceCount' => $this->attendance_count,
+            'ptAttendanceCount' => $this->pt_attendance_count ?? 0,
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
         ];

@@ -14,6 +14,7 @@ use App\Repositories\Account\MembershipPlanRepository;
 use App\Repositories\Account\PtPackageRepository;
 use App\Repositories\Core\CustomerRepository;
 use App\Repositories\Core\CustomerBillRepository;
+use App\Repositories\Core\CustomerPtPackageRepository;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -26,6 +27,7 @@ class CustomerService
         private CustomerBillRepository $customerBillRepository,
         private NotificationService $notificationService,
         private PtPackageRepository $ptPackageRepository,
+        private CustomerPtPackageRepository $customerPtPackageRepository,
     ) {
     }
 
@@ -198,11 +200,17 @@ class CustomerService
                 $genericData->getData()->netAmount = $ptPackage->price;
                 $genericData->getData()->numberOfSessionsRemaining = $ptPackage->number_of_sessions;
 
-                $customerPtPackage = $this->repository->createPtPackage($customerId, $genericData);
+                $customerPtPackage = $this->customerPtPackageRepository->createPtPackage($customerId, $genericData);
                 $customerPtPackage->load('ptPackage');
 
                 // Create automated bill for the new PT package
-                $this->customerBillRepository->createAutomatedBillForPtPackage($genericData);
+                $bill = $this->customerBillRepository->createAutomatedBillForPtPackage($genericData);
+                $updateData = [
+                    'bill_id' => $bill->id,
+                ];
+
+                $this->customerPtPackageRepository->updateCustomerPtPackage($customerPtPackage->id, $updateData);
+
 
                 // Recalculate customer balance
                 $customer->refresh();
@@ -211,7 +219,7 @@ class CustomerService
                 return $customerPtPackage;
             });
         } catch (\Throwable $th) {
-            Log::error('Error creating/updating customer membership', [
+            Log::error('Error creating/updating customer PT package', [
                 'error' => $th->getMessage(),
                 'trace' => $th->getTraceAsString(),
             ]);

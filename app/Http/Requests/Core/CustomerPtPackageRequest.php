@@ -31,6 +31,10 @@ class CustomerPtPackageRequest extends GenericRequest
                 'nullable',
                 'date',
             ],
+            'coachId' => [
+                'nullable',
+                'integer',
+            ],
         ]);
     }
 }

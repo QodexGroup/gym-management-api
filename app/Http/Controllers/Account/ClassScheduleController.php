@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Account;
 
+use App\Constant\ClassTypeScheduleConstant;
 use App\Helpers\ApiResponse;
 use App\Http\Requests\Account\ClassScheduleRequest;
 use App\Http\Requests\GenericRequest;
@@ -64,6 +65,7 @@ class ClassScheduleController
     public function store(ClassScheduleRequest $request): JsonResponse
     {
         $genericData = $request->getGenericDataWithValidated();
+        $genericData->getData()->classType = ClassTypeScheduleConstant::GROUP_CLASS;
         $schedule = $this->classScheduleService->createClassSchedule($genericData);
         return ApiResponse::success(new ClassScheduleResource($schedule), 'Class schedule created successfully', 201);
     }

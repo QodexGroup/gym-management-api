@@ -2,30 +2,34 @@
 
 namespace App\Models\Core;
 
+use App\Models\Account\ClassSchedule;
 use App\Models\Account\PtPackage;
 use App\Models\User;
 use App\Traits\HasCamelCaseAttributes;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class CustomerPtPackage extends Model
+class PtBooking extends Model
 {
-    use HasFactory, HasCamelCaseAttributes, SoftDeletes;
+    use HasFactory, HasCamelCaseAttributes;
 
-    protected $table = 'tb_customer_pt_package';
+    protected $table = 'tb_customer_pt_bookings';
+
 
     protected $fillable = [
         'account_id',
         'customer_id',
         'pt_package_id',
         'coach_id',
-        'start_date',
+        'class_schedule_id',
+        'booking_date',
+        'booking_time',
+        'duration',
+        'booking_notes',
         'status',
-        'number_of_sessions_remaining',
         'created_by',
-        'updated_by',
+        'updated_by'
     ];
 
     /**
@@ -33,7 +37,7 @@ class CustomerPtPackage extends Model
      */
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customer::class, 'customer_id');
+        return $this->belongsTo(Customer::class);
     }
 
     /**
@@ -41,13 +45,22 @@ class CustomerPtPackage extends Model
      */
     public function ptPackage(): BelongsTo
     {
-        return $this->belongsTo(PtPackage::class, 'pt_package_id');
+        return $this->belongsTo(PtPackage::class);
     }
+
     /**
      * @return BelongsTo
      */
     public function coach(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'coach_id', 'id');
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return BelongsTo
+     */
+    public function classSchedule(): BelongsTo
+    {
+        return $this->belongsTo(ClassSchedule::class, 'class_schedule_id');
     }
 }

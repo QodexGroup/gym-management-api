@@ -3,9 +3,11 @@
 namespace App\Models\Account;
 
 use App\Models\User;
+use App\Models\Core\PtBooking;
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ClassSchedule extends Model
@@ -70,6 +72,14 @@ class ClassSchedule extends Model
     public function sessions()
     {
         return $this->hasMany(ClassScheduleSession::class, 'class_schedule_id');
+    }
+
+    /**
+     * Get PT bookings for this class schedule.
+     */
+    public function ptBookings(): HasMany
+    {
+        return $this->hasMany(PtBooking::class, 'class_schedule_id');
     }
 
     /**
