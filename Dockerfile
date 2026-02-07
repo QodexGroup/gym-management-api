@@ -78,6 +78,10 @@ RUN chown -R 82:82 /app/storage /app/bootstrap/cache \
 COPY .docker/startup.sh /usr/local/bin/startup.sh
 RUN chmod +x /usr/local/bin/startup.sh
 
+# Copy worker startup script (for Cloud Run worker service)
+COPY start-worker.sh /app/start-worker.sh
+RUN chmod +x /app/start-worker.sh
+
 # === CRITICAL FIX: Switch user before CMD ===
 # This ensures the startup script and all running services run as the non-root user
 # that now owns the storage directory.

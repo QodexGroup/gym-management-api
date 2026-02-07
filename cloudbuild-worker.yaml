@@ -47,15 +47,13 @@ steps:
       - '--max-instances'
       - '1'
       - '--set-env-vars'
-      - 'DB_CONNECTION=mysql,DB_HOST=localhost,DB_SOCKET=/cloudsql/gymhubtech-67e6f:asia-southeast1:gymhubtech-db'
+      - 'DB_CONNECTION=mysql,DB_HOST=localhost,DB_SOCKET=/cloudsql/gymhubtech-67e6f:asia-southeast1:gymhubtech-db,QUEUE_CONNECTION=database'
       - '--set-secrets'
       - 'APP_KEY=app-key:latest,DB_DATABASE=db-database:latest,DB_USERNAME=db-username:latest,DB_PASSWORD=db-password:latest'
       - '--add-cloudsql-instances'
       - 'gymhubtech-67e6f:asia-southeast1:gymhubtech-db'
       - '--command'
-      - 'sh'
-      - '--args'
-      - '-c,cd /app && php artisan queue:work --sleep=3 --tries=3 --max-time=3600 & php artisan schedule:work & php -S 0.0.0.0:8080 -t public'
+      - '/app/start-worker.sh'
 
 images:
   - 'gcr.io/$PROJECT_ID/gym-management-api-worker:$SHORT_SHA'
