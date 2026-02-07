@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Exports\Core;
+namespace App\Exports\ExpenseReport;
 
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 
-class SummaryCollectionReportSheet implements WithHeadings, FromArray, WithTitle, ShouldAutoSize
+class SummaryExpenseReportSheet implements WithHeadings, FromArray, WithTitle, ShouldAutoSize
 {
     protected $summaryHeaderData;
 
@@ -23,7 +23,7 @@ class SummaryCollectionReportSheet implements WithHeadings, FromArray, WithTitle
     {
         $data = [];
         $data[] = [$this->summaryHeaderData['businessName'] ?? ''];
-        $data[] = [strtoupper($this->summaryHeaderData['title'] ?? 'Collection Report')];
+        $data[] = [strtoupper($this->summaryHeaderData['title'] ?? 'Expense Report')];
         if (isset($this->summaryHeaderData['periodLabel'])) {
             $data[] = ['Period: ' . $this->summaryHeaderData['periodLabel']];
         }

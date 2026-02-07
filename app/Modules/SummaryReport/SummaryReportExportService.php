@@ -2,7 +2,8 @@
 
 namespace App\Modules\SummaryReport;
 
-use App\Dtos\Core\SummaryReportDto;
+use App\Constants\ExportTypeConstant;
+use App\Helpers\GenericData;
 use App\Repositories\Common\ExpenseRepository;
 use App\Repositories\Core\CustomerBillRepository;
 
@@ -24,26 +25,29 @@ class SummaryReportExportService
     }
 
     /**
-     * @param SummaryReportDto $summaryReportDto
+     * @param GenericData $genericData
      *
      * @return mixed|null
      */
-    public function export(SummaryReportDto $summaryReportDto)
+    public function export(GenericData $genericData)
     {
-        $exporter = SummaryReportExportFactory::make($summaryReportDto->getExportType());
+        $data = $genericData->getData();
+        $exportType = ExportTypeConstant::normalizeFormat($data->exportType ?? ExportTypeConstant::PDF);
+
+        $exporter = SummaryReportExportFactory::make($exportType);
         if (!$exporter) {
             return null;
         }
         $billData = $this->customerBillRepository->getForExport(
-            $summaryReportDto->getAccountId(),
-            $summaryReportDto->getDateFrom(),
-            $summaryReportDto->getDateTo()
+            $genericData->userData->account_id,
+            $data->dateFrom,
+            $data->dateTo
         );
         $expenseData = $this->expenseRepository->getForExport(
-            $summaryReportDto->getAccountId(),
-            $summaryReportDto->getDateFrom(),
-            $summaryReportDto->getDateTo()
+            $genericData->userData->account_id,
+            $data->dateFrom,
+            $data->dateTo
         );
-        return $exporter->export($summaryReportDto, $billData, $expenseData);
+        return $exporter->export($genericData, $billData, $expenseData);
     }
 }

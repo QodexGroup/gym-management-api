@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Exports\Core;
+namespace App\Exports\ExpenseReport;
 
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 
-class SummaryDataSheet implements FromArray, WithHeadings, WithTitle, ShouldAutoSize
+class ExpenseDataSheet implements FromArray, WithHeadings, WithTitle, ShouldAutoSize
 {
     protected $data;
 
@@ -23,8 +23,11 @@ class SummaryDataSheet implements FromArray, WithHeadings, WithTitle, ShouldAuto
     {
         return array_map(function ($row) {
             return [
+                $row['Date'] ?? '',
                 $row['Category'] ?? '',
-                $row['Amount'] ?? '',
+                $row['Description'] ?? '',
+                $row['Amount'] ?? 0,
+                $row['Status'] ?? '',
             ];
         }, $this->data);
     }
@@ -35,8 +38,11 @@ class SummaryDataSheet implements FromArray, WithHeadings, WithTitle, ShouldAuto
     public function headings(): array
     {
         return [
+            'Date',
             'Category',
-            'Amount'
+            'Description',
+            'Amount',
+            'Status'
         ];
     }
 
@@ -45,6 +51,6 @@ class SummaryDataSheet implements FromArray, WithHeadings, WithTitle, ShouldAuto
      */
     public function title(): string
     {
-        return 'Summary Report';
+        return 'Expense Report';
     }
 }

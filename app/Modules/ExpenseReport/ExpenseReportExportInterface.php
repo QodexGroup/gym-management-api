@@ -2,16 +2,16 @@
 
 namespace App\Modules\ExpenseReport;
 
-use App\Dtos\Core\ExpenseReportDto;
+use App\Helpers\GenericData;
 use Illuminate\Database\Eloquent\Collection;
 
 interface ExpenseReportExportInterface
 {
     /**
-     * @param ExpenseReportDto $expenseReportDto
+     * @param GenericData $genericData
      * @param Collection $expenseData
      *
      * @return mixed
      */
-    public function export(ExpenseReportDto $expenseReportDto, Collection $expenseData);
+    public function export(GenericData $genericData, Collection $expenseData);
 }

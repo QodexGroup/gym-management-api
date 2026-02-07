@@ -3,9 +3,10 @@
 namespace App\Http\Requests\Core;
 
 use App\Constants\ExportTypeConstant;
+use App\Constants\ReportTypeConstant;
 use App\Http\Requests\GenericRequest;
 
-class SummaryReportRequest extends GenericRequest
+class EmailReportRequest extends GenericRequest
 {
     /**
      * Get the validation rules that apply to the request.
@@ -15,10 +16,11 @@ class SummaryReportRequest extends GenericRequest
     public function rules(): array
     {
         return array_merge(parent::rules(), [
+            'reportType' => ['required', 'string', 'in:' . ReportTypeConstant::getValidationRule()],
+            'format' => ['nullable', 'string', 'in:' . ExportTypeConstant::PDF . ',' . ExportTypeConstant::REQUEST_FORMAT_EXCEL],
+            'dateRange' => ['nullable', 'string'],
             'dateFrom' => ['required', 'string', 'date'],
             'dateTo' => ['required', 'string', 'date', 'after_or_equal:dateFrom'],
-            'exportType' => ['nullable', 'string', 'in:' . ExportTypeConstant::PDF . ',' . ExportTypeConstant::EXCEL],
-            'periodLabel' => ['nullable', 'string'],
         ]);
     }
 

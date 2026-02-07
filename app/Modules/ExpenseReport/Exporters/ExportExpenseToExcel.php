@@ -2,8 +2,9 @@
 
 namespace App\Modules\ExpenseReport\Exporters;
 
-use App\Dtos\Core\ExpenseReportDto;
-use App\Exports\Core\ExpenseReportSheet;
+use App\Constants\DateFormatConstant;
+use App\Exports\ExpenseReport\ExpenseReportSheet;
+use App\Helpers\GenericData;
 use App\Modules\ExpenseReport\ExpenseReportExportInterface;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -18,11 +19,12 @@ class ExportExpenseToExcel implements ExpenseReportExportInterface
         $this->exportExpenseService = $exportExpenseService;
     }
 
-    public function export(ExpenseReportDto $expenseReportDto, Collection $expenseData)
+    public function export(GenericData $genericData, Collection $expenseData)
     {
+        $data = $genericData->getData();
         $records = $this->exportExpenseService->transformData($expenseData);
         $summaryHeaderData = $this->exportExpenseService->getSummaryHeaderData($expenseData);
-        $periodLabel = $expenseReportDto->getPeriodLabel() ?? "{$expenseReportDto->getDateFrom()} – {$expenseReportDto->getDateTo()}";
+        $periodLabel = $data->periodLabel ?? $data->dateFrom . DateFormatConstant::DATE_RANGE_SEPARATOR . $data->dateTo;
         $generatedAt = Carbon::now()->toDateTimeString();
 
         $summaryHeaderData['periodLabel'] = $periodLabel;

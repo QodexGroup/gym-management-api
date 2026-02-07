@@ -2,17 +2,17 @@
 
 namespace App\Modules\SummaryReport;
 
-use App\Dtos\Core\SummaryReportDto;
+use App\Helpers\GenericData;
 use Illuminate\Database\Eloquent\Collection;
 
 interface SummaryReportExportInterface
 {
     /**
-     * @param SummaryReportDto $summaryReportDto
+     * @param GenericData $genericData
      * @param Collection $billData
      * @param Collection $expenseData
      *
      * @return mixed
      */
-    public function export(SummaryReportDto $summaryReportDto, Collection $billData, Collection $expenseData);
+    public function export(GenericData $genericData, Collection $billData, Collection $expenseData);
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Core;
 
+use App\Constants\ReportTypeConstant;
 use App\Http\Requests\GenericRequest;
 
 class CheckExportSizeRequest extends GenericRequest
@@ -14,7 +15,7 @@ class CheckExportSizeRequest extends GenericRequest
     public function rules(): array
     {
         return array_merge(parent::rules(), [
-            'reportType' => ['required', 'string', 'in:collection,expense,summary'],
+            'reportType' => ['required', 'string', 'in:' . ReportTypeConstant::getValidationRule()],
             'dateFrom' => ['required', 'string', 'date'],
             'dateTo' => ['required', 'string', 'date', 'after_or_equal:dateFrom'],
         ]);

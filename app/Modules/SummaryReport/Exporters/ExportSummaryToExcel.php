@@ -2,8 +2,9 @@
 
 namespace App\Modules\SummaryReport\Exporters;
 
-use App\Dtos\Core\SummaryReportDto;
-use App\Exports\Core\SummaryReportSheet;
+use App\Constants\DateFormatConstant;
+use App\Exports\SummaryReport\SummaryReportSheet;
+use App\Helpers\GenericData;
 use App\Modules\SummaryReport\SummaryReportExportInterface;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -18,11 +19,12 @@ class ExportSummaryToExcel implements SummaryReportExportInterface
         $this->exportSummaryService = $exportSummaryService;
     }
 
-    public function export(SummaryReportDto $summaryReportDto, Collection $billData, Collection $expenseData)
+    public function export(GenericData $genericData, Collection $billData, Collection $expenseData)
     {
+        $data = $genericData->getData();
         $records = $this->exportSummaryService->transformData($expenseData);
         $summaryHeaderData = $this->exportSummaryService->getSummaryHeaderData($billData, $expenseData);
-        $periodLabel = $summaryReportDto->getPeriodLabel() ?? "{$summaryReportDto->getDateFrom()} – {$summaryReportDto->getDateTo()}";
+        $periodLabel = $data->periodLabel ?? $data->dateFrom . DateFormatConstant::DATE_RANGE_SEPARATOR . $data->dateTo;
         $generatedAt = Carbon::now()->toDateTimeString();
 
         $summaryHeaderData['periodLabel'] = $periodLabel;

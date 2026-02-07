@@ -2,8 +2,9 @@
 
 namespace App\Modules\CollectionReport\Exporters;
 
-use App\Dtos\Core\CollectionReportDto;
-use App\Exports\Core\CollectionReportSheet;
+use App\Constants\DateFormatConstant;
+use App\Exports\CollectionReport\CollectionReportSheet;
+use App\Helpers\GenericData;
 use App\Modules\CollectionReport\CollectionReportExportInterface;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -18,11 +19,12 @@ class ExportCollectionToExcel implements CollectionReportExportInterface
         $this->exportCollectionService = $exportCollectionService;
     }
 
-    public function export(CollectionReportDto $collectionReportDto, Collection $collectionData)
+    public function export(GenericData $genericData, Collection $collectionData)
     {
+        $data = $genericData->getData();
         $records = $this->exportCollectionService->transformData($collectionData);
         $summaryHeaderData = $this->exportCollectionService->getSummaryHeaderData($collectionData);
-        $periodLabel = $collectionReportDto->getPeriodLabel() ?? "{$collectionReportDto->getDateFrom()} – {$collectionReportDto->getDateTo()}";
+        $periodLabel = $data->periodLabel ?? $data->dateFrom . DateFormatConstant::DATE_RANGE_SEPARATOR . $data->dateTo;
         $generatedAt = Carbon::now()->toDateTimeString();
 
         $summaryHeaderData['periodLabel'] = $periodLabel;

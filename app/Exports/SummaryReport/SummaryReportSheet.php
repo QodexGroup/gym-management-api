@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Exports\Core;
+namespace App\Exports\SummaryReport;
 
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
-class ExpenseReportSheet implements WithMultipleSheets
+class SummaryReportSheet implements WithMultipleSheets
 {
     use Exportable;
 
@@ -25,8 +25,8 @@ class ExpenseReportSheet implements WithMultipleSheets
     {
         $sheets = [];
 
-        $sheets[] = new SummaryExpenseReportSheet($this->summaryHeaderData);
-        $sheets[] = new ExpenseDataSheet($this->data);
+        $sheets[] = new SummarySummaryReportSheet($this->summaryHeaderData);
+        $sheets[] = new SummaryDataSheet($this->data);
 
         return $sheets;
     }

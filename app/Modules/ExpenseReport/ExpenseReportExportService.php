@@ -2,7 +2,8 @@
 
 namespace App\Modules\ExpenseReport;
 
-use App\Dtos\Core\ExpenseReportDto;
+use App\Constants\ExportTypeConstant;
+use App\Helpers\GenericData;
 use App\Repositories\Common\ExpenseRepository;
 
 class ExpenseReportExportService
@@ -18,21 +19,24 @@ class ExpenseReportExportService
     }
 
     /**
-     * @param ExpenseReportDto $expenseReportDto
+     * @param GenericData $genericData
      *
      * @return mixed|null
      */
-    public function export(ExpenseReportDto $expenseReportDto)
+    public function export(GenericData $genericData)
     {
-        $exporter = ExpenseReportExportFactory::make($expenseReportDto->getExportType());
+        $data = $genericData->getData();
+        $exportType = ExportTypeConstant::normalizeFormat($data->exportType ?? ExportTypeConstant::PDF);
+
+        $exporter = ExpenseReportExportFactory::make($exportType);
         if (!$exporter) {
             return null;
         }
         $expenseData = $this->expenseRepository->getForExport(
-            $expenseReportDto->getAccountId(),
-            $expenseReportDto->getDateFrom(),
-            $expenseReportDto->getDateTo()
+            $genericData->userData->account_id,
+            $data->dateFrom,
+            $data->dateTo
         );
-        return $exporter->export($expenseReportDto, $expenseData);
+        return $exporter->export($genericData, $expenseData);
     }
 }

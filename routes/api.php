@@ -17,7 +17,7 @@ use App\Http\Controllers\Core\CustomerBillController;
 use App\Http\Controllers\Core\CustomerPaymentController;
 use App\Http\Controllers\Core\ClassSessionBookingController;
 use App\Http\Controllers\Core\DashboardController;
-use App\Http\Controllers\Core\ReportController;
+use App\Http\Controllers\Account\ReportController;
 use App\Http\Controllers\Core\MyCollectionController;
 use App\Http\Controllers\Common\NotificationController;
 use App\Http\Controllers\Core\CustomerPtPackageController;
@@ -182,9 +182,6 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
     Route::prefix('reports')->group(function () {
         Route::post('/check-export', [ReportController::class, 'checkExportSize']);
         Route::post('/email', [ReportController::class, 'emailReport']);
-        Route::post('/collection', [ReportController::class, 'getCollectionRecords']);
-        Route::post('/expense', [ReportController::class, 'getExpenseRecords']);
-        Route::post('/summary', [ReportController::class, 'getSummaryRecords']);
     });
 
     Route::prefix('notifications')->group(function () {

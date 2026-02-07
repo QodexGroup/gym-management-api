@@ -2,16 +2,16 @@
 
 namespace App\Modules\CollectionReport;
 
-use App\Dtos\Core\CollectionReportDto;
+use App\Helpers\GenericData;
 use Illuminate\Database\Eloquent\Collection;
 
 interface CollectionReportExportInterface
 {
     /**
-     * @param CollectionReportDto $collectionReportDto
+     * @param GenericData $genericData
      * @param Collection $collectionData
      *
      * @return mixed
      */
-    public function export(CollectionReportDto $collectionReportDto, Collection $collectionData);
+    public function export(GenericData $genericData, Collection $collectionData);
 }

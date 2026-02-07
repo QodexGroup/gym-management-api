@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Exports\Core;
+namespace App\Exports\ExpenseReport;
 
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
-class CollectionReportSheet implements WithMultipleSheets
+class ExpenseReportSheet implements WithMultipleSheets
 {
     use Exportable;
 
@@ -25,8 +25,8 @@ class CollectionReportSheet implements WithMultipleSheets
     {
         $sheets = [];
 
-        $sheets[] = new SummaryCollectionReportSheet($this->summaryHeaderData);
-        $sheets[] = new CollectionDataSheet($this->data);
+        $sheets[] = new SummaryExpenseReportSheet($this->summaryHeaderData);
+        $sheets[] = new ExpenseDataSheet($this->data);
 
         return $sheets;
     }

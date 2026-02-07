@@ -2,7 +2,8 @@
 
 namespace App\Modules\CollectionReport;
 
-use App\Dtos\Core\CollectionReportDto;
+use App\Constants\ExportTypeConstant;
+use App\Helpers\GenericData;
 use App\Repositories\Core\CustomerBillRepository;
 
 class CollectionReportExportService
@@ -18,21 +19,24 @@ class CollectionReportExportService
     }
 
     /**
-     * @param CollectionReportDto $collectionReportDto
+     * @param GenericData $genericData
      *
      * @return mixed|null
      */
-    public function export(CollectionReportDto $collectionReportDto)
+    public function export(GenericData $genericData)
     {
-        $exporter = CollectionReportExportFactory::make($collectionReportDto->getExportType());
+        $data = $genericData->getData();
+        $exportType = ExportTypeConstant::normalizeFormat($data->exportType ?? ExportTypeConstant::PDF);
+
+        $exporter = CollectionReportExportFactory::make($exportType);
         if (!$exporter) {
             return null;
         }
         $collectionData = $this->customerBillRepository->getForExport(
-            $collectionReportDto->getAccountId(),
-            $collectionReportDto->getDateFrom(),
-            $collectionReportDto->getDateTo()
+            $genericData->userData->account_id,
+            $data->dateFrom,
+            $data->dateTo
         );
-        return $exporter->export($collectionReportDto, $collectionData);
+        return $exporter->export($genericData, $collectionData);
     }
 }
