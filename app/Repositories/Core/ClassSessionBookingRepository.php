@@ -170,4 +170,48 @@ class ClassSessionBookingRepository
 
         return $query->get();
     }
+
+    /**
+     * Count attended bookings for a coach in date range (session start_time in range).
+     *
+     * @param int $accountId
+     * @param int $coachId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return int
+     */
+    public function countAttendedByCoachAndDateRange(int $accountId, int $coachId, string $dateFrom, string $dateTo): int
+    {
+        return ClassSessionBooking::where('account_id', $accountId)
+            ->where('status', ClassSessionBookingStatusConstant::STATUS_ATTENDED)
+            ->whereHas('classScheduleSession.classSchedule', function ($q) use ($coachId) {
+                $q->where('coach_id', $coachId);
+            })
+            ->whereHas('classScheduleSession', function ($q) use ($dateFrom, $dateTo) {
+                $q->whereDate('start_time', '>=', $dateFrom)
+                  ->whereDate('start_time', '<=', $dateTo);
+            })
+            ->count();
+    }
+
+    /**
+     * Recent attended sessions for a coach (for My Collection).
+     *
+     * @param int $accountId
+     * @param int $coachId
+     * @param int $limit
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getRecentAttendedByCoach(int $accountId, int $coachId, int $limit = 10): Collection
+    {
+        return ClassSessionBooking::where('account_id', $accountId)
+            ->where('status', ClassSessionBookingStatusConstant::STATUS_ATTENDED)
+            ->whereHas('classScheduleSession.classSchedule', function ($q) use ($coachId) {
+                $q->where('coach_id', $coachId);
+            })
+            ->with(['customer', 'classScheduleSession.classSchedule'])
+            ->orderByDesc('updated_at')
+            ->limit($limit)
+            ->get();
+    }
 }

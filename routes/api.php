@@ -17,9 +17,12 @@ use App\Http\Controllers\Core\CustomerBillController;
 use App\Http\Controllers\Core\CustomerPaymentController;
 use App\Http\Controllers\Core\ClassSessionBookingController;
 use App\Http\Controllers\Core\DashboardController;
+use App\Http\Controllers\Account\ReportController;
+use App\Http\Controllers\Core\MyCollectionController;
 use App\Http\Controllers\Common\NotificationController;
 use App\Http\Controllers\Core\CustomerPtPackageController;
 use App\Http\Controllers\Core\PtBookingController;
+use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Middleware\FirebaseAuthMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -31,6 +34,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->prefix('auth')->group(functi
 // Dashboard routes (protected)
 Route::middleware([FirebaseAuthMiddleware::class])->prefix('dashboard')->group(function () {
     Route::get('/stats', [DashboardController::class, 'getStats']);
+    Route::get('/my-collection', [MyCollectionController::class, 'getStats']);
 });
 
 Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
@@ -170,18 +174,28 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
             Route::delete('/payments/{id}', [CustomerPaymentController::class, 'deletePayment']);
         });
 
+
+    });
+
+
+    // Report routes (protected)
+    Route::prefix('reports')->group(function () {
+        Route::post('/check-export', [ReportController::class, 'checkExportSize']);
+        Route::post('/email', [ReportController::class, 'emailReport']);
+    });
+
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::get('/unread-count', [NotificationController::class, 'getUnreadCount']);
+        Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
+    });
+
+    Route::prefix('notification-preferences')->group(function () {
+        Route::get('/', [NotificationPreferenceController::class, 'index']);
+        Route::post('/', [NotificationPreferenceController::class, 'update']);
     });
 });
 
-Route::prefix('notifications')->group(function () {
-    Route::get('/', [NotificationController::class, 'index']);
-    Route::get('/unread-count', [NotificationController::class, 'getUnreadCount']);
-    Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
-    Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
-});
 
-Route::prefix('notification-preferences')->group(function () {
-    Route::get('/', [\App\Http\Controllers\NotificationPreferenceController::class, 'index']);
-    Route::post('/', [\App\Http\Controllers\NotificationPreferenceController::class, 'update']);
-});
 

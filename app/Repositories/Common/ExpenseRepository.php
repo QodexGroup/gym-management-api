@@ -5,6 +5,7 @@ namespace App\Repositories\Common;
 use App\Constant\ExpenseStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Common\Expense;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class ExpenseRepository
@@ -20,11 +21,56 @@ class ExpenseRepository
         $accountId = $genericData->userData->account_id;
         $query = Expense::where('account_id', $accountId);
 
+        $filters = $genericData->filters ?? [];
+        $dateFrom = $filters['dateFrom'] ?? $filters['date_from'] ?? null;
+        $dateTo = $filters['dateTo'] ?? $filters['date_to'] ?? null;
+        if ($dateFrom) {
+            $query->where('expense_date', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->where('expense_date', '<=', $dateTo);
+        }
+        $genericData->filters = array_diff_key($filters, array_flip(['dateFrom', 'dateTo', 'date_from', 'date_to']));
+
         $genericData->applyRelations($query);
         $genericData->applyFilters($query);
         $genericData->applySorts($query);
 
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $query->orderByDesc('expense_date')->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+    }
+
+    /**
+     * Count expenses for account within date range (for report export size check).
+     *
+     * @param int $accountId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return int
+     */
+    public function countByAccountAndDateRange(int $accountId, string $dateFrom, string $dateTo): int
+    {
+        return Expense::where('account_id', $accountId)
+            ->where('expense_date', '>=', $dateFrom)
+            ->where('expense_date', '<=', $dateTo)
+            ->count();
+    }
+
+    /**
+     * Get all expenses for account within date range for export (no pagination).
+     *
+     * @param int $accountId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return Collection<int, Expense>
+     */
+    public function getForExport(int $accountId, string $dateFrom, string $dateTo): Collection
+    {
+        return Expense::where('account_id', $accountId)
+            ->where('expense_date', '>=', $dateFrom)
+            ->where('expense_date', '<=', $dateTo)
+            ->with('category')
+            ->orderByDesc('expense_date')
+            ->get();
     }
 
     /**
