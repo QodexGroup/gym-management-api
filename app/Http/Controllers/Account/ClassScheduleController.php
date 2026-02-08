@@ -27,7 +27,7 @@ class ClassScheduleController
     {
         $data = $request->getGenericData();
         $schedules = $this->classScheduleRepository->getAllClassSchedules($data);
-        return ApiResponse::success($schedules);
+        return ApiResponse::success(ClassScheduleResource::collection($schedules)->response()->getData(true));
     }
 
     /**
@@ -41,7 +41,7 @@ class ClassScheduleController
         $data = $request->getGenericData();
         $coachId = $data->userData->id;
         $schedules = $this->classScheduleRepository->getClassSchedulesByCoachId($data, $coachId);
-        return ApiResponse::success($schedules);
+        return ApiResponse::success(ClassScheduleResource::collection($schedules)->response()->getData(true));
     }
 
     /**
@@ -55,7 +55,7 @@ class ClassScheduleController
     {
         $data = $request->getGenericData();
         $schedules = $this->classScheduleRepository->getClassSchedulesByCoachId($data, $coachId);
-        return ApiResponse::success($schedules);
+        return ApiResponse::success(ClassScheduleResource::collection($schedules)->response()->getData(true));
     }
 
     /**

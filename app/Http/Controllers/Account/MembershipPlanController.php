@@ -24,7 +24,7 @@ class MembershipPlanController
     {
         $data = $request->getGenericData();
         $plans = $this->membershipPlanRepository->getAllMembershipPlans($data);
-        return ApiResponse::success($plans);
+        return ApiResponse::success(MembershipPlanResource::collection($plans)->response()->getData(true));
     }
 
     /**

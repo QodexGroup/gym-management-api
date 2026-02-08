@@ -132,6 +132,17 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
         Route::delete('/pt-packages/{ptPackageId}', [CustomerPtPackageController::class, 'removePtPackage']);
 
+        // Customer PT Booking Routes
+        Route::prefix('{id}/pt-bookings')->group(function () {
+            Route::get('/upcoming', [PtBookingController::class, 'getCustomerUpcomingPtBookings']);
+            Route::get('/history', [PtBookingController::class, 'getCustomerPtBookingHistory']);
+        });
+
+        // Customer Class Session Booking Routes
+        Route::prefix('{id}/class-session-bookings')->group(function () {
+            Route::get('/history', [ClassSessionBookingController::class, 'getCustomerClassSessionBookingHistory']);
+        });
+
         // Customer Progress Routes
         Route::prefix('progress')->group(function () {
             Route::get('/', [CustomerProgressController::class, 'getAllCustomerProgress']);
