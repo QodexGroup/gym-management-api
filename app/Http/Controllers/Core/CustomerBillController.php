@@ -31,7 +31,7 @@ class CustomerBillController extends Controller
         $bills = $data->customerId
             ? $this->repository->getByCustomerId($data)
             : $this->repository->getByAccountId($data);
-        return ApiResponse::success($bills);
+        return ApiResponse::success(CustomerBillResource::collection($bills)->response()->getData(true));
     }
 
     /**

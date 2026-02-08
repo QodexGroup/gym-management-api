@@ -22,7 +22,7 @@ class CustomerProgressController
     {
         $genericData = $request->getGenericData();
         $customerProgress = $this->customerProgressRepository->getAllProgress($genericData);
-        return ApiResponse::success($customerProgress);
+        return ApiResponse::success(CustomerProgressResource::collection($customerProgress)->response()->getData(true));
     }
 
     /**

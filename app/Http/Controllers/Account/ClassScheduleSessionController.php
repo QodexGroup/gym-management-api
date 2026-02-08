@@ -28,7 +28,7 @@ class ClassScheduleSessionController
     {
         $data = $request->getGenericData();
         $sessions = $this->classScheduleSessionRepository->getAllSessions($data);
-        return ApiResponse::success(ClassScheduleSessionResource::collection($sessions));
+        return ApiResponse::success(ClassScheduleSessionResource::collection($sessions)->response()->getData(true));
     }
 
     /**

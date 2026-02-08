@@ -26,7 +26,7 @@ class ExpenseController
     {
         $genericData = $request->getGenericData();
         $expenses = $this->expenseRepository->getAllExpenses($genericData);
-        return ApiResponse::success($expenses);
+        return ApiResponse::success(ExpenseResource::collection($expenses)->response()->getData(true));
     }
 
     /**

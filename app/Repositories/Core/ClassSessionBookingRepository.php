@@ -5,7 +5,9 @@ namespace App\Repositories\Core;
 use App\Constant\ClassSessionBookingStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\ClassSessionBooking;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 
 class ClassSessionBookingRepository
@@ -213,5 +215,37 @@ class ClassSessionBookingRepository
             ->orderByDesc('updated_at')
             ->limit($limit)
             ->get();
+    }
+
+    /**
+     * Get customer's class session booking history (paginated)
+     *
+     * @param GenericData $genericData
+     * @param int $customerId
+     * @return LengthAwarePaginator
+     */
+    public function getCustomerClassSessionBookingHistory(GenericData $genericData, int $customerId): LengthAwarePaginator
+    {
+        $today = Carbon::now()->toDateString();
+
+        $query = ClassSessionBooking::where('account_id', $genericData->userData->account_id)
+            ->where('customer_id', $customerId)
+            ->where(function ($q) use ($today) {
+                $q->whereIn('status', [
+                    ClassSessionBookingStatusConstant::STATUS_ATTENDED,
+                    ClassSessionBookingStatusConstant::STATUS_NO_SHOW,
+                    ClassSessionBookingStatusConstant::STATUS_CANCELLED
+                ])
+                ->orWhereHas('classScheduleSession', function ($subQ) use ($today) {
+                    $subQ->whereDate('start_time', '<', $today);
+                });
+            });
+
+        // Apply relations, filters, and sorts using GenericData methods
+        $query = $genericData->applyRelations($query);
+        $query = $genericData->applyFilters($query);
+        $query = $genericData->applySorts($query);
+
+        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
     }
 }

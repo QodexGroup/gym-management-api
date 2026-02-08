@@ -32,7 +32,7 @@ class PtBookingController extends Controller
         try {
             $genericData = $request->getGenericDataWithValidated();
             $bookings = $this->ptBookingRepository->getPtBookingsByDateRange($genericData);
-            return ApiResponse::success(PtBookingResource::collection($bookings));
+            return ApiResponse::success(PtBookingResource::collection($bookings)->response()->getData(true));
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
@@ -50,7 +50,7 @@ class PtBookingController extends Controller
         try {
             $genericData = $request->getGenericDataWithValidated();
             $bookings = $this->ptBookingRepository->getCoachPtBookings($genericData, $coachId);
-            return ApiResponse::success(PtBookingResource::collection($bookings));
+            return ApiResponse::success(PtBookingResource::collection($bookings)->response()->getData(true));
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
@@ -68,7 +68,7 @@ class PtBookingController extends Controller
         try {
             $genericData = $request->getGenericData();
             $bookings = $this->ptBookingRepository->getPtBookingsByClassScheduleSession($sessionId, $genericData->userData->account_id);
-            return ApiResponse::success(PtBookingResource::collection($bookings));
+            return ApiResponse::success(PtBookingResource::collection($bookings)->response()->getData(true));
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
@@ -147,5 +147,41 @@ class PtBookingController extends Controller
             return ApiResponse::error('Failed to mark PT booking as no show', Response::HTTP_BAD_REQUEST);
         }
         return ApiResponse::success(new PtBookingResource($ptBooking), 'PT booking marked as no show successfully');
+    }
+
+    /**
+     * Get upcoming PT bookings for a customer
+     *
+     * @param int $customerId
+     * @param GenericRequest $request
+     * @return JsonResponse
+     */
+    public function getCustomerUpcomingPtBookings(int $customerId, GenericRequest $request): JsonResponse
+    {
+        try {
+            $genericData = $request->getGenericData();
+            $bookings = $this->ptBookingRepository->getCustomerUpcomingPtBookings($genericData, $customerId);
+            return ApiResponse::success(PtBookingResource::collection($bookings));
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Get paginated PT booking history for a customer
+     *
+     * @param int $customerId
+     * @param GenericRequest $request
+     * @return JsonResponse
+     */
+    public function getCustomerPtBookingHistory(int $customerId, GenericRequest $request): JsonResponse
+    {
+        try {
+            $genericData = $request->getGenericData();
+            $bookings = $this->ptBookingRepository->getCustomerPtBookingHistory($genericData, $customerId);
+            return ApiResponse::success(PtBookingResource::collection($bookings)->response()->getData(true));
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), Response::HTTP_BAD_REQUEST);
+        }
     }
 }

@@ -89,6 +89,7 @@ class GenericData
 
     /**
      * Apply sorting to a query builder.
+     * Supports relation fields in format: "relationName.fieldName"
      *
      * @param Builder $query
      * @param string $defaultField
@@ -98,18 +99,99 @@ class GenericData
     public function applySorts(Builder $query, string $defaultField = 'updated_at', string $defaultDirection = 'desc'): Builder
     {
         if (!empty($this->sorts)) {
+            $model = $query->getModel();
+            $mainTable = $model->getTable();
+            $joinedTables = [];
+
             foreach ($this->sorts as $sort) {
+                $field = null;
+                $direction = 'asc';
+
+                // Parse sort format
                 if (is_string($sort)) {
                     // Handle string format: "field:direction" or just "field"
                     $parts = explode(':', $sort);
                     $field = $parts[0];
                     $direction = $parts[1] ?? 'asc';
-                    $query->orderBy($field, $direction);
                 } elseif (is_array($sort)) {
-                    // Handle array format: ['field' => 'direction']
-                    foreach ($sort as $field => $direction) {
-                        $query->orderBy($field, $direction);
+                    // Handle array format: ['field' => 'direction'] or ['field' => 'fieldName', 'direction' => 'asc']
+                    if (isset($sort['field']) && isset($sort['direction'])) {
+                        $field = $sort['field'];
+                        $direction = $sort['direction'];
+                    } else {
+                        // Legacy format: ['fieldName' => 'direction']
+                        $field = key($sort);
+                        $direction = $sort[$field];
                     }
+                }
+
+                if (!$field) {
+                    continue;
+                }
+
+                // Check if field contains a relation (e.g., "relationName.fieldName")
+                if (strpos($field, '.') !== false) {
+                    [$relationName, $relationField] = explode('.', $field, 2);
+
+                    // Get the relation
+                    if (method_exists($model, $relationName)) {
+                        $relation = $model->{$relationName}();
+                        $relatedModel = $relation->getRelated();
+                        $relatedTable = $relatedModel->getTable();
+
+                        // Get foreign key and owner key based on relation type
+                        $foreignKey = null;
+                        $ownerKey = null;
+
+                        // Check if it's a BelongsTo relation
+                        if (method_exists($relation, 'getForeignKeyName')) {
+                            // BelongsTo: foreign key is on current model, owner key is on related model
+                            // Join: mainTable.foreignKey = relatedTable.ownerKey
+                            $foreignKey = $relation->getForeignKeyName();
+                            $ownerKey = method_exists($relation, 'getOwnerKeyName')
+                                ? $relation->getOwnerKeyName()
+                                : $relatedModel->getKeyName();
+
+                            $joinLeft = "{$mainTable}.{$foreignKey}";
+                            $joinRight = "{$relatedTable}.{$ownerKey}";
+                        } elseif (method_exists($relation, 'getQualifiedForeignKeyName')) {
+                            // HasOne/HasMany: foreign key is on related model, local key is on current model
+                            // Join: relatedTable.foreignKey = mainTable.localKey
+                            $qualifiedForeignKey = $relation->getQualifiedForeignKeyName();
+                            $qualifiedLocalKey = $relation->getQualifiedLocalKeyName();
+
+                            // Extract column names (remove table prefix)
+                            $foreignKeyParts = explode('.', $qualifiedForeignKey);
+                            $localKeyParts = explode('.', $qualifiedLocalKey);
+
+                            $foreignKeyColumn = $foreignKeyParts[1] ?? $foreignKeyParts[0];
+                            $localKeyColumn = $localKeyParts[1] ?? $localKeyParts[0];
+
+                            $joinLeft = "{$relatedTable}.{$foreignKeyColumn}";
+                            $joinRight = "{$mainTable}.{$localKeyColumn}";
+                        } else {
+                            // Fallback
+                            $foreignKey = $model->getForeignKey();
+                            $ownerKey = $relatedModel->getKeyName();
+                            $joinLeft = "{$mainTable}.{$foreignKey}";
+                            $joinRight = "{$relatedTable}.{$ownerKey}";
+                        }
+
+                        // Join the table if not already joined
+                        if (!in_array($relatedTable, $joinedTables) && isset($joinLeft) && isset($joinRight)) {
+                            $query->leftJoin($relatedTable, $joinLeft, '=', $joinRight);
+                            $joinedTables[] = $relatedTable;
+                        }
+
+                        // Order by the related table field
+                        $query->orderBy("{$relatedTable}.{$relationField}", $direction);
+                    } else {
+                        // Relation doesn't exist, try direct field access
+                        $query->orderBy("{$mainTable}.{$field}", $direction);
+                    }
+                } else {
+                    // Direct field, use main table
+                    $query->orderBy("{$mainTable}.{$field}", $direction);
                 }
             }
         } else {

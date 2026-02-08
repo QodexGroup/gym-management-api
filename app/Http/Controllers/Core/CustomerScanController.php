@@ -26,7 +26,7 @@ class CustomerScanController
     {
         $genericData = $request->getGenericData();
         $customerScans = $this->customerScanRepository->getAllScans($genericData);
-        return ApiResponse::success($customerScans);
+        return ApiResponse::success(CustomerScanResource::collection($customerScans)->response()->getData(true));
     }
 
     /**

@@ -6,7 +6,8 @@ use App\Constant\ClassSessionBookingStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\ClassScheduleSession;
 use App\Models\Core\PtBooking;
-use Illuminate\Support\Carbon;
+use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class PtBookingRepository
@@ -179,8 +180,7 @@ class PtBookingRepository
             ->with('classSchedule')
             ->firstOrFail();
 
-        $sessionDate = Carbon::parse($session->start_time);
-        $sessionDate = $sessionDate->format('Y-m-d');
+        $sessionDate = Carbon::parse($session->start_time)->format('Y-m-d');
 
         return PtBooking::where('class_schedule_id', $session->classSchedule->id)
             ->where('booking_date', $sessionDate)
@@ -188,5 +188,61 @@ class PtBookingRepository
             ->where('account_id', $accountId)
             ->with(['customer', 'coach', 'ptPackage'])
             ->get();
+    }
+
+    /**
+     * Get upcoming PT bookings for a customer
+     * Returns all future bookings that are not cancelled
+     *
+     * @param GenericData $genericData
+     * @param int $customerId
+     * @return Collection
+     */
+    public function getCustomerUpcomingPtBookings(GenericData $genericData, int $customerId): Collection
+    {
+        $today = Carbon::now()->toDateString();
+
+        $query = PtBooking::where('account_id', $genericData->userData->account_id)
+            ->where('customer_id', $customerId)
+            ->whereDate('booking_date', '>=', $today)
+            ->where('status', '!=', ClassSessionBookingStatusConstant::STATUS_CANCELLED);
+
+        // Apply relations, filters, and sorts using GenericData methods
+        $query = $genericData->applyRelations($query);
+        $query = $genericData->applyFilters($query);
+        $query = $genericData->applySorts($query);
+
+        return $query->get();
+    }
+
+    /**
+     * Get paginated PT booking history for a customer
+     * Returns past bookings or completed/cancelled bookings with pagination
+     *
+     * @param GenericData $genericData
+     * @param int $customerId
+     * @return LengthAwarePaginator
+     */
+    public function getCustomerPtBookingHistory(GenericData $genericData, int $customerId): LengthAwarePaginator
+    {
+        $today = Carbon::now()->toDateString();
+
+        $query = PtBooking::where('account_id', $genericData->userData->account_id)
+            ->where('customer_id', $customerId)
+            ->where(function ($q) use ($today) {
+                $q->whereDate('booking_date', '<', $today)
+                  ->orWhereIn('status', [
+                      ClassSessionBookingStatusConstant::STATUS_ATTENDED,
+                      ClassSessionBookingStatusConstant::STATUS_NO_SHOW,
+                      ClassSessionBookingStatusConstant::STATUS_CANCELLED
+                  ]);
+            });
+
+        // Apply relations, filters, and sorts using GenericData methods
+        $query = $genericData->applyRelations($query);
+        $query = $genericData->applyFilters($query);
+        $query = $genericData->applySorts($query);
+
+        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
     }
 }

@@ -24,7 +24,7 @@ class PtPackageController
     {
         $data = $request->getGenericData();
         $packages = $this->ptPackageRepository->getAllPtPackages($data);
-        return ApiResponse::success($packages);
+        return ApiResponse::success(PtPackageResource::collection($packages)->response()->getData(true));
     }
 
     /**

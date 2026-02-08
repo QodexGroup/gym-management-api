@@ -50,7 +50,7 @@ class ClassSessionBookingController
         try {
             $data = $request->getGenericData();
             $bookings = $this->bookingRepository->getBookingsBySessionId($sessionId, $data);
-            return ApiResponse::success(ClassSessionBookingResource::collection($bookings));
+            return ApiResponse::success(ClassSessionBookingResource::collection($bookings)->response()->getData(true));
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 400);
         }
@@ -151,6 +151,24 @@ class ClassSessionBookingController
             $genericData = $request->getGenericDataWithValidated();
             $bookings = $this->bookingRepository->getBookingSessionsByDateRange($genericData);
             return ApiResponse::success(ClassSessionBookingResource::collection($bookings));
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * Get customer's class session booking history
+     *
+     * @param int $customerId
+     * @param GenericRequest $request
+     * @return JsonResponse
+     */
+    public function getCustomerClassSessionBookingHistory(int $customerId, GenericRequest $request): JsonResponse
+    {
+        try {
+            $genericData = $request->getGenericData();
+            $bookings = $this->bookingRepository->getCustomerClassSessionBookingHistory($genericData, $customerId);
+            return ApiResponse::success(ClassSessionBookingResource::collection($bookings)->response()->getData(true));
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 400);
         }
