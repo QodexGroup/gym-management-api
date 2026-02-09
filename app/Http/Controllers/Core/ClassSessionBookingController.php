@@ -50,7 +50,7 @@ class ClassSessionBookingController
         try {
             $data = $request->getGenericData();
             $bookings = $this->bookingRepository->getBookingsBySessionId($sessionId, $data);
-            return ApiResponse::success(ClassSessionBookingResource::collection($bookings)->response()->getData(true));
+            return ApiResponse::success(ClassSessionBookingResource::collection($bookings));
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 400);
         }

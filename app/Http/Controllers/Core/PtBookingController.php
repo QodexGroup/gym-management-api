@@ -32,7 +32,7 @@ class PtBookingController extends Controller
         try {
             $genericData = $request->getGenericDataWithValidated();
             $bookings = $this->ptBookingRepository->getPtBookingsByDateRange($genericData);
-            return ApiResponse::success(PtBookingResource::collection($bookings)->response()->getData(true));
+            return ApiResponse::success(PtBookingResource::collection($bookings));
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
@@ -50,7 +50,7 @@ class PtBookingController extends Controller
         try {
             $genericData = $request->getGenericDataWithValidated();
             $bookings = $this->ptBookingRepository->getCoachPtBookings($genericData, $coachId);
-            return ApiResponse::success(PtBookingResource::collection($bookings)->response()->getData(true));
+            return ApiResponse::success(PtBookingResource::collection($bookings));
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
@@ -68,7 +68,7 @@ class PtBookingController extends Controller
         try {
             $genericData = $request->getGenericData();
             $bookings = $this->ptBookingRepository->getPtBookingsByClassScheduleSession($sessionId, $genericData->userData->account_id);
-            return ApiResponse::success(PtBookingResource::collection($bookings)->response()->getData(true));
+            return ApiResponse::success(PtBookingResource::collection($bookings));
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
