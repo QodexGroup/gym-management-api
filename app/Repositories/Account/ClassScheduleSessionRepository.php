@@ -24,9 +24,10 @@ class ClassScheduleSessionRepository
         $endDate = $genericData->filters['endDate'] ?? null;
         $ptBookingTable = (new PtBooking())->getTable();
 
-        // Remove date filters to avoid conflicts with applyFilters
+        // Remove date filters and coachId filter to avoid conflicts with applyFilters
         $filters = $genericData->filters;
-        unset($filters['startDate'], $filters['endDate']);
+        $coachId = $filters['coachId'] ?? null;
+        unset($filters['startDate'], $filters['endDate'], $filters['coachId']);
         $genericData->filters = $filters;
 
         $query = ClassScheduleSession::query()
@@ -41,6 +42,13 @@ class ClassScheduleSessionRepository
                       ->where("{$ptBookingTable}.status", '!=', ClassSessionBookingStatusConstant::STATUS_CANCELLED);
                 }
             ]);
+
+        // Handle coachId filter through classSchedule relationship
+        if ($coachId) {
+            $query->whereHas('classSchedule', function ($q) use ($coachId) {
+                $q->where('coach_id', $coachId);
+            });
+        }
 
         if ($startDate) {
             $query->whereDate('start_time', '>=', $startDate);
