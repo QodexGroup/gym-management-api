@@ -69,6 +69,18 @@ echo "========================================="
     fi
 ) &
 
+# Start Queue Worker in background
+(
+    echo "Starting queue worker..."
+    php artisan queue:listen --sleep=3 --tries=3
+) &
+
+# Start Scheduler in background
+(
+    echo "Starting scheduler..."
+    php artisan schedule:work
+) &
+
 # Start Nginx in foreground (this keeps container alive and listening)
 # This must be the last command and must not exit
 exec nginx -g 'daemon off;'
