@@ -47,9 +47,9 @@ steps:
       - '--max-instances'
       - '3'
       - '--set-env-vars'
-      - 'DB_CONNECTION=mysql,DB_HOST=localhost,DB_SOCKET=/cloudsql/gymhubtech-67e6f:asia-southeast1:gymhubtech-db'
+      - 'DB_CONNECTION=mysql,DB_HOST=localhost,DB_SOCKET=/cloudsql/gymhubtech-67e6f:asia-southeast1:gymhubtech-db,MAIL_MAILER=smtp,MAIL_HOST=smtp.mailersend.net,MAIL_PORT=587,MAIL_ENCRYPTION=tls'
       - '--set-secrets'
-      - 'APP_KEY=app-key:latest,DB_DATABASE=db-database:latest,DB_USERNAME=db-username:latest,DB_PASSWORD=db-password:latest'
+      - 'APP_KEY=app-key:latest,DB_DATABASE=db-database:latest,DB_USERNAME=db-username:latest,DB_PASSWORD=db-password:latest,MAIL_USERNAME=mail-username:latest,MAIL_PASSWORD=mail-password:latest'
       - '--add-cloudsql-instances'
       - 'gymhubtech-67e6f:asia-southeast1:gymhubtech-db'
 
