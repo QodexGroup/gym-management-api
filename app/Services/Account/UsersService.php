@@ -6,6 +6,7 @@ use App\Helpers\GenericData;
 use App\Models\User;
 use App\Repositories\Account\UserPermissionRepository;
 use App\Repositories\Account\UsersRepository;
+use App\Services\Account\AccountLimitService;
 use App\Services\Auth\FirebaseService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +17,8 @@ class UsersService
 {
     public function __construct(
         private UsersRepository $usersRepository,
-        private UserPermissionRepository $permissionRepository
+        private UserPermissionRepository $permissionRepository,
+        private AccountLimitService $accountLimitService
     ) {
     }
 
@@ -29,6 +31,11 @@ class UsersService
      */
     public function createUser(GenericData $genericData): User
     {
+        $check = $this->accountLimitService->canCreate($genericData->userData->account_id, AccountLimitService::RESOURCE_USERS);
+        if (!$check['allowed']) {
+            throw new \Exception($check['message'] ?? 'Limit reached');
+        }
+
         try {
             return DB::transaction(function () use ($genericData) {
                 $accountId = $genericData->userData->account_id;

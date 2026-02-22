@@ -64,10 +64,17 @@ class ClassScheduleController
      */
     public function store(ClassScheduleRequest $request): JsonResponse
     {
-        $genericData = $request->getGenericDataWithValidated();
-        $genericData->getData()->classType = ClassTypeScheduleConstant::GROUP_CLASS;
-        $schedule = $this->classScheduleService->createClassSchedule($genericData);
-        return ApiResponse::success(new ClassScheduleResource($schedule), 'Class schedule created successfully', 201);
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $genericData->getData()->classType = ClassTypeScheduleConstant::GROUP_CLASS;
+            $schedule = $this->classScheduleService->createClassSchedule($genericData);
+            return ApiResponse::success(new ClassScheduleResource($schedule), 'Class schedule created successfully', 201);
+        } catch (\Exception $e) {
+            if (str_contains($e->getMessage(), 'limit') || str_contains($e->getMessage(), 'trial')) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+            throw $e;
+        }
     }
 
     /**

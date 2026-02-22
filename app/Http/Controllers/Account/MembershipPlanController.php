@@ -7,12 +7,14 @@ use App\Http\Requests\Account\MembershipPlanRequest;
 use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Account\MembershipPlanResource;
 use App\Repositories\Account\MembershipPlanRepository;
+use App\Services\Account\AccountLimitService;
 use Illuminate\Http\JsonResponse;
 
 class MembershipPlanController
 {
     public function __construct(
-        private MembershipPlanRepository $membershipPlanRepository
+        private MembershipPlanRepository $membershipPlanRepository,
+        private AccountLimitService $accountLimitService
     ) {
     }
 
@@ -33,9 +35,20 @@ class MembershipPlanController
      */
     public function store(MembershipPlanRequest $request): JsonResponse
     {
-        $genericData = $request->getGenericDataWithValidated();
-        $plan = $this->membershipPlanRepository->createMembershipPlan($genericData);
-        return ApiResponse::success(new MembershipPlanResource($plan), 'Membership plan created successfully', 201);
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $check = $this->accountLimitService->canCreate($genericData->userData->account_id, AccountLimitService::RESOURCE_MEMBERSHIP_PLANS);
+            if (!$check['allowed']) {
+                return ApiResponse::error($check['message'] ?? 'Limit reached', 403);
+            }
+            $plan = $this->membershipPlanRepository->createMembershipPlan($genericData);
+            return ApiResponse::success(new MembershipPlanResource($plan), 'Membership plan created successfully', 201);
+        } catch (\Exception $e) {
+            if (str_contains($e->getMessage(), 'limit') || str_contains($e->getMessage(), 'trial')) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+            throw $e;
+        }
     }
 
     /**

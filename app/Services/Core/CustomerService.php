@@ -6,6 +6,7 @@ use App\Constant\CustomerBillConstant;
 use App\Constant\CustomerMembershipConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\Customer;
+use App\Services\Account\AccountLimitService;
 use App\Models\Core\CustomerMembership;
 use App\Models\Account\MembershipPlan;
 use App\Models\Core\CustomerBill;
@@ -28,6 +29,7 @@ class CustomerService
         private NotificationService $notificationService,
         private PtPackageRepository $ptPackageRepository,
         private CustomerPtPackageRepository $customerPtPackageRepository,
+        private AccountLimitService $accountLimitService,
     ) {
     }
 
@@ -39,6 +41,11 @@ class CustomerService
      */
     public function create(GenericData $genericData): Customer
     {
+        $check = $this->accountLimitService->canCreate($genericData->userData->account_id, AccountLimitService::RESOURCE_CUSTOMERS);
+        if (!$check['allowed']) {
+            throw new \Exception($check['message'] ?? 'Limit reached');
+        }
+
         try {
             return DB::transaction(function () use ($genericData) {
                 $data = $genericData->getData();

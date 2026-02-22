@@ -7,12 +7,14 @@ use App\Http\Requests\Account\PtPackageRequest;
 use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Account\PtPackageResource;
 use App\Repositories\Account\PtPackageRepository;
+use App\Services\Account\AccountLimitService;
 use Illuminate\Http\JsonResponse;
 
 class PtPackageController
 {
     public function __construct(
-        private PtPackageRepository $ptPackageRepository
+        private PtPackageRepository $ptPackageRepository,
+        private AccountLimitService $accountLimitService
     ) {
     }
 
@@ -33,9 +35,20 @@ class PtPackageController
      */
     public function store(PtPackageRequest $request): JsonResponse
     {
-        $genericData = $request->getGenericDataWithValidated();
-        $package = $this->ptPackageRepository->createPtPackage($genericData);
-        return ApiResponse::success(new PtPackageResource($package), 'PT package created successfully', 201);
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $check = $this->accountLimitService->canCreate($genericData->userData->account_id, AccountLimitService::RESOURCE_PT_PACKAGES);
+            if (!$check['allowed']) {
+                return ApiResponse::error($check['message'] ?? 'Limit reached', 403);
+            }
+            $package = $this->ptPackageRepository->createPtPackage($genericData);
+            return ApiResponse::success(new PtPackageResource($package), 'PT package created successfully', 201);
+        } catch (\Exception $e) {
+            if (str_contains($e->getMessage(), 'limit') || str_contains($e->getMessage(), 'trial')) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+            throw $e;
+        }
     }
 
     /**
