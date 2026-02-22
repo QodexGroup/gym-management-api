@@ -124,6 +124,8 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
     Route::prefix('walkins')->group(function () {
         Route::post('/', [WalkinController::class, 'createWalkin']);
         Route::get('/', [WalkinController::class, 'getWalkin']);
+        Route::post('/qr-checkin', [WalkinController::class, 'qrCheckIn']);
+        Route::put('/qr-checkout', [WalkinController::class, 'qrCheckOut']);
         Route::get('/{walkinId}/customers', [WalkinController::class, 'getPaginatedWalkinCustomers']);
         Route::post('/{walkinId}/customers', [WalkinController::class, 'createWalkinCustomer']);
         Route::put('/customers/{id}/check-out', [WalkinController::class, 'checkOutWalkinCustomer']);

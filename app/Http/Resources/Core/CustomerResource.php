@@ -40,6 +40,7 @@ class CustomerResource extends JsonResource
             'insurancePolicyNumber' => $this->insurance_policy_number,
             'emergencyContactRelationship' => $this->emergency_contact_relationship,
             'emergencyContactAddress' => $this->emergency_contact_address,
+            'qrCodeUuid' => $this->qr_code_uuid,
             'currentMembership' => $this->whenLoaded('currentMembership', function () {
                 return new CustomerMembershipResource($this->currentMembership);
             }),

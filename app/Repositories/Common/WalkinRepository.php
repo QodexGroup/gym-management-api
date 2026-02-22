@@ -105,7 +105,8 @@ class WalkinRepository
         $genericData->getData()->status = WalkinCustomerConstant::INSIDE_STATUS;
         $genericData->syncDataArray();
 
-        return WalkinCustomer::create($genericData->data)->fresh();
+        $walkinCustomer = WalkinCustomer::create($genericData->data)->fresh();
+        return $walkinCustomer->load('customer');
     }
 
     /**
@@ -122,7 +123,8 @@ class WalkinRepository
         $walkinCustomer->status = WalkinCustomerConstant::OUTSIDE_STATUS;
         $walkinCustomer->save();
 
-        return $walkinCustomer->fresh();
+        $walkinCustomer->fresh();
+        return $walkinCustomer->load('customer');
     }
 
     /**

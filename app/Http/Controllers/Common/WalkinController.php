@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Common;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Common\QrCheckinRequest;
 use App\Http\Requests\Common\WalkinRequest;
 use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Common\WalkinCustomerResource;
@@ -117,5 +118,43 @@ class WalkinController extends Controller
         $genericData = $request->getGenericDataWithValidated();
         $walkinCustomer = $this->walkinRepository->cancelWalkinCustomer($id, $genericData);
         return ApiResponse::success(new WalkinCustomerResource($walkinCustomer));
+    }
+
+    /**
+     * QR Code Check-in (convenience endpoint for kiosk)
+     * Gets customer by UUID, gets or creates today's walk-in, and checks in the customer
+     *
+     * @param QrCheckinRequest $request
+     * @return JsonResponse
+     */
+    public function qrCheckIn(QrCheckinRequest $request): JsonResponse
+    {
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $walkinCustomer = $this->walkinService->qrCheckIn($genericData);
+            return ApiResponse::success(new WalkinCustomerResource($walkinCustomer), 'Customer checked in successfully');
+        } catch (\Exception $e) {
+            Log::error('QR check-in error: ' . $e->getMessage());
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * QR Code Check-out (convenience endpoint for kiosk)
+     * Gets customer by UUID, finds today's walk-in, and checks out the customer
+     *
+     * @param QrCheckinRequest $request
+     * @return JsonResponse
+     */
+    public function qrCheckOut(QrCheckinRequest $request): JsonResponse
+    {
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $walkinCustomer = $this->walkinService->qrCheckOut($genericData);
+            return ApiResponse::success(new WalkinCustomerResource($walkinCustomer), 'Customer checked out successfully');
+        } catch (\Exception $e) {
+            Log::error('QR check-out error: ' . $e->getMessage());
+            return ApiResponse::error($e->getMessage(), 400);
+        }
     }
 }
