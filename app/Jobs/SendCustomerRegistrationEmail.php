@@ -32,7 +32,7 @@ class SendCustomerRegistrationEmail implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        public Customer $customer
+        public int $customerId
     ) {
     }
 
@@ -49,27 +49,30 @@ class SendCustomerRegistrationEmail implements ShouldQueue
      */
     public function handle(): void
     {
-        if (!$this->customer->email) {
-            Log::warning('Customer has no email address', ['customer_id' => $this->customer->id]);
+        $customer = Customer::find($this->customerId);
+        if (!$customer) {
+            return;
+        }
+        if (!$customer->email) {
+            Log::warning('Customer has no email address', ['customer_id' => $customer->id]);
             return;
         }
 
         try {
-            Mail::to($this->customer->email)->send(new CustomerRegistrationMail($this->customer));
-            
+            Mail::to($customer->email)->send(new CustomerRegistrationMail($customer));
+
             Log::info('Customer registration email sent', [
-                'customer_id' => $this->customer->id,
-                'email' => $this->customer->email,
+                'customer_id' => $customer->id,
+                'email' => $customer->email,
                 'job_id' => $this->job->getJobId()
             ]);
         } catch (\Throwable $th) {
             Log::error('Error sending customer registration email', [
                 'error' => $th->getMessage(),
-                'customer_id' => $this->customer->id,
+                'customer_id' => $customer->id,
                 'job_id' => $this->job->getJobId()
             ]);
-            
-            // Re-throw to trigger retry mechanism
+
             throw $th;
         }
     }

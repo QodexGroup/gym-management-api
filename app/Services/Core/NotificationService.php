@@ -44,7 +44,7 @@ class NotificationService
     private function shouldSendMembershipExpiryNotification(): bool
     {
         $prefs = $this->preferenceRepository->getByAccountId(1);
-        return $prefs?->membership_expiry_enabled ?? true;
+        return $prefs === null ? true : ($prefs->membership_expiry_enabled ?? true);
     }
 
     /**
@@ -55,7 +55,7 @@ class NotificationService
     private function shouldSendPaymentAlertNotification(): bool
     {
         $prefs = $this->preferenceRepository->getByAccountId(1);
-        return $prefs?->payment_alerts_enabled ?? true;
+        return $prefs === null ? true : ($prefs->payment_alerts_enabled ?? true);
     }
 
     /**
@@ -66,7 +66,7 @@ class NotificationService
     private function shouldSendNewRegistrationNotification(): bool
     {
         $prefs = $this->preferenceRepository->getByAccountId(1);
-        return $prefs?->new_registrations_enabled ?? true;
+        return $prefs === null ? true : ($prefs->new_registrations_enabled ?? true);
     }
 
     /**
@@ -261,7 +261,9 @@ class NotificationService
                 'data' => [
                     'customer_id' => $customer->id,
                     'customer_name' => "{$customer->first_name} {$customer->last_name}",
-                    'membership_plan' => $membership?->membershipPlan?->name ?? 'No membership',
+                    'membership_plan' => ($membership === null || $membership->membershipPlan === null)
+                        ? 'No membership'
+                        : ($membership->membershipPlan->name ?? 'No membership'),
                     'registration_date' => $customer->created_at->format('Y-m-d'),
                 ],
             ]);
@@ -312,7 +314,7 @@ class NotificationService
             // Dispatch job to queue with 1-second delay to respect Mailtrap's rate limit
             // Each subsequent job will be delayed by 1 second from the previous one
             $delay = now()->addSeconds($this->getEmailQueueDelay());
-            \App\Jobs\SendMembershipExpiringEmail::dispatch($customer, $membership)->delay($delay);
+            \App\Jobs\SendMembershipExpiringEmail::dispatch($customer->id, $membership->id)->delay($delay);
             
             Log::info('Membership expiring email queued', [
                 'customer_id' => $customer->id,
@@ -343,7 +345,7 @@ class NotificationService
 
         try {
             // Dispatch job to queue for async processing with rate limiting
-            \App\Jobs\SendPaymentConfirmationEmail::dispatch($customer, $payment);
+            \App\Jobs\SendPaymentConfirmationEmail::dispatch($customer->id, $payment->id);
             
             Log::info('Payment confirmation email queued', [
                 'customer_id' => $customer->id,
@@ -373,7 +375,7 @@ class NotificationService
 
         try {
             // Dispatch job to queue for async processing with rate limiting
-            \App\Jobs\SendCustomerRegistrationEmail::dispatch($customer);
+            \App\Jobs\SendCustomerRegistrationEmail::dispatch($customer->id);
             
             Log::info('Customer registration email queued', [
                 'customer_id' => $customer->id,
