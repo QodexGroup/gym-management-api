@@ -62,9 +62,16 @@ class CustomerController extends Controller
      */
     public function store(CustomerRequest $request): JsonResponse
     {
-        $genericData = $request->getGenericDataWithValidated();
-        $customer = $this->customerService->create($genericData);
-        return ApiResponse::success(new CustomerResource($customer), 'Customer created successfully', 201);
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $customer = $this->customerService->create($genericData);
+            return ApiResponse::success(new CustomerResource($customer), 'Customer created successfully', 201);
+        } catch (\Exception $e) {
+            if (str_contains($e->getMessage(), 'limit') || str_contains($e->getMessage(), 'trial')) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+            throw $e;
+        }
     }
 
     /**

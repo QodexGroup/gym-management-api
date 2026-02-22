@@ -27,8 +27,8 @@ class FirebaseAuthMiddleware
         try {
             $verifiedToken = FirebaseService::auth()->verifyIdToken($token);
             $firebaseUid = $verifiedToken->claims()->get('sub');
+            $emailVerified = $verifiedToken->claims()->get('email_verified') ?? false;
 
-            // Fetch user with permissions
             $user = User::with('permissions')->where('firebase_uid', $firebaseUid)->first();
 
             if (!$user) {
@@ -36,6 +36,7 @@ class FirebaseAuthMiddleware
             }
 
             $request->attributes->set('user', $user);
+            $request->attributes->set('email_verified', $emailVerified);
 
         } catch (FailedToVerifyToken $e) {
             return response()->json(['message' => 'Invalid or expired token'], 401);

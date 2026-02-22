@@ -3,9 +3,12 @@
 use App\Http\Controllers\Account\ClassScheduleController;
 use App\Http\Controllers\Account\ClassScheduleSessionController;
 use App\Http\Controllers\Account\MembershipPlanController;
+use App\Http\Controllers\Account\PlatformSubscriptionPlanController;
 use App\Http\Controllers\Account\PtCategoryController;
 use App\Http\Controllers\Account\PtPackageController;
+use App\Http\Controllers\Account\SubscriptionRequestController;
 use App\Http\Controllers\Account\UsersController;
+use App\Http\Controllers\Admin\AdminSubscriptionRequestController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Common\ExpenseCategoryController;
 use App\Http\Controllers\Common\ExpenseController;
@@ -24,8 +27,17 @@ use App\Http\Controllers\Common\WalkinController;
 use App\Http\Controllers\Core\CustomerPtPackageController;
 use App\Http\Controllers\Core\PtBookingController;
 use App\Http\Controllers\NotificationPreferenceController;
+use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\FirebaseAuthMiddleware;
+use App\Http\Middleware\VerifyFirebaseTokenMiddleware;
 use Illuminate\Support\Facades\Route;
+
+// Sign-up: requires valid Firebase token, does not require user in DB
+Route::middleware([VerifyFirebaseTokenMiddleware::class, 'throttle:5,1'])
+    ->prefix('auth')
+    ->group(function () {
+        Route::post('/sign-up', [AuthController::class, 'signUp']);
+    });
 
 // Auth routes (protected)
 Route::middleware([FirebaseAuthMiddleware::class])->prefix('auth')->group(function () {
@@ -39,6 +51,15 @@ Route::middleware([FirebaseAuthMiddleware::class])->prefix('dashboard')->group(f
 });
 
 Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
+
+    Route::get('/platform-subscription-plans', [PlatformSubscriptionPlanController::class, 'index']);
+
+    Route::get('/accounts/subscription-requests', [SubscriptionRequestController::class, 'index']);
+    Route::post('/accounts/subscription-request', [SubscriptionRequestController::class, 'store']);
+
+    Route::prefix('admin')->middleware([EnsurePlatformAdmin::class])->group(function () {
+        Route::get('/subscription-requests', [AdminSubscriptionRequestController::class, 'index']);
+    });
 
     Route::prefix('users')->group(function () {
         Route::get('/', [UsersController::class, 'getAllUsers']);

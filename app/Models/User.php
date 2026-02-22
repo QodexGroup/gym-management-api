@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
+use App\Models\Account;
 use App\Models\Account\UserPermission;
 use App\Models\Core\Customer;
 use App\Traits\HasCamelCaseAttributes;
@@ -82,6 +83,14 @@ class User extends Authenticatable
     public function permissions()
     {
         return $this->hasMany(UserPermission::class, 'user_id');
+    }
+
+    /**
+     * Get the account (gym/organization) this user belongs to.
+     */
+    public function account()
+    {
+        return $this->belongsTo(Account::class, 'account_id');
     }
 
     /**

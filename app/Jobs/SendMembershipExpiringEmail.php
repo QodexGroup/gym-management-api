@@ -33,8 +33,8 @@ class SendMembershipExpiringEmail implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        public Customer $customer,
-        public CustomerMembership $membership
+        public int $customerId,
+        public int $membershipId
     ) {
     }
 
@@ -51,27 +51,31 @@ class SendMembershipExpiringEmail implements ShouldQueue
      */
     public function handle(): void
     {
-        if (!$this->customer->email) {
-            Log::warning('Customer has no email address', ['customer_id' => $this->customer->id]);
+        $customer = Customer::find($this->customerId);
+        $membership = CustomerMembership::find($this->membershipId);
+        if (!$customer || !$membership) {
+            return;
+        }
+        if (!$customer->email) {
+            Log::warning('Customer has no email address', ['customer_id' => $customer->id]);
             return;
         }
 
         try {
-            Mail::to($this->customer->email)->send(new MembershipExpiringMail($this->customer, $this->membership));
-            
+            Mail::to($customer->email)->send(new MembershipExpiringMail($customer, $membership));
+
             Log::info('Membership expiring email sent', [
-                'customer_id' => $this->customer->id,
-                'email' => $this->customer->email,
+                'customer_id' => $customer->id,
+                'email' => $customer->email,
                 'job_id' => $this->job->getJobId()
             ]);
         } catch (\Throwable $th) {
             Log::error('Error sending membership expiring email', [
                 'error' => $th->getMessage(),
-                'customer_id' => $this->customer->id,
+                'customer_id' => $customer->id,
                 'job_id' => $this->job->getJobId()
             ]);
-            
-            // Re-throw to trigger retry mechanism
+
             throw $th;
         }
     }
