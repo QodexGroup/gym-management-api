@@ -9,6 +9,7 @@ RUN apk update && apk add --no-cache \
     mysql-client \
     zip \
     unzip \
+    libzip-dev \
     icu-dev \
     libxml2-dev \
     libpng-dev \
@@ -24,6 +25,7 @@ RUN apk update && apk add --no-cache \
 
 # Configure and install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-configure zip \
     && docker-php-ext-install -j$(nproc) \
         pdo_mysql \
         opcache \
@@ -33,6 +35,7 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         gd \
         intl \
         soap \
+        zip \
     && docker-php-ext-enable opcache
 
 # Clean up build dependencies

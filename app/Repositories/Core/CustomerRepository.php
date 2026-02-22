@@ -242,6 +242,20 @@ class CustomerRepository
             ->first();
     }
 
+    /**
+     * Find customer by QR code UUID
+     *
+     * @param string $uuid
+     * @param int $accountId
+     * @return Customer|null
+     */
+    public function findCustomerByUuid(string $uuid, int $accountId): ?Customer
+    {
+        return Customer::where('qr_code_uuid', $uuid)
+            ->where('account_id', $accountId)
+            ->whereNull('deleted_at')
+            ->first();
+    }
 
 }
 

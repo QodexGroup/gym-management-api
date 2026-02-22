@@ -55,8 +55,8 @@ steps:
       - '--command'
       - 'sh'
       - '--args'
-      - '-c,cd /app && php artisan queue:work --sleep=3 --tries=3 --max-time=3600 & php artisan schedule:work & php -S 0.0.0.0:8080 -t public'
-
+      - '-c'
+      - 'cd /app && for i in $(seq 1 30); do php artisan db:show >/dev/null 2>&1 && break || sleep 2; done && php artisan queue:work --sleep=3 --tries=3 --max-time=3600 & php artisan schedule:work & php -S 0.0.0.0:8080 -t public'
 images:
   - 'gcr.io/$PROJECT_ID/gym-management-api-worker:$SHORT_SHA'
   - 'gcr.io/$PROJECT_ID/gym-management-api-worker:latest'

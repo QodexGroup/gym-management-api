@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class Customer extends Model
 {
@@ -52,6 +53,7 @@ class Customer extends Model
         'insurance_policy_number',
         'emergency_contact_relationship',
         'emergency_contact_address',
+        'qr_code_uuid',
     ];
 
     /**
@@ -64,7 +66,19 @@ class Customer extends Model
         return [
             'date_of_birth' => 'date',
             'balance' => 'decimal:2',
+            'qr_code_uuid' => 'string',
         ];
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($customer) {
+            if (empty($customer->qr_code_uuid)) {
+                $customer->qr_code_uuid = (string) Str::uuid();
+            }
+        });
     }
 
     /**
