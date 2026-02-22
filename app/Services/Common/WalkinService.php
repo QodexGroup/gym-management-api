@@ -63,6 +63,13 @@ class WalkinService
     {
         try {
             $customer = $this->customerRepository->findCustomerByUuid($genericData->getData()->uuid, $genericData->userData->account_id);
+            if (!$customer) {
+                throw new \Exception('Customer not found');
+            }
+
+            // Set customer_id in genericData so repository lookups (e.g. duplicate check) can work.
+            $genericData->getData()->customerId = $customer->id;
+            $genericData->syncDataArray();
             // Get or create today's walk-in
             $walkin = $this->walkinRepository->getWalkin($genericData);
 
@@ -79,10 +86,6 @@ class WalkinService
             if ($existingWalkinCustomer) {
                 throw new \Exception('Customer is already checked in');
             }
-
-            // Set customer_id in genericData for check-in
-            $genericData->getData()->customerId = $customer->id;
-            $genericData->syncDataArray();
 
             // Check in customer
             $walkinCustomer = $this->walkinRepository->createWalkinCustomer(
