@@ -20,6 +20,7 @@ use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Account\ReportController;
 use App\Http\Controllers\Core\MyCollectionController;
 use App\Http\Controllers\Common\NotificationController;
+use App\Http\Controllers\Common\WalkinController;
 use App\Http\Controllers\Core\CustomerPtPackageController;
 use App\Http\Controllers\Core\PtBookingController;
 use App\Http\Controllers\NotificationPreferenceController;
@@ -120,6 +121,17 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::delete('/{id}', [ExpenseCategoryController::class, 'deleteCategory']);
     });
 
+    Route::prefix('walkins')->group(function () {
+        Route::post('/', [WalkinController::class, 'createWalkin']);
+        Route::get('/', [WalkinController::class, 'getWalkin']);
+        Route::post('/qr-checkin', [WalkinController::class, 'qrCheckIn']);
+        Route::put('/qr-checkout', [WalkinController::class, 'qrCheckOut']);
+        Route::get('/{walkinId}/customers', [WalkinController::class, 'getPaginatedWalkinCustomers']);
+        Route::post('/{walkinId}/customers', [WalkinController::class, 'createWalkinCustomer']);
+        Route::put('/customers/{id}/check-out', [WalkinController::class, 'checkOutWalkinCustomer']);
+        Route::put('/customers/{id}/cancel', [WalkinController::class, 'cancelWalkinCustomer']);
+    });
+
     Route::prefix('customers')->group(function () {
         Route::get('/', [CustomerController::class, 'getCustomers']);
         Route::post('/', [CustomerController::class, 'store']);
@@ -131,6 +143,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::get('/{id}/pt-packages', [CustomerPtPackageController::class, 'getPtPackages']);
 
         Route::delete('/pt-packages/{ptPackageId}', [CustomerPtPackageController::class, 'removePtPackage']);
+        Route::get('/{id}/walkins', [WalkinController::class, 'getPaginatedWalkinByCustomer']);
 
         // Customer PT Booking Routes
         Route::prefix('{id}/pt-bookings')->group(function () {
