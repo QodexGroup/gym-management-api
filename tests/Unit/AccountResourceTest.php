@@ -9,7 +9,7 @@ namespace Tests\Unit;
 use App\Http\Resources\Account\AccountResource;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Tests\Unit\UnitTestCase;
+use Tests\Support\UnitTestCase;
 
 class AccountResourceTest extends UnitTestCase
 {
