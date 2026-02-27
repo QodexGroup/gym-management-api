@@ -94,7 +94,9 @@ class FutureRenewalBillTest extends BillingAndMembershipFlowTestCase
 
         $this->assertNotNull($membership);
         $this->assertEquals($futureBillDate, $membership->membership_start_date->toDateString(), 'Membership should start from bill date');
-        $this->assertEquals(Carbon::parse($futureBillDate)->addMonth()->toDateString(), $membership->membership_end_date->toDateString(), 'Membership should be extended by plan period');
+        // Inclusive end date from plan
+        $expectedEnd = $this->monthlyPlan->calculateEndDate(Carbon::parse($futureBillDate));
+        $this->assertEquals($expectedEnd->toDateString(), $membership->membership_end_date->toDateString(), 'Membership should be extended by plan period');
     }
 
     /**

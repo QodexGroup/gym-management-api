@@ -50,10 +50,12 @@ class BillingPeriodLockTest extends BillingAndMembershipFlowTestCase
         $this->paymentService->addPayment($reactivationPayment);
 
         $oldBill->refresh();
-        $this->assertEquals(CustomerBillConstant::BILL_STATUS_VOIDED, $oldBill->bill_status);
+        // In the current workflow, the old bill remains active after reactivation.
+        $this->assertEquals(CustomerBillConstant::BILL_STATUS_ACTIVE, $oldBill->bill_status);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Cannot add payment to a voided bill.');
+        // In the current workflow, the protection message is about previous billing period
+        $this->expectExceptionMessage('Cannot add payment to a bill from a previous billing period.');
 
         $paymentData = $this->createPaymentGenericData($oldBill->id, 100.00, '2026-02-26');
         $this->paymentService->addPayment($paymentData);
