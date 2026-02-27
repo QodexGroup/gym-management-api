@@ -32,6 +32,7 @@ class CustomerBillService
     {
         try {
             return DB::transaction(function () use ($genericData) {
+                $this->applyBillingPeriod($genericData);
                 $data = $genericData->getData();
                 $customerId = $data->customerId;
                 $accountId = $genericData->userData->account_id;
@@ -110,12 +111,14 @@ class CustomerBillService
     {
         try {
             return DB::transaction(function () use ($genericData, $id) {
+                $this->applyBillingPeriod($genericData);
                 $data = $genericData->getData();
                 $customerId = $data->customerId;
                 $accountId = $genericData->userData->account_id;
 
                 // Get the existing bill to check for membership plan changes
                 $existingBill = $this->customerBillRepository->findBillById($id, $accountId);
+                $this->ensureBillIsEditableForCurrentCycle($existingBill, $accountId);
                 $oldMembershipPlanId = $existingBill->membership_plan_id;
                 $newMembershipPlanId = $data->membershipPlanId ?? null;
 
@@ -296,6 +299,53 @@ class CustomerBillService
 
         return $billDate->greaterThan($membershipEndDate) ||
             ($isSameDate && ($billCreatedAfterMembership || $billCreatedOnOrAfterEndDate));
+    }
+
+    /**
+     * Set billing period from bill date using mdY format (e.g. 02252026).
+     *
+     * @param GenericData $genericData
+     * @return void
+     */
+    private function applyBillingPeriod(GenericData $genericData): void
+    {
+        $billDate = $genericData->getData()->billDate ?? null;
+        if (!$billDate) {
+            return;
+        }
+
+        $genericData->getData()->billingPeriod = Carbon::parse($billDate)->format('mdY');
+        $genericData->syncDataArray();
+    }
+
+    /**
+     * Prevent edits to history/locked bills from previous membership cycles.
+     *
+     * @param CustomerBill $bill
+     * @param int $accountId
+     * @return void
+     */
+    private function ensureBillIsEditableForCurrentCycle(CustomerBill $bill, int $accountId): void
+    {
+        if ($bill->bill_status === CustomerBillConstant::BILL_STATUS_VOIDED) {
+            throw new \RuntimeException('Cannot update a voided bill.');
+        }
+
+        if ($bill->bill_type !== CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION) {
+            return;
+        }
+
+        $customer = $this->customerRepository->findCustomerById((int) $bill->customer_id, $accountId);
+        $currentMembership = $customer->currentMembership;
+        if (!$currentMembership) {
+            return;
+        }
+
+        $billDate = Carbon::parse($bill->bill_date)->startOfDay();
+        $membershipStartDate = Carbon::parse($currentMembership->membership_start_date)->startOfDay();
+        if ($billDate->lt($membershipStartDate)) {
+            throw new \RuntimeException('Cannot update a bill from a previous billing period.');
+        }
     }
 
 }

@@ -82,7 +82,7 @@ class Customer extends Model
     {
         return $this->hasOne(CustomerMembership::class, 'customer_id')
             ->where('status', 'active')
-            ->where('membership_end_date', '>=', now())
+            ->whereDate('membership_end_date', '>=', today())
             ->latest('membership_start_date');
     }
 

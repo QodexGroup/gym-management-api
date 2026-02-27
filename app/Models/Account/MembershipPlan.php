@@ -63,7 +63,7 @@ class MembershipPlan extends Model
     {
         return $this->hasMany(CustomerMembership::class, 'membership_plan_id')
             ->where('status', 'active')
-            ->where('membership_end_date', '>=', now());
+            ->whereDate('membership_end_date', '>=', today());
     }
 
     /**
@@ -74,13 +74,16 @@ class MembershipPlan extends Model
      */
     public function calculateEndDate(Carbon $startDate): Carbon
     {
-        return match ($this->plan_interval) {
+        $endDate = match ($this->plan_interval) {
             'days' => $startDate->copy()->addDays($this->plan_period),
             'weeks' => $startDate->copy()->addWeeks($this->plan_period),
             'months' => $startDate->copy()->addMonths($this->plan_period),
             'years' => $startDate->copy()->addYears($this->plan_period),
             default => $startDate->copy()->addDays($this->plan_period),
         };
+
+        // Store the last valid calendar day as the end date (inclusive),
+        // aligned with the DATE cast on membership_end_date.
+        return $endDate->subDay()->startOfDay();
     }
 }
-

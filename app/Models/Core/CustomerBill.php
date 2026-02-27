@@ -34,6 +34,7 @@ class CustomerBill extends Model
         'net_amount',
         'paid_amount',
         'bill_date',
+        'billing_period',
         'bill_status',
         'bill_type',
         'billable_id',
@@ -90,4 +91,3 @@ class CustomerBill extends Model
         return $this->belongsTo(MembershipPlan::class, 'membership_plan_id');
     }
 }
-
