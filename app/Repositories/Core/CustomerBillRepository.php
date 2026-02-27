@@ -50,6 +50,7 @@ class CustomerBillRepository
             'bill_type' => CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION,
             'bill_status' => CustomerBillConstant::BILL_STATUS_ACTIVE,
             'bill_date' => $billDate,
+            'billing_period' => $billDate->format('mdY'),
             'gross_amount' => $grossAmount,
             'discount_percentage' => 0,
             'net_amount' => $grossAmount,
@@ -413,4 +414,3 @@ class CustomerBillRepository
     }
 
 }
-

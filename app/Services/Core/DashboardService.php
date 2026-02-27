@@ -53,7 +53,7 @@ class DashboardService
     {
         return Customer::whereHas('memberships', function ($query) {
             $query->where('status', 'Active')
-                  ->where('membership_end_date', '>=', now());
+                  ->whereDate('membership_end_date', '>=', today());
         })->count();
     }
 
@@ -94,7 +94,7 @@ class DashboardService
     private function getExpiringMembershipsCount(Carbon $now, Carbon $thirtyDaysFromNow): int
     {
         return CustomerMembership::where('status', 'Active')
-            ->whereBetween('membership_end_date', [$now, $thirtyDaysFromNow])
+            ->whereBetween('membership_end_date', [$now->copy()->startOfDay(), $thirtyDaysFromNow->copy()->endOfDay()])
             ->count();
     }
 
@@ -109,19 +109,19 @@ class DashboardService
     {
         $expiringMemberships = CustomerMembership::with(['customer', 'membershipPlan'])
             ->where('status', 'Active')
-            ->whereBetween('membership_end_date', [$now, $thirtyDaysFromNow])
+            ->whereBetween('membership_end_date', [$now->copy()->startOfDay(), $thirtyDaysFromNow->copy()->endOfDay()])
             ->orderBy('membership_end_date', 'asc')
             ->limit(10)
             ->get();
 
         return $expiringMemberships->map(function ($membership) use ($now) {
             $daysUntilExpiry = $now->diffInDays($membership->membership_end_date, false);
-            
+
             $customerName = trim(($membership->customer->first_name ?? '') . ' ' . ($membership->customer->last_name ?? ''));
             if (empty($customerName)) {
                 $customerName = 'Unknown';
             }
-            
+
             // Determine status based on days until expiry
             if ($membership->membership_end_date->isPast()) {
                 $status = 'expired';
@@ -130,7 +130,7 @@ class DashboardService
             } else {
                 $status = 'active';
             }
-            
+
             return [
                 'id' => $membership->customer->id,
                 'name' => $customerName,
@@ -168,7 +168,7 @@ class DashboardService
             ->get();
 
         $colors = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-        
+
         return $distribution->map(function ($item, $index) use ($colors) {
             return [
                 'name' => $item->membershipPlan->plan_name ?? 'Unknown',
