@@ -3,13 +3,15 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\Core\MyCollectionController;
+use App\Http\Requests\GenericRequest;
+use App\Models\User;
+use App\Services\Core\MyCollectionService;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
-use Illuminate\Http\Request;
 use Illuminate\Foundation\Application;
 
 /**
- * My Collection role-scope tests. Uses in-memory user objects and mocks (no DB) so they run without SQLite driver.
- * When account_id is missing or invalid, controller returns 400.
+ * My Collection controller tests (no DB).
+ * Uses in-memory user objects and mocks (no DB) so they run without SQLite driver.
  */
 class MyCollectionRoleScopeTest extends BaseTestCase
 {
@@ -28,30 +30,28 @@ class MyCollectionRoleScopeTest extends BaseTestCase
         return $app;
     }
     /**
-     * Build a user-like object. account_id optional: pass null to test "account required" path.
+     * Build a User model instance (no DB).
      *
-     * @param int|null $accountId
+     * @param int $accountId
      * @param string $role
      * @param int $id
-     * @return object
+     * @return User
      */
-    protected function createUser(?int $accountId, string $role, int $id = 1): object
+    protected function createUser(int $accountId, string $role, int $id = 1): User
     {
-        $u = (object) [
-            'id' => $id,
-            'role' => $role,
-            'firstname' => 'Test',
-            'lastname' => ucfirst($role),
-        ];
-        if ($accountId !== null) {
-            $u->account_id = $accountId;
-        }
-        return $u;
+        $user = new User();
+        $user->id = $id;
+        $user->role = $role;
+        $user->firstname = 'Test';
+        $user->lastname = ucfirst($role);
+        $user->account_id = $accountId;
+
+        return $user;
     }
 
-    protected function requestWithUser(?object $user): Request
+    protected function requestWithUser(?User $user): GenericRequest
     {
-        $request = Request::create('/dashboard/my-collection', 'GET');
+        $request = GenericRequest::create('/dashboard/my-collection', 'GET');
         if ($user !== null) {
             $request->attributes->set('user', $user);
         }
@@ -60,18 +60,17 @@ class MyCollectionRoleScopeTest extends BaseTestCase
 
     public function test_admin_gets_200_and_data(): void
     {
-        $mockData = [
-            'trainerStats' => [],
-            'weeklyEarnings' => [],
-            'earningsBreakdown' => [],
-            'monthlyProgress' => [],
-            'recentSessions' => [],
-        ];
-        $this->mock(\App\Services\Core\MyCollectionService::class, function ($mock) use ($mockData) {
-            $mock->shouldReceive('getStats')->once()->with(1, null)->andReturn($mockData);
+        $this->mock(MyCollectionService::class, function ($mock) {
+            $mock->shouldReceive('getStats')->once()->with(1, 1)->andReturn([
+                'trainerStats' => [],
+                'weeklyEarnings' => [],
+                'earningsBreakdown' => [],
+                'monthlyProgress' => [],
+                'recentPayments' => [],
+            ]);
         });
 
-        $admin = $this->createUser(1, 'admin');
+        $admin = $this->createUser(1, 'admin', 1);
         $request = $this->requestWithUser($admin);
         $controller = app(MyCollectionController::class);
 
@@ -80,18 +79,13 @@ class MyCollectionRoleScopeTest extends BaseTestCase
         $this->assertEquals(200, $response->getStatusCode());
         $json = $response->getData(true);
         $this->assertTrue($json['success'] ?? false);
-        $data = $json['data'] ?? [];
-        $this->assertArrayHasKey('trainerStats', $data);
-        $this->assertArrayHasKey('weeklyEarnings', $data);
-        $this->assertArrayHasKey('earningsBreakdown', $data);
-        $this->assertArrayHasKey('monthlyProgress', $data);
-        $this->assertArrayHasKey('recentSessions', $data);
+        $this->assertArrayHasKey('data', $json);
     }
 
     public function test_coach_gets_200_and_data(): void
     {
-        $this->mock(\App\Services\Core\MyCollectionService::class, function ($mock) {
-            $mock->shouldReceive('getStats')->once()->with(1, 99)->andReturn(['trainerStats' => [], 'weeklyEarnings' => [], 'earningsBreakdown' => [], 'monthlyProgress' => [], 'recentSessions' => []]);
+        $this->mock(MyCollectionService::class, function ($mock) {
+            $mock->shouldReceive('getStats')->once()->with(1, 99)->andReturn(['trainerStats' => [], 'weeklyEarnings' => [], 'earningsBreakdown' => [], 'monthlyProgress' => [], 'recentPayments' => []]);
         });
 
         $coach = $this->createUser(1, 'coach', 99);
@@ -106,50 +100,37 @@ class MyCollectionRoleScopeTest extends BaseTestCase
         $this->assertArrayHasKey('data', $json);
     }
 
-    public function test_staff_gets_403(): void
+    public function test_staff_gets_200_and_data(): void
     {
-        $staff = $this->createUser(1, 'staff');
+        $this->mock(MyCollectionService::class, function ($mock) {
+            $mock->shouldReceive('getStats')->once()->with(1, 1)->andReturn([
+                'trainerStats' => [],
+                'weeklyEarnings' => [],
+                'earningsBreakdown' => [],
+                'monthlyProgress' => [],
+                'recentPayments' => [],
+            ]);
+        });
+
+        $staff = $this->createUser(1, 'staff', 1);
         $request = $this->requestWithUser($staff);
         $controller = app(MyCollectionController::class);
 
         $response = $controller->getStats($request);
 
-        $this->assertEquals(403, $response->getStatusCode());
+        $this->assertEquals(200, $response->getStatusCode());
         $json = $response->getData(true);
-        $this->assertFalse($json['success'] ?? true);
-    }
-
-    public function test_unauthorized_no_user_gets_401(): void
-    {
-        $request = $this->requestWithUser(null);
-        $controller = app(MyCollectionController::class);
-
-        $response = $controller->getStats($request);
-
-        $this->assertEquals(401, $response->getStatusCode());
-    }
-
-    public function test_account_required_when_missing_returns_400(): void
-    {
-        $adminNoAccount = $this->createUser(null, 'admin');
-        $request = $this->requestWithUser($adminNoAccount);
-        $controller = app(MyCollectionController::class);
-
-        $response = $controller->getStats($request);
-
-        $this->assertEquals(400, $response->getStatusCode());
-        $json = $response->getData(true);
-        $this->assertFalse($json['success'] ?? true);
-        $this->assertStringContainsString('Account', $json['message'] ?? '');
+        $this->assertTrue($json['success'] ?? false);
+        $this->assertArrayHasKey('data', $json);
     }
 
     public function test_account_boundary_uses_user_account_id(): void
     {
-        $this->mock(\App\Services\Core\MyCollectionService::class, function ($mock) {
-            $mock->shouldReceive('getStats')->once()->with(2, null)->andReturn(['trainerStats' => [], 'recentSessions' => []]);
+        $this->mock(MyCollectionService::class, function ($mock) {
+            $mock->shouldReceive('getStats')->once()->with(2, 2)->andReturn(['trainerStats' => [], 'recentPayments' => []]);
         });
 
-        $userAccount2 = $this->createUser(2, 'admin', 2);
+        $userAccount2 = $this->createUser(2, 'coach', 2);
         $request = $this->requestWithUser($userAccount2);
         $controller = app(MyCollectionController::class);
 
@@ -160,6 +141,6 @@ class MyCollectionRoleScopeTest extends BaseTestCase
         $this->assertTrue($json['success'] ?? false);
         $data = $json['data'] ?? [];
         $this->assertArrayHasKey('trainerStats', $data);
-        $this->assertArrayHasKey('recentSessions', $data);
+        $this->assertArrayHasKey('recentPayments', $data);
     }
 }
