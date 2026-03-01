@@ -327,19 +327,22 @@ class CustomerBillRepository
     }
 
     /**
-     * Sum PT package bill paid_amount for a coach in date range (for My Collection).
+     * Sum PT package bill paid_amount for a coach (or all coaches when $coachId is null) in date range (for My Collection).
      *
      * @param int $accountId
-     * @param int $coachId created_by user id
+     * @param int|null $coachId created_by user id; null = account-wide (admin scope)
      * @param string $dateFrom Y-m-d
      * @param string $dateTo Y-m-d
      * @return float
      */
-    public function getCoachPtEarningsForDateRange(int $accountId, int $coachId, string $dateFrom, string $dateTo): float
+    public function getCoachPtEarningsForDateRange(int $accountId, ?int $coachId, string $dateFrom, string $dateTo): float
     {
-        $sum = CustomerBill::where('account_id', $accountId)
-            ->where('created_by', $coachId)
-            ->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
+        $query = CustomerBill::where('account_id', $accountId)
+            ->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION);
+        if ($coachId !== null) {
+            $query->where('created_by', $coachId);
+        }
+        $sum = $query
             ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
             ->where('bill_date', '>=', $dateFrom)
             ->where('bill_date', '<=', $dateTo)
@@ -349,18 +352,21 @@ class CustomerBillRepository
     }
 
     /**
-     * Coach PT earnings grouped by month (last N months).
+     * Coach (or account-wide when $coachId null) PT earnings grouped by month (last N months).
      *
      * @param int $accountId
-     * @param int $coachId
+     * @param int|null $coachId null = account-wide (admin scope)
      * @param int $months
      * @return array<array{month: string, earnings: float, target: float|null}>
      */
-    public function getCoachPtEarningsByMonth(int $accountId, int $coachId, int $months = 6): array
+    public function getCoachPtEarningsByMonth(int $accountId, ?int $coachId, int $months = 6): array
     {
-        $rows = CustomerBill::where('account_id', $accountId)
-            ->where('created_by', $coachId)
-            ->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
+        $query = CustomerBill::where('account_id', $accountId)
+            ->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION);
+        if ($coachId !== null) {
+            $query->where('created_by', $coachId);
+        }
+        $rows = $query
             ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
             ->selectRaw("DATE_FORMAT(bill_date, '%Y-%m') as month_key, SUM(paid_amount) as earnings")
             ->groupBy('month_key')
@@ -380,19 +386,22 @@ class CustomerBillRepository
     }
 
     /**
-     * Coach PT earnings grouped by week within date range.
+     * Coach (or account-wide when $coachId null) PT earnings grouped by week within date range.
      *
      * @param int $accountId
-     * @param int $coachId
+     * @param int|null $coachId null = account-wide (admin scope)
      * @param string $dateFrom Y-m-d
      * @param string $dateTo Y-m-d
      * @return array<array{week: string, sessions: int, earnings: float}>
      */
-    public function getCoachPtEarningsByWeek(int $accountId, int $coachId, string $dateFrom, string $dateTo): array
+    public function getCoachPtEarningsByWeek(int $accountId, ?int $coachId, string $dateFrom, string $dateTo): array
     {
-        $rows = CustomerBill::where('account_id', $accountId)
-            ->where('created_by', $coachId)
-            ->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
+        $query = CustomerBill::where('account_id', $accountId)
+            ->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION);
+        if ($coachId !== null) {
+            $query->where('created_by', $coachId);
+        }
+        $rows = $query
             ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
             ->where('bill_date', '>=', $dateFrom)
             ->where('bill_date', '<=', $dateTo)

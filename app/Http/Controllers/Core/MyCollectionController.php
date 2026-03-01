@@ -15,7 +15,7 @@ class MyCollectionController extends Controller
     }
 
     /**
-     * Get My Collection stats for the authenticated coach.
+     * Get My Collection stats. Admin sees account-wide aggregate; coach sees own data only.
      *
      * @param Request $request
      * @return JsonResponse
@@ -27,11 +27,20 @@ class MyCollectionController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
+        $role = $user->role ?? null;
+        if (!in_array($role, ['admin', 'coach'], true)) {
+            return response()->json(['success' => false, 'message' => 'My Collection is available only for admin or coach.'], 403);
+        }
+
+        $accountId = isset($user->account_id) ? (int) $user->account_id : null;
+        if ($accountId === null || $accountId <= 0) {
+            return response()->json(['success' => false, 'message' => 'Account is required for My Collection.'], 400);
+        }
+
+        $coachId = $role === 'admin' ? null : (int) $user->id;
+
         try {
-            $data = $this->myCollectionService->getStats(
-                (int) $user->account_id,
-                (int) $user->id
-            );
+            $data = $this->myCollectionService->getStats($accountId, $coachId);
 
             return response()->json([
                 'success' => true,

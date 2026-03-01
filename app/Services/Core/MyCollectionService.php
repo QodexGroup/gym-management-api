@@ -16,13 +16,13 @@ class MyCollectionService
     }
 
     /**
-     * Get trainer-specific stats for My Collection (current month + charts).
+     * Get My Collection stats. When $coachId is null (admin), returns account-wide aggregate; otherwise coach-only.
      *
      * @param int $accountId
-     * @param int $coachId
+     * @param int|null $coachId null = admin scope (all coaches), int = coach scope (own data only)
      * @return array
      */
-    public function getStats(int $accountId, int $coachId): array
+    public function getStats(int $accountId, ?int $coachId): array
     {
         $now = Carbon::now();
         $startOfMonth = $now->copy()->startOfMonth()->toDateString();
@@ -42,10 +42,12 @@ class MyCollectionService
             $endOfMonth
         );
 
-        $ptPackagesSold = CustomerPtPackage::where('account_id', $accountId)
-            ->where('coach_id', $coachId)
-            ->whereBetween('start_date', [$startOfMonth, $endOfMonth])
-            ->count();
+        $ptQuery = CustomerPtPackage::where('account_id', $accountId)
+            ->whereBetween('start_date', [$startOfMonth, $endOfMonth]);
+        if ($coachId !== null) {
+            $ptQuery->where('coach_id', $coachId);
+        }
+        $ptPackagesSold = $ptQuery->count();
 
         $monthlyTarget = null; // Not stored in DB
         $targetProgress = $monthlyTarget > 0
