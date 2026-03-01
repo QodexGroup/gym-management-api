@@ -21,15 +21,16 @@ class DashboardService
         $now = Carbon::now();
         $startOfMonth = $now->copy()->startOfMonth();
         $endOfMonth = $now->copy()->endOfMonth();
-        $thirtyDaysFromNow = $now->copy()->addDays(30);
+        // 7 days aligns with CheckMembershipExpiration / notify-member window
+        $sevenDaysFromNow = $now->copy()->addDays(7);
 
         return [
             'totalMembers' => $this->getTotalMembers(),
             'activeMembers' => $this->getActiveMembers(),
             'newRegistrations' => $this->getNewRegistrations($startOfMonth, $endOfMonth),
             'todayRevenue' => $this->getTodayRevenue($now),
-            'expiringMemberships' => $this->getExpiringMembershipsCount($now, $thirtyDaysFromNow),
-            'expiringMembersList' => $this->getExpiringMembersList($now, $thirtyDaysFromNow),
+            'expiringMemberships' => $this->getExpiringMembershipsCount($now, $sevenDaysFromNow),
+            'expiringMembersList' => $this->getExpiringMembersList($now, $sevenDaysFromNow),
             'membershipDistribution' => $this->getMembershipDistribution(),
         ];
     }
@@ -85,31 +86,31 @@ class DashboardService
     }
 
     /**
-     * Get count of memberships expiring in the next 30 days
+     * Get count of memberships expiring in the next 7 days (aligns with notify-member window).
      *
      * @param Carbon $now
-     * @param Carbon $thirtyDaysFromNow
+     * @param Carbon $sevenDaysFromNow
      * @return int
      */
-    private function getExpiringMembershipsCount(Carbon $now, Carbon $thirtyDaysFromNow): int
+    private function getExpiringMembershipsCount(Carbon $now, Carbon $sevenDaysFromNow): int
     {
         return CustomerMembership::where('status', 'Active')
-            ->whereBetween('membership_end_date', [$now->copy()->startOfDay(), $thirtyDaysFromNow->copy()->endOfDay()])
+            ->whereBetween('membership_end_date', [$now->copy()->startOfDay(), $sevenDaysFromNow->copy()->endOfDay()])
             ->count();
     }
 
     /**
-     * Get list of members with expiring memberships
+     * Get list of members with expiring memberships (next 7 days, aligns with notify-member window).
      *
      * @param Carbon $now
-     * @param Carbon $thirtyDaysFromNow
+     * @param Carbon $sevenDaysFromNow
      * @return array
      */
-    private function getExpiringMembersList(Carbon $now, Carbon $thirtyDaysFromNow): array
+    private function getExpiringMembersList(Carbon $now, Carbon $sevenDaysFromNow): array
     {
         $expiringMemberships = CustomerMembership::with(['customer', 'membershipPlan'])
             ->where('status', 'Active')
-            ->whereBetween('membership_end_date', [$now->copy()->startOfDay(), $thirtyDaysFromNow->copy()->endOfDay()])
+            ->whereBetween('membership_end_date', [$now->copy()->startOfDay(), $sevenDaysFromNow->copy()->endOfDay()])
             ->orderBy('membership_end_date', 'asc')
             ->limit(10)
             ->get();
