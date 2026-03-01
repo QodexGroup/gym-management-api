@@ -2,85 +2,83 @@
 
 namespace App\Services\Core;
 
-use App\Models\Core\CustomerPtPackage;
-use App\Repositories\Core\ClassSessionBookingRepository;
-use App\Repositories\Core\CustomerBillRepository;
+use App\Repositories\Core\CustomerPaymentRepository;
+use App\Repositories\Core\CustomerPtPackageRepository;
 use Carbon\Carbon;
 
 class MyCollectionService
 {
     public function __construct(
-        private CustomerBillRepository $customerBillRepository,
-        private ClassSessionBookingRepository $classSessionBookingRepository,
+        private CustomerPaymentRepository $customerPaymentRepository,
+        private CustomerPtPackageRepository $customerPtPackageRepository,
     ) {
     }
 
     /**
-     * Get My Collection stats. When $coachId is null (admin), returns account-wide aggregate; otherwise coach-only.
+     * Get My Collection stats for a coach.
      *
      * @param int $accountId
-     * @param int|null $coachId null = admin scope (all coaches), int = coach scope (own data only)
+     * @param int $coachId
      * @return array
      */
-    public function getStats(int $accountId, ?int $coachId): array
+    public function getStats(int $accountId, int $coachId): array
     {
         $now = Carbon::now();
         $startOfMonth = $now->copy()->startOfMonth()->toDateString();
         $endOfMonth = $now->copy()->endOfMonth()->toDateString();
 
-        $totalEarnings = $this->customerBillRepository->getCoachPtEarningsForDateRange(
+        // Get this month's stats
+        $totalEarnings = $this->customerPaymentRepository->getCoachPtEarningsForDateRange(
             $accountId,
             $coachId,
             $startOfMonth,
             $endOfMonth
         );
 
-        $sessionsCompleted = $this->classSessionBookingRepository->countAttendedByCoachAndDateRange(
+        $totalPayments = $this->customerPaymentRepository->countCoachPtPaymentsForDateRange(
             $accountId,
             $coachId,
             $startOfMonth,
             $endOfMonth
         );
 
-        $ptQuery = CustomerPtPackage::where('account_id', $accountId)
-            ->whereBetween('start_date', [$startOfMonth, $endOfMonth]);
-        if ($coachId !== null) {
-            $ptQuery->where('coach_id', $coachId);
-        }
-        $ptPackagesSold = $ptQuery->count();
+        $ptPackagesSold = $this->customerPtPackageRepository->countPtPackagesSoldByCoach(
+            $accountId,
+            $coachId,
+            $startOfMonth,
+            $endOfMonth
+        );
 
-        $monthlyTarget = null; // Not stored in DB
-        $targetProgress = $monthlyTarget > 0
-            ? min(100, round(($totalEarnings / $monthlyTarget) * 100, 1))
-            : 0;
-        $averageSessionRate = $sessionsCompleted > 0
-            ? round($totalEarnings / $sessionsCompleted, 2)
+        $averagePayment = $totalPayments > 0
+            ? round($totalEarnings / $totalPayments, 2)
             : 0;
 
         $trainerStats = [
             'totalEarnings' => $totalEarnings,
-            'sessionsCompleted' => $sessionsCompleted,
+            'totalPayments' => $totalPayments,
             'ptPackagesSold' => $ptPackagesSold,
-            'averageSessionRate' => $averageSessionRate,
-            'monthlyTarget' => $monthlyTarget,
-            'targetProgress' => $targetProgress,
+            'averagePayment' => $averagePayment,
         ];
 
-        $weeklyEarnings = $this->customerBillRepository->getCoachPtEarningsByWeek(
+        // Get weekly earnings for this month
+        $weeklyEarnings = $this->customerPaymentRepository->getCoachPtEarningsByWeek(
             $accountId,
             $coachId,
             $startOfMonth,
             $endOfMonth
         );
+
+        // Fill in empty weeks if needed
         if (empty($weeklyEarnings)) {
             $weeklyEarnings = [
-                ['week' => 'Week 1', 'sessions' => 0, 'earnings' => 0],
-                ['week' => 'Week 2', 'sessions' => 0, 'earnings' => 0],
-                ['week' => 'Week 3', 'sessions' => 0, 'earnings' => 0],
-                ['week' => 'Week 4', 'sessions' => 0, 'earnings' => 0],
+                ['week' => 'Week 1', 'payments' => 0, 'earnings' => 0],
+                ['week' => 'Week 2', 'payments' => 0, 'earnings' => 0],
+                ['week' => 'Week 3', 'payments' => 0, 'earnings' => 0],
+                ['week' => 'Week 4', 'payments' => 0, 'earnings' => 0],
             ];
         }
 
+        // Earnings breakdown (currently only PT Package Sales)
         $earningsBreakdown = [];
         if ($totalEarnings > 0) {
             $earningsBreakdown = [
@@ -90,39 +88,39 @@ class MyCollectionService
             $earningsBreakdown = [['name' => 'PT Package Sales', 'value' => 0, 'color' => '#0ea5e9']];
         }
 
-        $monthlyProgress = $this->customerBillRepository->getCoachPtEarningsByMonth(
+        // Get monthly progress (last 6 months)
+        $monthlyProgress = $this->customerPaymentRepository->getCoachPtEarningsByMonth(
             $accountId,
             $coachId,
             6
         );
+
+        // Fill in empty months if needed
         if (empty($monthlyProgress)) {
             $monthlyProgress = array_map(function ($m) {
-                return ['month' => $m, 'earnings' => 0, 'target' => null];
+                return ['month' => $m, 'earnings' => 0];
             }, ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
         }
 
-        $recentBookings = $this->classSessionBookingRepository->getRecentAttendedByCoach(
+        // Get recent PT payments
+        $recentPayments = $this->customerPaymentRepository->getRecentPtPaymentsForCoach(
             $accountId,
             $coachId,
             10
         );
-        $recentSessions = $recentBookings->map(function ($b) {
-            $customer = $b->customer;
-            $session = $b->classScheduleSession;
-            $schedule = $session ? $session->classSchedule : null;
-            $sessionDate = $session && $session->start_time
-                ? Carbon::parse($session->start_time)->format('Y-m-d')
-                : ($b->updated_at ? $b->updated_at->format('Y-m-d') : '');
+
+        $recentPaymentsList = $recentPayments->map(function ($payment) {
+            $customer = $payment->customer;
             $customerName = $customer
                 ? trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')) ?: 'Unknown'
                 : 'Unknown';
-            $type = $schedule ? ($schedule->class_name ?? 'Session') : 'Session';
+
             return [
-                'id' => $b->id,
+                'id' => $payment->id,
                 'member' => $customerName,
-                'type' => $type,
-                'date' => $sessionDate,
-                'amount' => 0,
+                'type' => 'PT Package',
+                'date' => $payment->payment_date->format('Y-m-d'),
+                'amount' => (float) $payment->amount,
             ];
         })->values()->toArray();
 
@@ -131,7 +129,7 @@ class MyCollectionService
             'weeklyEarnings' => $weeklyEarnings,
             'earningsBreakdown' => $earningsBreakdown,
             'monthlyProgress' => $monthlyProgress,
-            'recentSessions' => $recentSessions,
+            'recentPayments' => $recentPaymentsList,
         ];
     }
 }
