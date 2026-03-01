@@ -66,7 +66,7 @@ class AuthController extends Controller
                 $user->load('permissions');
             }
             if (!$user->relationLoaded('account')) {
-                $user->load('account.subscriptionPlan');
+                $user->load('account.subscriptionPlan', 'account.billingInformation');
             }
 
             $data = (new UserResource($user))->toArray($request);

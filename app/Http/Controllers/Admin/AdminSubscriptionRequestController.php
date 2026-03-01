@@ -4,7 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Helpers\ApiResponse;
 use App\Http\Requests\GenericRequest;
-use App\Http\Resources\Account\AccountSubscriptionRequestResource;
+use App\Constant\AccountSubscriptionRequestConstant;
+use App\Http\Resources\Account\AccountSubscription\AccountSubscriptionRequestResource;
 use App\Models\Account\AccountSubscriptionRequest;
 use Illuminate\Http\JsonResponse;
 
@@ -16,7 +17,7 @@ class AdminSubscriptionRequestController
     public function index(GenericRequest $request): JsonResponse
     {
         $requests = AccountSubscriptionRequest::with(['account', 'subscriptionPlan', 'requestedByUser'])
-            ->where('status', AccountSubscriptionRequest::STATUS_PENDING)
+            ->where('status', AccountSubscriptionRequestConstant::STATUS_PENDING)
             ->orderBy('created_at', 'desc')
             ->get();
 

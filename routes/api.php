@@ -3,10 +3,11 @@
 use App\Http\Controllers\Account\ClassScheduleController;
 use App\Http\Controllers\Account\ClassScheduleSessionController;
 use App\Http\Controllers\Account\MembershipPlanController;
-use App\Http\Controllers\Account\PlatformSubscriptionPlanController;
+use App\Http\Controllers\Account\AccountSubscription\AccountBillingInformationController;
+use App\Http\Controllers\Account\AccountSubscription\PlatformSubscriptionPlanController;
+use App\Http\Controllers\Account\AccountSubscription\SubscriptionRequestController;
 use App\Http\Controllers\Account\PtCategoryController;
 use App\Http\Controllers\Account\PtPackageController;
-use App\Http\Controllers\Account\SubscriptionRequestController;
 use App\Http\Controllers\Account\UsersController;
 use App\Http\Controllers\Admin\AdminSubscriptionRequestController;
 use App\Http\Controllers\Auth\AuthController;
@@ -56,6 +57,8 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
     Route::get('/accounts/subscription-requests', [SubscriptionRequestController::class, 'index']);
     Route::post('/accounts/subscription-request', [SubscriptionRequestController::class, 'store']);
+    Route::get('/accounts/billing-information', [AccountBillingInformationController::class, 'show']);
+    Route::put('/accounts/billing-information', [AccountBillingInformationController::class, 'update']);
 
     Route::prefix('admin')->middleware([EnsurePlatformAdmin::class])->group(function () {
         Route::get('/subscription-requests', [AdminSubscriptionRequestController::class, 'index']);

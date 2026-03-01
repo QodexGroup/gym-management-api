@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Constant\AccountSubscriptionStatusConstant;
+use App\Models\Account\AccountBillingInformation;
 use App\Models\Account\PlatformSubscriptionPlan;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Account extends Model
 {
@@ -17,8 +20,6 @@ class Account extends Model
         'subscription_plan_id',
         'trial_ends_at',
         'current_period_ends_at',
-        'stripe_customer_id',
-        'stripe_subscription_id',
         'owner_email',
     ];
 
@@ -30,11 +31,11 @@ class Account extends Model
         ];
     }
 
-    public const STATUS_TRIAL = 'trial';
-    public const STATUS_ACTIVE = 'active';
-    public const STATUS_TRIAL_EXPIRED = 'trial_expired';
-    public const STATUS_PAST_DUE = 'past_due';
-    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_TRIAL = AccountSubscriptionStatusConstant::STATUS_TRIAL;
+    public const STATUS_ACTIVE = AccountSubscriptionStatusConstant::STATUS_ACTIVE;
+    public const STATUS_TRIAL_EXPIRED = AccountSubscriptionStatusConstant::STATUS_TRIAL_EXPIRED;
+    public const STATUS_PAST_DUE = AccountSubscriptionStatusConstant::STATUS_PAST_DUE;
+    public const STATUS_CANCELLED = AccountSubscriptionStatusConstant::STATUS_CANCELLED;
 
     public function subscriptionPlan(): BelongsTo
     {
@@ -44,6 +45,11 @@ class Account extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class, 'account_id');
+    }
+
+    public function billingInformation(): HasOne
+    {
+        return $this->hasOne(AccountBillingInformation::class);
     }
 
     public function canCreatePaidResources(): bool

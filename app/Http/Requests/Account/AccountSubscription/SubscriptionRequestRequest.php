@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests\Account;
+namespace App\Http\Requests\Account\AccountSubscription;
 
 use App\Http\Requests\GenericRequest;
 use Illuminate\Validation\Rule;

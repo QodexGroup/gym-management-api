@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Resources\Account;
+namespace App\Http\Resources\Account\AccountSubscription;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;

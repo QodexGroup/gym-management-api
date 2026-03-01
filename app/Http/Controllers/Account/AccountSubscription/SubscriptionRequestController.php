@@ -1,19 +1,20 @@
 <?php
 
-namespace App\Http\Controllers\Account;
+namespace App\Http\Controllers\Account\AccountSubscription;
 
 use App\Helpers\ApiResponse;
-use App\Http\Requests\Account\SubscriptionRequestRequest;
+use App\Http\Requests\Account\AccountSubscription\SubscriptionRequestRequest;
 use App\Http\Requests\GenericRequest;
-use App\Http\Resources\Account\AccountSubscriptionRequestResource;
-use App\Models\Account\AccountSubscriptionRequest;
-use App\Services\Account\AccountSubscriptionRequestService;
+use App\Http\Resources\Account\AccountSubscription\AccountSubscriptionRequestResource;
+use App\Repositories\Account\AccountSubscription\AccountSubscriptionRequestRepository;
+use App\Services\Account\AccountSubscription\AccountSubscriptionRequestService;
 use Illuminate\Http\JsonResponse;
 
 class SubscriptionRequestController
 {
     public function __construct(
-        private AccountSubscriptionRequestService $subscriptionRequestService
+        private AccountSubscriptionRequestService $subscriptionRequestService,
+        private AccountSubscriptionRequestRepository $requestRepository
     ) {
     }
 
@@ -23,12 +24,7 @@ class SubscriptionRequestController
     public function index(GenericRequest $request): JsonResponse
     {
         $accountId = $request->getUserData()->account_id;
-        $requests = AccountSubscriptionRequest::with(['subscriptionPlan'])
-            ->where('account_id', $accountId)
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get();
-
+        $requests = $this->requestRepository->getRecentByAccountId($accountId, 5);
         return ApiResponse::success(AccountSubscriptionRequestResource::collection($requests));
     }
 

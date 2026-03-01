@@ -2,26 +2,27 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Account;
+use App\Constant\AccountSubscriptionRequestConstant;
 use App\Models\Account\AccountSubscriptionRequest;
-use App\Models\User;
-use App\Services\Account\AccountSubscriptionRequestService;
+use App\Services\Account\AccountSubscription\AccountSubscriptionRequestService;
 use Illuminate\Console\Command;
 
 class SubscriptionRequestReject extends Command
 {
-    protected $signature = 'subscription-request:reject {email : Account owner email or requester email} {--reason= : Optional rejection reason}';
+    protected $signature = 'subscription-request:reject {account_id : Account ID that has a pending subscription request} {--reason= : Optional rejection reason}';
 
-    protected $description = 'Reject a pending subscription request by email';
+    protected $description = 'Reject a pending subscription request by account ID';
 
     public function handle(AccountSubscriptionRequestService $service): int
     {
-        $email = trim($this->argument('email'));
+        $accountId = (int) $this->argument('account_id');
         $reason = $this->option('reason');
-        $pending = $this->findPendingByEmail($email);
+        $pending = AccountSubscriptionRequest::where('account_id', $accountId)
+            ->where('status', AccountSubscriptionRequestConstant::STATUS_PENDING)
+            ->first();
 
         if (! $pending) {
-            $this->error("No pending subscription request found for email: {$email}");
+            $this->error("No pending subscription request found for account ID: {$accountId}");
             return Command::FAILURE;
         }
 
@@ -33,27 +34,5 @@ class SubscriptionRequestReject extends Command
             $this->error($e->getMessage());
             return Command::FAILURE;
         }
-    }
-
-    private function findPendingByEmail(string $email): ?AccountSubscriptionRequest
-    {
-        $account = Account::where('owner_email', $email)->first();
-        if ($account) {
-            $request = AccountSubscriptionRequest::where('account_id', $account->id)
-                ->where('status', AccountSubscriptionRequest::STATUS_PENDING)
-                ->first();
-            if ($request) {
-                return $request;
-            }
-        }
-
-        $user = User::where('email', $email)->first();
-        if ($user && $user->account_id) {
-            return AccountSubscriptionRequest::where('account_id', $user->account_id)
-                ->where('status', AccountSubscriptionRequest::STATUS_PENDING)
-                ->first();
-        }
-
-        return null;
     }
 }

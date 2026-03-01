@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Account;
 
+use App\Http\Resources\Account\AccountSubscription\AccountBillingInformationResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,6 +23,9 @@ class AccountResource extends JsonResource
                     'slug' => $this->subscriptionPlan->slug,
                     'isTrial' => $this->subscriptionPlan->is_trial,
                 ];
+            }),
+            'billingInformation' => $this->whenLoaded('billingInformation', function () {
+                return new AccountBillingInformationResource($this->billingInformation);
             }),
         ];
     }
