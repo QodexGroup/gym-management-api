@@ -26,7 +26,7 @@ class ExpenseCategoryController
     {
         $genericData = $request->getGenericData();
         $categories = $this->expenseCategoryRepository->getAllCategories($genericData);
-        return ApiResponse::success($categories);
+        return ApiResponse::success(ExpenseCategoryResource::collection($categories)->response()->getData(true));
     }
 
     /**
