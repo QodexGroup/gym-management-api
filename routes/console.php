@@ -16,3 +16,6 @@ Schedule::command('membership:update-expired-status')
 Schedule::command('membership:check-expiration')
     ->dailyAt('09:00');
 
+// Prune expired database cache entries - Run daily at 1:00 AM (Asia/Manila)
+Schedule::command('cache:prune-stale --driver=database')
+    ->dailyAt('01:00');

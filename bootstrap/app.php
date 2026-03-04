@@ -18,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         // Also add to global stack as fallback
         $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+
+        // Register idempotency middleware alias
+        $middleware->alias([
+            'idempotent' => \App\Http\Middleware\IdempotencyMiddleware::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
