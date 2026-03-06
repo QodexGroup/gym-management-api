@@ -25,9 +25,9 @@ class CollectionDataSheet implements FromArray, WithHeadings, WithTitle, ShouldA
             return [
                 $row['Date'] ?? '',
                 $row['Member'] ?? '',
-                $row['BillType'] ?? '',
-                $row['PaidAmount'] ?? 0,
-                $row['Status'] ?? '',
+                $row['Type'] ?? '',
+                $row['Amount'] ?? 0,
+                $row['PaymentMethod'] ?? '',
             ];
         }, $this->data);
     }
@@ -40,9 +40,9 @@ class CollectionDataSheet implements FromArray, WithHeadings, WithTitle, ShouldA
         return [
             'Date',
             'Member',
-            'Bill Type',
-            'Paid Amount',
-            'Status'
+            'Type',
+            'Amount',
+            'Payment Method',
         ];
     }
 
