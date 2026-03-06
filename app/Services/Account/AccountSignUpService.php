@@ -2,8 +2,11 @@
 
 namespace App\Services\Account;
 
+use App\Constants\DefaultSignupCategories;
 use App\Models\Account;
 use App\Models\Account\PlatformSubscriptionPlan;
+use App\Models\Account\PtCategory;
+use App\Models\Common\ExpenseCategory;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -57,6 +60,8 @@ class AccountSignUpService
                 'status' => 'active',
             ]);
 
+            $this->seedDefaultCategoriesForAccount($account->id);
+
             $user->load(['account.subscriptionPlan', 'permissions']);
 
             return [
@@ -65,5 +70,41 @@ class AccountSignUpService
                 'isNew' => true,
             ];
         });
+    }
+
+    /**
+     * Default expense category names seeded for new accounts. Exposed for testing without DB.
+     *
+     * @return list<string>
+     */
+    public static function defaultExpenseCategoryNames(): array
+    {
+        return DefaultSignupCategories::DEFAULT_EXPENSE_CATEGORIES;
+    }
+
+    /**
+     * Default PT category names seeded for new accounts. Exposed for testing without DB.
+     *
+     * @return list<string>
+     */
+    public static function defaultPtCategoryNames(): array
+    {
+        return DefaultSignupCategories::DEFAULT_PT_CATEGORIES;
+    }
+
+    private function seedDefaultCategoriesForAccount(int $accountId): void
+    {
+        foreach (DefaultSignupCategories::DEFAULT_EXPENSE_CATEGORIES as $name) {
+            ExpenseCategory::firstOrCreate(
+                ['account_id' => $accountId, 'name' => $name],
+                ['account_id' => $accountId, 'name' => $name]
+            );
+        }
+        foreach (DefaultSignupCategories::DEFAULT_PT_CATEGORIES as $categoryName) {
+            PtCategory::firstOrCreate(
+                ['account_id' => $accountId, 'category_name' => $categoryName],
+                ['account_id' => $accountId, 'category_name' => $categoryName]
+            );
+        }
     }
 }
