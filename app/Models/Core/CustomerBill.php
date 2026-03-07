@@ -8,6 +8,7 @@ use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CustomerBill extends Model
@@ -34,6 +35,7 @@ class CustomerBill extends Model
         'net_amount',
         'paid_amount',
         'bill_date',
+        'billing_period',
         'bill_status',
         'bill_type',
         'billable_id',
@@ -89,5 +91,14 @@ class CustomerBill extends Model
     {
         return $this->belongsTo(MembershipPlan::class, 'membership_plan_id');
     }
-}
 
+    /**
+     * Get the customer PT package for the bill (if bill type is PT package subscription).
+     * Matches on customer_id and billable_id = pt_package_id
+     */
+    public function customerPtPackage(): HasOne
+    {
+        return $this->hasOne(CustomerPtPackage::class, 'customer_id', 'customer_id')
+            ->whereColumn('tb_customer_pt_package.pt_package_id', $this->getTable() . '.billable_id');
+    }
+}

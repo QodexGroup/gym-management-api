@@ -64,7 +64,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::get('/subscription-requests', [AdminSubscriptionRequestController::class, 'index']);
     });
 
-    Route::prefix('users')->group(function () {
+    Route::prefix('users')->middleware(['idempotent'])->group(function () {
         Route::get('/', [UsersController::class, 'getAllUsers']);
         Route::get('/coaches', [UsersController::class, 'getCoaches']);
         Route::post('/', [UsersController::class, 'createUser']);
@@ -75,14 +75,14 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::put('/{id}/reset-password', [UsersController::class, 'resetPassword']);
     });
 
-    Route::prefix('membership-plans')->group(function () {
+    Route::prefix('membership-plans')->middleware(['idempotent'])->group(function () {
         Route::get('/', [MembershipPlanController::class, 'getAllMembershipPlan']);
         Route::post('/', [MembershipPlanController::class, 'store']);
         Route::put('/{id}', [MembershipPlanController::class, 'updateMembershipPlan']);
         Route::delete('/{id}', [MembershipPlanController::class, 'delete']);
     });
 
-    Route::prefix('pt-packages')->group(function () {
+    Route::prefix('pt-packages')->middleware(['idempotent'])->group(function () {
         Route::get('/', [PtPackageController::class, 'getAllPtPackages']);
         Route::post('/', [PtPackageController::class, 'store']);
         Route::put('/{id}', [PtPackageController::class, 'updatePtPackage']);
@@ -93,7 +93,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::get('/', [PtCategoryController::class, 'getAllPtCategories']);
     });
 
-    Route::prefix('class-schedules')->group(function () {
+    Route::prefix('class-schedules')->middleware(['idempotent'])->group(function () {
         Route::get('/', [ClassScheduleController::class, 'getAllClassSchedules']);
         Route::get('/my-schedules', [ClassScheduleController::class, 'getMyClassSchedules']);
         Route::get('/coach/{coachId}', [ClassScheduleController::class, 'getClassSchedulesByCoachId']);
@@ -102,12 +102,12 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::delete('/{id}', [ClassScheduleController::class, 'delete']);
     });
 
-    Route::prefix('class-schedule-sessions')->group(function () {
+    Route::prefix('class-schedule-sessions')->middleware(['idempotent'])->group(function () {
         Route::get('/', [ClassScheduleSessionController::class, 'getAllSessions']);
         Route::put('/{id}', [ClassScheduleSessionController::class, 'updateSession']);
     });
 
-    Route::prefix('class-session-bookings')->group(function () {
+    Route::prefix('class-session-bookings')->middleware(['idempotent'])->group(function () {
         Route::get('/', [ClassSessionBookingController::class, 'getBookingSessions']);
         Route::post('/', [ClassSessionBookingController::class, 'bookSession']);
         Route::get('/{bookingId}', [ClassSessionBookingController::class, 'getBookingById']);
@@ -117,7 +117,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::put('/session/{sessionId}/mark-all-attended', [ClassSessionBookingController::class, 'markAllAsAttended']);
     });
 
-    Route::prefix('pt-bookings')->group(function () {
+    Route::prefix('pt-bookings')->middleware(['idempotent'])->group(function () {
         Route::get('/', [PtBookingController::class, 'getPtBookings']);
         Route::get('/coach/{coachId}', [PtBookingController::class, 'getCoachPtBookings']);
         Route::get('/session/{sessionId}', [PtBookingController::class, 'getPtBookingsBySession']);
@@ -128,7 +128,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::put('/{id}/no-show', [PtBookingController::class, 'markAsNoShow']);
     });
 
-    Route::prefix('expenses')->group(function () {
+    Route::prefix('expenses')->middleware(['idempotent'])->group(function () {
         Route::get('/', [ExpenseController::class, 'getAllExpenses']);
         Route::get('/{id}', [ExpenseController::class, 'getExpenseById']);
         Route::post('/', [ExpenseController::class, 'createExpense']);
@@ -137,7 +137,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::delete('/{id}', [ExpenseController::class, 'deleteExpense']);
     });
 
-    Route::prefix('expense-categories')->group(function () {
+    Route::prefix('expense-categories')->middleware(['idempotent'])->group(function () {
         Route::get('/', [ExpenseCategoryController::class, 'getAllExpenseCategories']);
         Route::get('/{id}', [ExpenseCategoryController::class, 'getCategoryById']);
         Route::post('/', [ExpenseCategoryController::class, 'createCategory']);
@@ -145,7 +145,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::delete('/{id}', [ExpenseCategoryController::class, 'deleteCategory']);
     });
 
-    Route::prefix('walkins')->group(function () {
+    Route::prefix('walkins')->middleware(['idempotent'])->group(function () {
         Route::post('/', [WalkinController::class, 'createWalkin']);
         Route::get('/', [WalkinController::class, 'getWalkin']);
         Route::post('/qr-checkin', [WalkinController::class, 'qrCheckIn']);
@@ -156,7 +156,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::put('/customers/{id}/cancel', [WalkinController::class, 'cancelWalkinCustomer']);
     });
 
-    Route::prefix('customers')->group(function () {
+    Route::prefix('customers')->middleware(['idempotent'])->group(function () {
         Route::get('/', [CustomerController::class, 'getCustomers']);
         Route::post('/', [CustomerController::class, 'store']);
         Route::get('/{id}', [CustomerController::class, 'getCustomer']);
@@ -228,18 +228,19 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
     // Report routes (protected)
     Route::prefix('reports')->group(function () {
+        Route::get('/collection-data', [ReportController::class, 'getCollectionData']);
         Route::post('/check-export', [ReportController::class, 'checkExportSize']);
         Route::post('/email', [ReportController::class, 'emailReport']);
     });
 
-    Route::prefix('notifications')->group(function () {
+    Route::prefix('notifications')->middleware(['idempotent'])->group(function () {
         Route::get('/', [NotificationController::class, 'index']);
         Route::get('/unread-count', [NotificationController::class, 'getUnreadCount']);
         Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
     });
 
-    Route::prefix('notification-preferences')->group(function () {
+    Route::prefix('notification-preferences')->middleware(['idempotent'])->group(function () {
         Route::get('/', [NotificationPreferenceController::class, 'index']);
         Route::post('/', [NotificationPreferenceController::class, 'update']);
     });

@@ -3,21 +3,16 @@
 namespace App\Http\Requests\Core;
 
 use App\Constants\ReportTypeConstant;
-use App\Http\Requests\GenericRequest;
+use App\Http\Requests\Common\FilterDateRequest;
 
-class CheckExportSizeRequest extends GenericRequest
+class CheckExportSizeRequest extends FilterDateRequest
 {
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return array_merge(parent::rules(), [
+            'startDate' => ['required', 'date', 'date_format:Y-m-d'],
+            'endDate' => ['required', 'date', 'date_format:Y-m-d', 'after_or_equal:startDate'],
             'reportType' => ['required', 'string', 'in:' . ReportTypeConstant::getValidationRule()],
-            'dateFrom' => ['required', 'string', 'date'],
-            'dateTo' => ['required', 'string', 'date', 'after_or_equal:dateFrom'],
         ]);
     }
 }

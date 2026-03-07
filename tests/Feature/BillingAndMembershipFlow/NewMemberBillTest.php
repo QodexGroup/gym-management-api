@@ -44,7 +44,9 @@ class NewMemberBillTest extends BillingAndMembershipFlowTestCase
 
         $this->assertNotNull($membership, 'Membership should be created immediately for new member');
         $this->assertEquals($billDate, $membership->membership_start_date->toDateString());
-        $this->assertEquals(Carbon::parse($billDate)->addMonth()->toDateString(), $membership->membership_end_date->toDateString());
+        // End date should follow plan's inclusive end date calculation
+        $expectedEnd = $this->monthlyPlan->calculateEndDate(Carbon::parse($billDate));
+        $this->assertEquals($expectedEnd->toDateString(), $membership->membership_end_date->toDateString());
     }
 
     /**

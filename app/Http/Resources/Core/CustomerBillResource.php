@@ -24,6 +24,7 @@ class CustomerBillResource extends JsonResource
             'netAmount' => $this->net_amount,
             'paidAmount' => $this->paid_amount,
             'billDate' => $this->bill_date,
+            'billingPeriod' => $this->billing_period,
             'billStatus' => $this->bill_status,
             'billType' => $this->bill_type,
             'membershipPlanId' => $this->membership_plan_id,
@@ -47,4 +48,3 @@ class CustomerBillResource extends JsonResource
         ];
     }
 }
-

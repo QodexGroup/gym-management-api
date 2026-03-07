@@ -150,7 +150,7 @@ class CustomerRepository
         return CustomerMembership::where('customer_id', $customerId)
             ->where('account_id', $accountId)
             ->where(function ($query) {
-                $query->where('membership_end_date', '<', now())
+                $query->whereDate('membership_end_date', '<', today())
                     ->orWhere('status', CustomerMembershipConstant::STATUS_EXPIRED);
             })
             ->pluck('membership_plan_id')
@@ -188,7 +188,7 @@ class CustomerRepository
         return CustomerMembership::where('customer_id', $customerId)
             ->where('account_id', $accountId)
             ->where(function ($query) {
-                $query->where('membership_end_date', '<', now())
+                $query->whereDate('membership_end_date', '<', today())
                     ->orWhere('status', CustomerMembershipConstant::STATUS_EXPIRED);
             })
             ->orderBy('membership_end_date', 'desc')

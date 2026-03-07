@@ -108,4 +108,21 @@ class CustomerPtPackageRepository
             ->decrement('number_of_sessions_remaining', 1);
 
     }
+
+    /**
+     * Count PT packages sold by a coach within date range (for My Collection).
+     *
+     * @param int $accountId
+     * @param int $coachId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return int
+     */
+    public function countPtPackagesSoldByCoach(int $accountId, int $coachId, string $dateFrom, string $dateTo): int
+    {
+        return CustomerPtPackage::where('account_id', $accountId)
+            ->where('coach_id', $coachId)
+            ->whereBetween('start_date', [$dateFrom, $dateTo])
+            ->count();
+    }
 }

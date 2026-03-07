@@ -16,21 +16,22 @@ class DashboardService
      *
      * @return array
      */
-    public function getStats(): array
+    public function getStats(int $accountId): array
     {
         $now = Carbon::now();
         $startOfMonth = $now->copy()->startOfMonth();
         $endOfMonth = $now->copy()->endOfMonth();
-        $thirtyDaysFromNow = $now->copy()->addDays(30);
+        // 7 days aligns with CheckMembershipExpiration / notify-member window
+        $sevenDaysFromNow = $now->copy()->addDays(7);
 
         return [
-            'totalMembers' => $this->getTotalMembers(),
-            'activeMembers' => $this->getActiveMembers(),
-            'newRegistrations' => $this->getNewRegistrations($startOfMonth, $endOfMonth),
-            'todayRevenue' => $this->getTodayRevenue($now),
-            'expiringMemberships' => $this->getExpiringMembershipsCount($now, $thirtyDaysFromNow),
-            'expiringMembersList' => $this->getExpiringMembersList($now, $thirtyDaysFromNow),
-            'membershipDistribution' => $this->getMembershipDistribution(),
+            'totalMembers' => $this->getTotalMembers($accountId),
+            'activeMembers' => $this->getActiveMembers($accountId),
+            'newRegistrations' => $this->getNewRegistrations($accountId, $startOfMonth, $endOfMonth),
+            'todayRevenue' => $this->getTodayRevenue($accountId, $now),
+            'expiringMemberships' => $this->getExpiringMembershipsCount($accountId, $now, $sevenDaysFromNow),
+            'expiringMembersList' => $this->getExpiringMembersList($accountId, $now, $sevenDaysFromNow),
+            'membershipDistribution' => $this->getMembershipDistribution($accountId),
         ];
     }
 
@@ -39,9 +40,9 @@ class DashboardService
      *
      * @return int
      */
-    private function getTotalMembers(): int
+    private function getTotalMembers(int $accountId): int
     {
-        return Customer::count();
+        return Customer::where('account_id', $accountId)->count();
     }
 
     /**
@@ -49,11 +50,12 @@ class DashboardService
      *
      * @return int
      */
-    private function getActiveMembers(): int
+    private function getActiveMembers(int $accountId): int
     {
-        return Customer::whereHas('memberships', function ($query) {
+        return Customer::where('account_id', $accountId)->whereHas('memberships', function ($query) use ($accountId) {
             $query->where('status', 'Active')
-                  ->where('membership_end_date', '>=', now());
+                  ->where('account_id', $accountId)
+                  ->whereDate('membership_end_date', '>=', today());
         })->count();
     }
 
@@ -64,9 +66,11 @@ class DashboardService
      * @param Carbon $endOfMonth
      * @return int
      */
-    private function getNewRegistrations(Carbon $startOfMonth, Carbon $endOfMonth): int
+    private function getNewRegistrations(int $accountId, Carbon $startOfMonth, Carbon $endOfMonth): int
     {
-        return Customer::whereBetween('created_at', [$startOfMonth, $endOfMonth])->count();
+        return Customer::where('account_id', $accountId)
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->count();
     }
 
     /**
@@ -75,62 +79,65 @@ class DashboardService
      * @param Carbon $now
      * @return float
      */
-    private function getTodayRevenue(Carbon $now): float
+    private function getTodayRevenue(int $accountId, Carbon $now): float
     {
         $startOfDay = $now->copy()->startOfDay();
         $endOfDay = $now->copy()->endOfDay();
 
-        return CustomerPayment::whereBetween('payment_date', [$startOfDay, $endOfDay])
+        return CustomerPayment::where('account_id', $accountId)
+            ->whereBetween('payment_date', [$startOfDay, $endOfDay])
             ->sum('amount') ?? 0.0;
     }
 
     /**
-     * Get count of memberships expiring in the next 30 days
+     * Get count of memberships expiring in the next 7 days (aligns with notify-member window).
      *
      * @param Carbon $now
-     * @param Carbon $thirtyDaysFromNow
+     * @param Carbon $sevenDaysFromNow
      * @return int
      */
-    private function getExpiringMembershipsCount(Carbon $now, Carbon $thirtyDaysFromNow): int
+    private function getExpiringMembershipsCount(int $accountId, Carbon $now, Carbon $sevenDaysFromNow): int
     {
-        return CustomerMembership::where('status', 'Active')
-            ->whereBetween('membership_end_date', [$now, $thirtyDaysFromNow])
+        return CustomerMembership::where('account_id', $accountId)
+            ->where('status', 'Active')
+            ->whereBetween('membership_end_date', [$now->copy()->startOfDay(), $sevenDaysFromNow->copy()->endOfDay()])
             ->count();
     }
 
     /**
-     * Get list of members with expiring memberships
+     * Get list of members with expiring memberships (next 7 days, aligns with notify-member window).
      *
      * @param Carbon $now
-     * @param Carbon $thirtyDaysFromNow
+     * @param Carbon $sevenDaysFromNow
      * @return array
      */
-    private function getExpiringMembersList(Carbon $now, Carbon $thirtyDaysFromNow): array
+    private function getExpiringMembersList(int $accountId, Carbon $now, Carbon $sevenDaysFromNow): array
     {
         $expiringMemberships = CustomerMembership::with(['customer', 'membershipPlan'])
+            ->where('account_id', $accountId)
             ->where('status', 'Active')
-            ->whereBetween('membership_end_date', [$now, $thirtyDaysFromNow])
+            ->whereBetween('membership_end_date', [$now->copy()->startOfDay(), $sevenDaysFromNow->copy()->endOfDay()])
             ->orderBy('membership_end_date', 'asc')
             ->limit(10)
             ->get();
 
         return $expiringMemberships->map(function ($membership) use ($now) {
             $daysUntilExpiry = $now->diffInDays($membership->membership_end_date, false);
-            
+
             $customerName = trim(($membership->customer->first_name ?? '') . ' ' . ($membership->customer->last_name ?? ''));
             if (empty($customerName)) {
                 $customerName = 'Unknown';
             }
-            
-            // Determine status based on days until expiry
-            if ($membership->membership_end_date->isPast()) {
+
+            // Determine status based on days until expiry (same as CustomerRepository: valid until end of day)
+            if ($membership->membership_end_date->toDateString() < today()->toDateString()) {
                 $status = 'expired';
             } elseif ($daysUntilExpiry <= 7) {
                 $status = 'expiring';
             } else {
                 $status = 'active';
             }
-            
+
             return [
                 'id' => $membership->customer->id,
                 'name' => $customerName,
@@ -148,13 +155,15 @@ class DashboardService
      *
      * @return array
      */
-    private function getMembershipDistribution(): array
+    private function getMembershipDistribution(int $accountId): array
     {
         // Get the latest membership ID for each customer
         $latestMembershipIds = CustomerMembership::select('id')
-            ->whereIn('id', function($query) {
+            ->where('account_id', $accountId)
+            ->whereIn('id', function($query) use ($accountId) {
                 $query->selectRaw('MAX(id)')
                     ->from('tb_customer_membership')
+                    ->where('account_id', $accountId)
                     ->where('status', 'Active')
                     ->groupBy('customer_id');
             })
@@ -162,13 +171,14 @@ class DashboardService
 
         // Get distribution based on latest memberships only
         $distribution = CustomerMembership::select('membership_plan_id', DB::raw('count(*) as count'))
+            ->where('account_id', $accountId)
             ->whereIn('id', $latestMembershipIds)
             ->groupBy('membership_plan_id')
             ->with('membershipPlan')
             ->get();
 
         $colors = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-        
+
         return $distribution->map(function ($item, $index) use ($colors) {
             return [
                 'name' => $item->membershipPlan->plan_name ?? 'Unknown',

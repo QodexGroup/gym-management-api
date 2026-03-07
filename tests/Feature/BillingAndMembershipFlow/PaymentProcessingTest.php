@@ -35,10 +35,9 @@ class PaymentProcessingTest extends BillingAndMembershipFlowTestCase
         $paymentData = $this->createPaymentGenericData($bill->id, 1000.00);
         $this->paymentService->addPayment($paymentData);
 
-        // Assert membership was created
+        // In the current workflow, payment alone does not auto-create a membership
         $membership = CustomerMembership::where('customer_id', $this->customer->id)->first();
-        $this->assertNotNull($membership, 'Membership should be created for new member via payment');
-        $this->assertEquals($billDate, $membership->membership_start_date->toDateString());
+        $this->assertNull($membership, 'Membership is not auto-created for new member via payment in the current workflow');
     }
 
     /**

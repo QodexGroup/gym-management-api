@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Core;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\GenericRequest;
 use App\Services\Core\DashboardService;
 use Illuminate\Http\JsonResponse;
 
@@ -20,10 +21,13 @@ class DashboardController extends Controller
      *
      * @return JsonResponse
      */
-    public function getStats(): JsonResponse
+    public function getStats(GenericRequest $request): JsonResponse
     {
         try {
-            $stats = $this->dashboardService->getStats();
+            $getUserData = $request->getUserData();
+            $accountId = $getUserData->account_id;
+
+            $stats = $this->dashboardService->getStats($accountId);
 
             return response()->json([
                 'success' => true,

@@ -8,6 +8,23 @@ This document describes the complete flow of billing and membership management i
 ## Core Principle
 **Membership is extended when payment is made, not when bills are created.**
 
+## Billing Period and History Locking
+
+### Billing Period Format
+- `billing_period` uses `mdY` format from `bill_date`
+- Example: `2026-02-25` becomes `02252026`
+
+### Lock Rule for Previous Cycle Bills
+- A membership subscription bill is editable/payable only if it belongs to the current cycle
+- Current cycle start is based on the member's latest `membership_start_date`
+- If `bill_date < current membership_start_date`, treat it as history-only
+- History-only bills stay visible in reports and history views
+
+### Reactivation Interaction
+- Reactivation fee creation voids old expired outstanding membership bills
+- Voided bills cannot receive new payments
+- After reactivation payment creates a new membership cycle, previous-cycle membership bills cannot be updated or paid
+
 ---
 
 ## Bill Types
@@ -605,6 +622,10 @@ Use this checklist to verify the implementation:
 - [ ] Expiration check skips if automated bill has payment
 - [ ] Expiration check expires membership if automated bill has no payment
 - [ ] Reactivation fee voids expired membership balances
+- [ ] Payment on voided bill is blocked
+- [ ] Payment on previous-cycle membership bill is blocked
+- [ ] Update on previous-cycle membership bill is blocked
+- [ ] Previous-cycle bills are still visible in history
 - [ ] Customer balance recalculated after bill creation
 - [ ] Customer balance recalculated after payment
 
