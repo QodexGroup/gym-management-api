@@ -15,10 +15,7 @@ class AccountBillingInformationRequest extends GenericRequest
     {
         return array_merge(parent::rules(), [
             'legalName' => ['nullable', 'string', 'max:255'],
-            'businessName' => ['nullable', 'string', 'max:255'],
             'billingEmail' => ['nullable', 'email', 'max:255'],
-            'taxId' => ['nullable', 'string', 'max:100'],
-            'vatNumber' => ['nullable', 'string', 'max:100'],
             'addressLine1' => ['nullable', 'string', 'max:255'],
             'addressLine2' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:100'],
@@ -28,18 +25,12 @@ class AccountBillingInformationRequest extends GenericRequest
         ]);
     }
 
-    /**
-     * Get validated data as snake_case for model fillable.
-     */
     public function getBillingDataForService(): array
     {
         $validated = $this->validated();
         $map = [
             'legalName' => 'legal_name',
-            'businessName' => 'business_name',
             'billingEmail' => 'billing_email',
-            'taxId' => 'tax_id',
-            'vatNumber' => 'vat_number',
             'addressLine1' => 'address_line_1',
             'addressLine2' => 'address_line_2',
             'city' => 'city',

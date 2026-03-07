@@ -11,20 +11,17 @@ class AccountBillingInformationResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'accountId' => $this->account_id,
+            'accountId' => $this->id,
             'legalName' => $this->legal_name,
-            'businessName' => $this->business_name,
             'billingEmail' => $this->billing_email,
-            'taxId' => $this->tax_id,
-            'vatNumber' => $this->vat_number,
             'addressLine1' => $this->address_line_1,
             'addressLine2' => $this->address_line_2,
             'city' => $this->city,
             'stateProvince' => $this->state_province,
             'postalCode' => $this->postal_code,
             'country' => $this->country,
-            'createdAt' => $this->created_at?->toIso8601String(),
-            'updatedAt' => $this->updated_at?->toIso8601String(),
+            'createdAt' => $this->created_at,
+            'updatedAt' => $this->updated_at,
         ];
     }
 }

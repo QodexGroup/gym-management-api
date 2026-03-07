@@ -4,6 +4,7 @@ namespace App\Services\Account;
 
 use App\Constants\DefaultSignupCategories;
 use App\Models\Account;
+use App\Models\Account\AccountSubscriptionPlan;
 use App\Models\Account\PlatformSubscriptionPlan;
 use App\Models\Account\PtCategory;
 use App\Models\Common\ExpenseCategory;
@@ -23,7 +24,7 @@ class AccountSignUpService
         // Idempotent: user already exists
         $existingUser = User::where('firebase_uid', $firebaseUid)->first();
         if ($existingUser) {
-            $existingUser->load(['account.subscriptionPlan', 'permissions']);
+            $existingUser->load(['account.activeAccountSubscriptionPlan.platformPlan', 'permissions']);
             return [
                 'user' => $existingUser,
                 'account' => $existingUser->account,
@@ -44,9 +45,16 @@ class AccountSignUpService
             $account = Account::create([
                 'name' => $data['accountName'],
                 'subscription_status' => Account::STATUS_TRIAL,
-                'subscription_plan_id' => $trialPlan->id,
-                'trial_ends_at' => $trialEndsAt,
                 'owner_email' => $data['email'] ?? null,
+            ]);
+
+            AccountSubscriptionPlan::create([
+                'account_id' => $account->id,
+                'platform_subscription_plan_id' => $trialPlan->id,
+                'trial_starts_at' => now(),
+                'trial_ends_at' => $trialEndsAt,
+                'subscription_starts_at' => null,
+                'subscription_ends_at' => null,
             ]);
 
             $user = User::create([
@@ -62,7 +70,7 @@ class AccountSignUpService
 
             $this->seedDefaultCategoriesForAccount($account->id);
 
-            $user->load(['account.subscriptionPlan', 'permissions']);
+            $user->load(['account.activeAccountSubscriptionPlan.platformPlan', 'permissions']);
 
             return [
                 'user' => $user,

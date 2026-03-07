@@ -36,9 +36,9 @@ class PlatformSubscriptionPlan extends Model
         ];
     }
 
-    public function accounts(): HasMany
+    public function accountSubscriptionPlans(): HasMany
     {
-        return $this->hasMany(Account::class, 'subscription_plan_id');
+        return $this->hasMany(AccountSubscriptionPlan::class, 'platform_subscription_plan_id');
     }
 
     public function getLimit(string $resource): int

@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Constant\AccountSubscriptionStatusConstant;
-use App\Models\Account\AccountBillingInformation;
+use App\Models\Account\AccountSubscriptionPlan;
 use App\Models\Account\PlatformSubscriptionPlan;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,18 +17,20 @@ class Account extends Model
     protected $fillable = [
         'name',
         'subscription_status',
-        'subscription_plan_id',
-        'trial_ends_at',
-        'current_period_ends_at',
         'owner_email',
+        'legal_name',
+        'billing_email',
+        'address_line_1',
+        'address_line_2',
+        'city',
+        'state_province',
+        'postal_code',
+        'country',
     ];
 
     protected function casts(): array
     {
-        return [
-            'trial_ends_at' => 'datetime',
-            'current_period_ends_at' => 'datetime',
-        ];
+        return [];
     }
 
     public const STATUS_TRIAL = AccountSubscriptionStatusConstant::STATUS_TRIAL;
@@ -36,20 +38,24 @@ class Account extends Model
     public const STATUS_TRIAL_EXPIRED = AccountSubscriptionStatusConstant::STATUS_TRIAL_EXPIRED;
     public const STATUS_PAST_DUE = AccountSubscriptionStatusConstant::STATUS_PAST_DUE;
     public const STATUS_CANCELLED = AccountSubscriptionStatusConstant::STATUS_CANCELLED;
-
-    public function subscriptionPlan(): BelongsTo
-    {
-        return $this->belongsTo(PlatformSubscriptionPlan::class, 'subscription_plan_id');
-    }
+    public const STATUS_LOCKED = AccountSubscriptionStatusConstant::STATUS_LOCKED;
 
     public function users(): HasMany
     {
         return $this->hasMany(User::class, 'account_id');
     }
 
-    public function billingInformation(): HasOne
+    public function accountSubscriptionPlans(): HasMany
     {
-        return $this->hasOne(AccountBillingInformation::class);
+        return $this->hasMany(AccountSubscriptionPlan::class);
+    }
+
+    /**
+     * Current/latest active subscription plan record (trial or paid).
+     */
+    public function activeAccountSubscriptionPlan(): HasOne
+    {
+        return $this->hasOne(AccountSubscriptionPlan::class)->latestOfMany();
     }
 
     public function canCreatePaidResources(): bool
@@ -66,13 +72,18 @@ class Account extends Model
         if ($this->subscription_status !== self::STATUS_TRIAL) {
             return false;
         }
-        return $this->trial_ends_at && $this->trial_ends_at->isPast();
+        $plan = $this->activeAccountSubscriptionPlan;
+        if (!$plan || !$plan->trial_ends_at) {
+            return false;
+        }
+        return $plan->trial_ends_at->isPast();
     }
 
     public function getEffectivePlan(): ?PlatformSubscriptionPlan
     {
-        if ($this->subscription_plan_id) {
-            return $this->subscriptionPlan;
+        $asp = $this->activeAccountSubscriptionPlan;
+        if ($asp && $asp->platformPlan) {
+            return $asp->platformPlan;
         }
         return PlatformSubscriptionPlan::where('slug', 'trial')->first();
     }

@@ -33,22 +33,15 @@ class PtPackageController
      * @param PtPackageRequest $request
      * @return JsonResponse
      */
-    public function store(PtPackageRequest $request): JsonResponse
+    public function createPtPackage(PtPackageRequest $request): JsonResponse
     {
-        try {
-            $genericData = $request->getGenericDataWithValidated();
-            $check = $this->accountLimitService->canCreate($genericData->userData->account_id, AccountLimitService::RESOURCE_PT_PACKAGES);
-            if (!$check['allowed']) {
-                return ApiResponse::error($check['message'] ?? 'Limit reached', 403);
-            }
-            $package = $this->ptPackageRepository->createPtPackage($genericData);
-            return ApiResponse::success(new PtPackageResource($package), 'PT package created successfully', 201);
-        } catch (\Exception $e) {
-            if (str_contains($e->getMessage(), 'limit') || str_contains($e->getMessage(), 'trial')) {
-                return ApiResponse::error($e->getMessage(), 403);
-            }
-            throw $e;
+        $genericData = $request->getGenericDataWithValidated();
+        $check = $this->accountLimitService->canCreate($genericData->userData->account_id, AccountLimitService::RESOURCE_PT_PACKAGES);
+        if (!$check['allowed']) {
+            return ApiResponse::error($check['message'] ?? 'Not allowed', 403);
         }
+        $package = $this->ptPackageRepository->createPtPackage($genericData);
+        return ApiResponse::success(new PtPackageResource($package), 'PT package created successfully', 201);
     }
 
     /**
@@ -68,7 +61,7 @@ class PtPackageController
      * @param int $id
      * @return JsonResponse
      */
-    public function delete(GenericRequest $request, int $id): JsonResponse
+    public function deletePtPackage(GenericRequest $request, int $id): JsonResponse
     {
         $data = $request->getGenericData();
         $this->ptPackageRepository->deletePtPackage($id, $data->userData->account_id);

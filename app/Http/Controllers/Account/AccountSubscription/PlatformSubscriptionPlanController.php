@@ -16,7 +16,7 @@ class PlatformSubscriptionPlanController
     /**
      * List platform subscription plans (for subscription/upgrade page).
      */
-    public function index(): JsonResponse
+    public function getPlatformSubscriptionPlans(): JsonResponse
     {
         $plans = $this->planService->getPaidPlansAsApiShape();
         return ApiResponse::success($plans->values()->all());

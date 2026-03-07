@@ -25,14 +25,14 @@ class AccountLimitService
      */
     public function canCreate(int $accountId, string $resource): array
     {
-        $account = Account::with('subscriptionPlan')->find($accountId);
+        $account = Account::with('activeAccountSubscriptionPlan.platformPlan')->find($accountId);
 
         if (!$account) {
             return ['allowed' => false, 'message' => 'Account not found', 'current' => 0, 'limit' => 0];
         }
 
-        // Block if trial expired or cancelled
-        if (!$account->canCreatePaidResources()) {
+        // Block if trial expired, cancelled, or locked
+        if (!$account->canCreatePaidResources() || $account->subscription_status === Account::STATUS_LOCKED) {
             return [
                 'allowed' => false,
                 'message' => 'Your free trial has expired. Please choose a subscription plan to continue.',
@@ -57,23 +57,13 @@ class AccountLimitService
             return ['allowed' => false, 'message' => 'No plan assigned', 'current' => 0, 'limit' => 0];
         }
 
-        $limit = $plan->getLimit($resource);
-        if ($plan->isUnlimited($resource)) {
-            return ['allowed' => true, 'message' => null, 'current' => $this->getCount($accountId, $resource), 'limit' => 0];
-        }
-
+        // Quota/insertion limits disabled for production; trial blocking only. Usage kept for dashboard.
         $current = $this->getCount($accountId, $resource);
-        $allowed = $current < $limit;
-
-        $message = null;
-        if (!$allowed) {
-            $resourceLabel = $this->getResourceLabel($resource);
-            $message = "Free trial limit reached ({$limit} {$resourceLabel}). Upgrade to add more.";
-        }
+        $limit = $plan->isUnlimited($resource) ? 0 : $plan->getLimit($resource);
 
         return [
-            'allowed' => $allowed,
-            'message' => $message,
+            'allowed' => true,
+            'message' => null,
             'current' => $current,
             'limit' => $limit,
         ];
@@ -130,7 +120,7 @@ class AccountLimitService
             self::RESOURCE_PT_PACKAGES,
         ];
 
-        $account = Account::with('subscriptionPlan')->find($accountId);
+        $account = Account::with('activeAccountSubscriptionPlan.platformPlan')->find($accountId);
         $plan = $account ? $account->getEffectivePlan() : null;
 
         $result = [];

@@ -33,22 +33,15 @@ class MembershipPlanController
      * @param MembershipPlanRequest $request
      * @return JsonResponse
      */
-    public function store(MembershipPlanRequest $request): JsonResponse
+    public function createMembershipPlan(MembershipPlanRequest $request): JsonResponse
     {
-        try {
-            $genericData = $request->getGenericDataWithValidated();
-            $check = $this->accountLimitService->canCreate($genericData->userData->account_id, AccountLimitService::RESOURCE_MEMBERSHIP_PLANS);
-            if (!$check['allowed']) {
-                return ApiResponse::error($check['message'] ?? 'Limit reached', 403);
-            }
-            $plan = $this->membershipPlanRepository->createMembershipPlan($genericData);
-            return ApiResponse::success(new MembershipPlanResource($plan), 'Membership plan created successfully', 201);
-        } catch (\Exception $e) {
-            if (str_contains($e->getMessage(), 'limit') || str_contains($e->getMessage(), 'trial')) {
-                return ApiResponse::error($e->getMessage(), 403);
-            }
-            throw $e;
+        $genericData = $request->getGenericDataWithValidated();
+        $check = $this->accountLimitService->canCreate($genericData->userData->account_id, AccountLimitService::RESOURCE_MEMBERSHIP_PLANS);
+        if (!$check['allowed']) {
+            return ApiResponse::error($check['message'] ?? 'Not allowed', 403);
         }
+        $plan = $this->membershipPlanRepository->createMembershipPlan($genericData);
+        return ApiResponse::success(new MembershipPlanResource($plan), 'Membership plan created successfully', 201);
     }
 
     /**
@@ -68,7 +61,7 @@ class MembershipPlanController
      * @param int $id
      * @return JsonResponse
      */
-    public function delete(GenericRequest $request, int $id): JsonResponse
+    public function deleteMembershipPlan(GenericRequest $request, int $id): JsonResponse
     {
         $data = $request->getGenericData();
         $this->membershipPlanRepository->deleteMembershipPlan($id, $data->userData->account_id);

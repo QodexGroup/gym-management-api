@@ -13,7 +13,7 @@ class AccountSubscriptionRequest extends Model
 
     protected $fillable = [
         'account_id',
-        'subscription_plan_id',
+        'account_invoice_id',
         'receipt_url',
         'receipt_file_name',
         'status',
@@ -39,9 +39,19 @@ class AccountSubscriptionRequest extends Model
         return $this->belongsTo(Account::class);
     }
 
-    public function subscriptionPlan(): BelongsTo
+    public function invoice(): BelongsTo
     {
-        return $this->belongsTo(PlatformSubscriptionPlan::class, 'subscription_plan_id');
+        return $this->belongsTo(AccountInvoice::class, 'account_invoice_id');
+    }
+
+    /** Resolve platform plan via invoice -> account_subscription_plan -> platform_plan. */
+    public function getSubscriptionPlanAttribute(): ?PlatformSubscriptionPlan
+    {
+        $inv = $this->relationLoaded('invoice') ? $this->invoice : $this->invoice()->with('accountSubscriptionPlan.platformPlan')->first();
+        if (!$inv || !$inv->accountSubscriptionPlan) {
+            return null;
+        }
+        return $inv->accountSubscriptionPlan->platformPlan;
     }
 
     public function requestedByUser(): BelongsTo

@@ -14,9 +14,9 @@ class AdminSubscriptionRequestController
     /**
      * List pending subscription requests (platform admin only). Approve/reject via Artisan command.
      */
-    public function index(GenericRequest $request): JsonResponse
+    public function getPendingSubscriptionRequests(GenericRequest $request): JsonResponse
     {
-        $requests = AccountSubscriptionRequest::with(['account', 'subscriptionPlan', 'requestedByUser'])
+        $requests = AccountSubscriptionRequest::with(['account', 'invoice.accountSubscriptionPlan.platformPlan', 'requestedByUser'])
             ->where('status', AccountSubscriptionRequestConstant::STATUS_PENDING)
             ->orderBy('created_at', 'desc')
             ->get();

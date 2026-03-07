@@ -53,15 +53,15 @@ Route::middleware([FirebaseAuthMiddleware::class])->prefix('dashboard')->group(f
 
 Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
-    Route::get('/platform-subscription-plans', [PlatformSubscriptionPlanController::class, 'index']);
+    Route::get('/platform-subscription-plans', [PlatformSubscriptionPlanController::class, 'getPlatformSubscriptionPlans']);
 
-    Route::get('/accounts/subscription-requests', [SubscriptionRequestController::class, 'index']);
-    Route::post('/accounts/subscription-request', [SubscriptionRequestController::class, 'store']);
-    Route::get('/accounts/billing-information', [AccountBillingInformationController::class, 'show']);
-    Route::put('/accounts/billing-information', [AccountBillingInformationController::class, 'update']);
+    Route::get('/accounts/subscription-requests', [SubscriptionRequestController::class, 'getSubscriptionRequests']);
+    Route::post('/accounts/subscription-request', [SubscriptionRequestController::class, 'createSubscriptionRequest']);
+    Route::get('/accounts/billing-information', [AccountBillingInformationController::class, 'getBillingInformation']);
+    Route::put('/accounts/billing-information', [AccountBillingInformationController::class, 'saveBillingInformation']);
 
     Route::prefix('admin')->middleware([EnsurePlatformAdmin::class])->group(function () {
-        Route::get('/subscription-requests', [AdminSubscriptionRequestController::class, 'index']);
+        Route::get('/subscription-requests', [AdminSubscriptionRequestController::class, 'getPendingSubscriptionRequests']);
     });
 
     Route::prefix('users')->middleware(['idempotent'])->group(function () {
@@ -77,16 +77,16 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
     Route::prefix('membership-plans')->middleware(['idempotent'])->group(function () {
         Route::get('/', [MembershipPlanController::class, 'getAllMembershipPlan']);
-        Route::post('/', [MembershipPlanController::class, 'store']);
+        Route::post('/', [MembershipPlanController::class, 'createMembershipPlan']);
         Route::put('/{id}', [MembershipPlanController::class, 'updateMembershipPlan']);
-        Route::delete('/{id}', [MembershipPlanController::class, 'delete']);
+        Route::delete('/{id}', [MembershipPlanController::class, 'deleteMembershipPlan']);
     });
 
     Route::prefix('pt-packages')->middleware(['idempotent'])->group(function () {
         Route::get('/', [PtPackageController::class, 'getAllPtPackages']);
-        Route::post('/', [PtPackageController::class, 'store']);
+        Route::post('/', [PtPackageController::class, 'createPtPackage']);
         Route::put('/{id}', [PtPackageController::class, 'updatePtPackage']);
-        Route::delete('/{id}', [PtPackageController::class, 'delete']);
+        Route::delete('/{id}', [PtPackageController::class, 'deletePtPackage']);
     });
 
     Route::prefix('pt-categories')->group(function () {

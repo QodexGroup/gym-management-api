@@ -19,7 +19,7 @@ class AccountBillingInformationController
     /**
      * Get current account's billing information.
      */
-    public function show(GenericRequest $request): JsonResponse
+    public function getBillingInformation(GenericRequest $request): JsonResponse
     {
         $accountId = $request->getUserData()->account_id;
         $billing = $this->billingService->getByAccountId($accountId);
@@ -29,7 +29,7 @@ class AccountBillingInformationController
     /**
      * Update or create billing information for the current account.
      */
-    public function update(AccountBillingInformationRequest $request): JsonResponse
+    public function saveBillingInformation(AccountBillingInformationRequest $request): JsonResponse
     {
         $accountId = $request->getUserData()->account_id;
         $data = $request->getBillingDataForService();
