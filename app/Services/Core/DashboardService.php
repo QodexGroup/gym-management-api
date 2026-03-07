@@ -129,8 +129,8 @@ class DashboardService
                 $customerName = 'Unknown';
             }
 
-            // Determine status based on days until expiry
-            if ($membership->membership_end_date->isPast()) {
+            // Determine status based on days until expiry (same as CustomerRepository: valid until end of day)
+            if ($membership->membership_end_date->toDateString() < today()->toDateString()) {
                 $status = 'expired';
             } elseif ($daysUntilExpiry <= 7) {
                 $status = 'expiring';
