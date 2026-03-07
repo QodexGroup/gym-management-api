@@ -54,16 +54,16 @@ class ReportService
         $data = $genericData->getData();
         $accountId = $genericData->userData->account_id;
         $reportType = $data->reportType;
-        $dateFrom = $data->dateFrom;
-        $dateTo = $data->dateTo;
+        $startDate = $data->startDate;
+        $endDate = $data->endDate;
 
         switch ($reportType) {
             case ReportTypeConstant::COLLECTION:
-                $rowCount = $this->customerPaymentRepository->countByAccountAndDateRange($accountId, $dateFrom, $dateTo);
+                $rowCount = $this->customerPaymentRepository->countByAccountAndDateRange($accountId, $startDate, $endDate);
                 break;
             case ReportTypeConstant::EXPENSE:
             case ReportTypeConstant::SUMMARY:
-                $rowCount = $this->expenseRepository->countByAccountAndDateRange($accountId, $dateFrom, $dateTo);
+                $rowCount = $this->expenseRepository->countByAccountAndDateRange($accountId, $startDate, $endDate);
                 break;
             default:
                 $rowCount = 0;
@@ -86,10 +86,10 @@ class ReportService
         $data = $genericData->getData();
         $accountId = $genericData->userData->account_id;
         $reportType = $data->reportType;
-        $dateFrom = $data->dateFrom;
-        $dateTo = $data->dateTo;
+        $startDate = $data->startDate;
+        $endDate = $data->endDate;
         $format = $data->format ?? ExportTypeConstant::PDF;
-        $periodLabel = $data->dateRange ?? "{$dateFrom}" . DateFormatConstant::DATE_RANGE_SEPARATOR . "{$dateTo}";
+        $periodLabel = $data->dateRange ?? "{$startDate}" . DateFormatConstant::DATE_RANGE_SEPARATOR . "{$endDate}";
 
         $exportType = ExportTypeConstant::normalizeFormat($format);
 
@@ -102,7 +102,7 @@ class ReportService
         $title = $this->getReportTitle($reportType);
 
         $fileExtension = ExportTypeConstant::getFileExtension($exportType);
-        $filename = strtolower(str_replace(' ', '-', $title)) . '-' . $dateFrom . '.' . $fileExtension;
+        $filename = strtolower(str_replace(' ', '-', $title)) . '-' . $startDate . '.' . $fileExtension;
 
         $filePath = $this->generateReportFile($genericData, $reportType, $exportType, $filename);
 
@@ -290,11 +290,11 @@ class ReportService
     private function getCollectionReportData(GenericData $genericData): array
     {
         $data = $genericData->getData();
-        $paymentData = $this->customerPaymentRepository->getForExport($genericData->userData->account_id, $data->dateFrom, $data->dateTo, null);
+        $paymentData = $this->customerPaymentRepository->getForExport($genericData->userData->account_id, $data->startDate, $data->endDate, null);
         $records = $this->exportCollectionService->transformData($paymentData);
         $summaryHeaderData = $this->exportCollectionService->getSummaryHeaderData($paymentData);
         $headers = $this->exportCollectionService->getHeaders();
-        $periodLabel = $data->periodLabel ?? $data->dateFrom . DateFormatConstant::DATE_RANGE_SEPARATOR . $data->dateTo;
+        $periodLabel = $data->periodLabel ?? $data->startDate . DateFormatConstant::DATE_RANGE_SEPARATOR . $data->endDate;
         $generatedAt = Carbon::now()->toDateTimeString();
 
         return [
@@ -312,11 +312,11 @@ class ReportService
     private function getExpenseReportData(GenericData $genericData): array
     {
         $data = $genericData->getData();
-        $expenseData = $this->expenseRepository->getForExport($genericData->userData->account_id, $data->dateFrom, $data->dateTo);
+        $expenseData = $this->expenseRepository->getForExport($genericData->userData->account_id, $data->startDate, $data->endDate);
         $records = $this->exportExpenseService->transformData($expenseData);
         $summaryHeaderData = $this->exportExpenseService->getSummaryHeaderData($expenseData);
         $headers = $this->exportExpenseService->getHeaders();
-        $periodLabel = $data->periodLabel ?? $data->dateFrom . DateFormatConstant::DATE_RANGE_SEPARATOR . $data->dateTo;
+        $periodLabel = $data->periodLabel ?? $data->startDate . DateFormatConstant::DATE_RANGE_SEPARATOR . $data->endDate;
         $generatedAt = Carbon::now()->toDateTimeString();
 
         return [
@@ -334,12 +334,12 @@ class ReportService
     private function getSummaryReportData(GenericData $genericData): array
     {
         $data = $genericData->getData();
-        $paymentData = $this->customerPaymentRepository->getForExport($genericData->userData->account_id, $data->dateFrom, $data->dateTo, null);
-        $expenseData = $this->expenseRepository->getForExport($genericData->userData->account_id, $data->dateFrom, $data->dateTo);
+        $paymentData = $this->customerPaymentRepository->getForExport($genericData->userData->account_id, $data->startDate, $data->endDate, null);
+        $expenseData = $this->expenseRepository->getForExport($genericData->userData->account_id, $data->startDate, $data->endDate);
         $records = $this->exportSummaryService->transformData($expenseData);
         $summaryHeaderData = $this->exportSummaryService->getSummaryHeaderData($paymentData, $expenseData);
         $headers = $this->exportSummaryService->getHeaders();
-        $periodLabel = $data->periodLabel ?? $data->dateFrom . DateFormatConstant::DATE_RANGE_SEPARATOR . $data->dateTo;
+        $periodLabel = $data->periodLabel ?? $data->startDate . DateFormatConstant::DATE_RANGE_SEPARATOR . $data->endDate;
         $generatedAt = Carbon::now()->toDateTimeString();
 
         return [
