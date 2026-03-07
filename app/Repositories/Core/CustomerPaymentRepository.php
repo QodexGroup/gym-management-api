@@ -225,4 +225,77 @@ class CustomerPaymentRepository
             ->limit($limit)
             ->get();
     }
+
+    /**
+     * Count payments for account within date range (for report export size check).
+     * Uses payment_date for filtering.
+     *
+     * @param int $accountId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return int
+     */
+    public function countByAccountAndDateRange(int $accountId, string $dateFrom, string $dateTo): int
+    {
+        return CustomerPayment::where('account_id', $accountId)
+            ->where('payment_date', '>=', $dateFrom)
+            ->where('payment_date', '<=', $dateTo)
+            ->count();
+    }
+
+    /**
+     * Get all payments for account within date range for report export (no pagination).
+     * Uses payment_date for filtering. Eager loads customer and bill (for bill_type).
+     *
+     * @param int $accountId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @param int|null $limit optional limit (e.g. for API response)
+     * @return Collection<int, CustomerPayment>
+     */
+    public function getForExport(int $accountId, string $dateFrom, string $dateTo, ?int $limit = null): Collection
+    {
+        $query = CustomerPayment::where('account_id', $accountId)
+            ->where('payment_date', '>=', $dateFrom)
+            ->where('payment_date', '<=', $dateTo)
+            ->with(['customer', 'bill'])
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id');
+
+        if ($limit !== null) {
+            $query->limit($limit);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Sum payment amounts for account within date range (for report totals).
+     *
+     * @param int $accountId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return float
+     */
+    public function sumByAccountAndDateRange(int $accountId, string $dateFrom, string $dateTo): float
+    {
+        return (float) CustomerPayment::where('account_id', $accountId)
+            ->where('payment_date', '>=', $dateFrom)
+            ->where('payment_date', '<=', $dateTo)
+            ->sum('amount');
+    }
+
+    /**
+     * Sum payment amounts for account for today (for report "Today's Revenue").
+     *
+     * @param int $accountId
+     * @return float
+     */
+    public function getTodayRevenueByAccount(int $accountId): float
+    {
+        $today = Carbon::today()->toDateString();
+        return (float) CustomerPayment::where('account_id', $accountId)
+            ->whereDate('payment_date', $today)
+            ->sum('amount');
+    }
 }

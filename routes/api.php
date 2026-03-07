@@ -204,6 +204,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
     // Report routes (protected)
     Route::prefix('reports')->group(function () {
+        Route::get('/collection-data', [ReportController::class, 'getCollectionData']);
         Route::post('/check-export', [ReportController::class, 'checkExportSize']);
         Route::post('/email', [ReportController::class, 'emailReport']);
     });

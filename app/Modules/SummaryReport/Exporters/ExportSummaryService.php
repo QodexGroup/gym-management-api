@@ -28,14 +28,20 @@ class ExportSummaryService
         return $transformedData;
     }
 
-    public function getSummaryHeaderData(Collection $billData, Collection $expenseData): array
+    /**
+     * @param Collection $paymentData Collection of CustomerPayment (revenue source)
+     * @param Collection $expenseData Collection of Expense
+     */
+    public function getSummaryHeaderData(Collection $paymentData, Collection $expenseData): array
     {
-        $totalRevenue = (float) $billData->sum('paid_amount');
+        $totalRevenue = (float) $paymentData->sum('amount');
         $totalExpenses = (float) $expenseData->sum('amount');
         $netProfit = $totalRevenue - $totalExpenses;
         $profitMargin = $totalRevenue > 0 ? round(($netProfit / $totalRevenue) * 100, 1) : 0.0;
         $today = Carbon::today()->toDateString();
-        $todayRevenue = (float) $billData->where('bill_date', $today)->sum('paid_amount');
+        $todayRevenue = (float) $paymentData->filter(function ($p) use ($today) {
+            return Carbon::parse($p->payment_date)->toDateString() === $today;
+        })->sum('amount');
 
         return [
             'businessName' => self::BUSINESS_NAME,

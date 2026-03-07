@@ -7,7 +7,7 @@ use App\Http\Requests\GenericRequest;
 class FilterDateRequest extends GenericRequest
 {
 
-     /**
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>

@@ -2,7 +2,6 @@
 
 namespace App\Modules\CollectionReport\Exporters;
 
-use App\Constant\CustomerBillConstant;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -10,34 +9,49 @@ class ExportCollectionService
 {
     private const BUSINESS_NAME = 'Kaizen Gym';
 
-    public function transformData(Collection $collectionData): array
+    /**
+     * Transform payment collection for export (payment-based).
+     *
+     * @param Collection $paymentData Collection of CustomerPayment with customer + bill loaded
+     */
+    public function transformData(Collection $paymentData): array
     {
         $transformedData = [];
 
-        foreach ($collectionData as $bill) {
-            $customerName = $bill->relationLoaded('customer') && $bill->customer
-                ? trim(($bill->customer->first_name ?? '') . ' ' . ($bill->customer->last_name ?? ''))
+        foreach ($paymentData as $payment) {
+            $customerName = $payment->relationLoaded('customer') && $payment->customer
+                ? trim(($payment->customer->first_name ?? '') . ' ' . ($payment->customer->last_name ?? ''))
                 : 'N/A';
 
+            $billType = 'N/A';
+            if ($payment->relationLoaded('bill') && $payment->bill) {
+                $billType = $payment->bill->bill_type ?? 'N/A';
+            }
+
             $rowData = [];
-            $rowData['Date'] = Carbon::parse($bill->bill_date)->format('Y-m-d');
+            $rowData['Date'] = Carbon::parse($payment->payment_date)->format('Y-m-d');
             $rowData['Member'] = $customerName ?: 'N/A';
-            $rowData['BillType'] = $bill->bill_type ?? 'N/A';
-            $rowData['PaidAmount'] = (float) $bill->paid_amount;
-            $rowData['Status'] = $this->billStatusLabel($bill->bill_status);
+            $rowData['Type'] = $billType;
+            $rowData['Amount'] = (float) $payment->amount;
+            $rowData['PaymentMethod'] = $this->paymentMethodLabel($payment->payment_method);
             $transformedData[] = $rowData;
         }
 
         return $transformedData;
     }
 
-    public function getSummaryHeaderData(Collection $collectionData): array
+    /**
+     * @param Collection $paymentData Collection of CustomerPayment
+     */
+    public function getSummaryHeaderData(Collection $paymentData): array
     {
-        $totalCollected = (float) $collectionData->sum('paid_amount');
-        $count = $collectionData->count();
+        $totalCollected = (float) $paymentData->sum('amount');
+        $count = $paymentData->count();
         $average = $count > 0 ? $totalCollected / $count : 0.0;
         $today = Carbon::today()->toDateString();
-        $todayRevenue = (float) $collectionData->where('bill_date', $today)->sum('paid_amount');
+        $todayRevenue = (float) $paymentData->filter(function ($p) use ($today) {
+            return Carbon::parse($p->payment_date)->toDateString() === $today;
+        })->sum('amount');
 
         return [
             'businessName' => self::BUSINESS_NAME,
@@ -53,7 +67,7 @@ class ExportCollectionService
 
     public function getHeaders(): array
     {
-        return ['Date', 'Member', 'Bill Type', 'Paid Amount', 'Status'];
+        return ['Date', 'Member', 'Type', 'Amount', 'Payment Method'];
     }
 
     private function formatCurrency(float $amount): string
@@ -61,8 +75,8 @@ class ExportCollectionService
         return 'PHP ' . number_format($amount, 2);
     }
 
-    private function billStatusLabel(?string $status): string
+    private function paymentMethodLabel(?string $method): string
     {
-        return $status ? ucfirst(strtolower($status)) : 'N/A';
+        return $method ? ucfirst(strtolower($method)) : 'N/A';
     }
 }

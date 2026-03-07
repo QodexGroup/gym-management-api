@@ -6,6 +6,7 @@ use App\Constants\ExportTypeConstant;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\CheckExportSizeRequest;
+use App\Http\Requests\Core\CollectionReportRequest;
 use App\Http\Requests\Core\EmailReportRequest;
 use App\Mail\ReportEmailMail;
 use App\Services\Account\ReportService;
@@ -23,7 +24,7 @@ class ReportController extends Controller
      * Check if report data for the given range is too large for direct export.
      * Used before Export PDF/Excel: if tooLarge, frontend shows Swal and sends via email instead.
      *
-     * @param CheckExportSizeRequest $request reportType, dateFrom, dateTo (validated)
+     * @param CheckExportSizeRequest $request reportType, startDate, endDate (validated)
      * @return JsonResponse { tooLarge: bool, rowCount: int }
      */
     public function checkExportSize(CheckExportSizeRequest $request): JsonResponse
@@ -37,12 +38,12 @@ class ReportController extends Controller
     /**
      * Generate report (PDF or Excel) and send via email when export exceeds 200 rows.
      *
-     * @param EmailReportRequest $request reportType, format (pdf|excel), dateRange, dateFrom, dateTo
+     * @param EmailReportRequest $request reportType, format (pdf|excel), dateRange, startDate, endDate
      * @return JsonResponse
      */
     public function emailReport(EmailReportRequest $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $request->attributes->get('user');
         if (! $user || ! $user->email) {
             return ApiResponse::error('User email not found.', 400);
         }
@@ -65,4 +66,23 @@ class ReportController extends Controller
         );
     }
 
+    /**
+     * Get collection report data (payment-based) for frontend Collection/Summary report pages.
+     *
+     * @param CollectionReportRequest $request query: startDate (Y-m-d), endDate (Y-m-d) — validated via FilterDateRequest
+     * @return JsonResponse
+     */
+    public function getCollectionData(CollectionReportRequest $request): JsonResponse
+    {
+        $user = $request->attributes->get('user');
+        if (! $user || ! $user->account_id) {
+            return ApiResponse::error('Unauthorized.', 401);
+        }
+        $data = $this->reportService->getCollectionDataForApi(
+            (int) $user->account_id,
+            $request->input('startDate'),
+            $request->input('endDate')
+        );
+        return ApiResponse::success($data);
+    }
 }
