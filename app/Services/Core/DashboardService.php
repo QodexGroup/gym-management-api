@@ -16,7 +16,7 @@ class DashboardService
      *
      * @return array
      */
-    public function getStats(): array
+    public function getStats(int $accountId): array
     {
         $now = Carbon::now();
         $startOfMonth = $now->copy()->startOfMonth();
@@ -25,13 +25,13 @@ class DashboardService
         $sevenDaysFromNow = $now->copy()->addDays(7);
 
         return [
-            'totalMembers' => $this->getTotalMembers(),
-            'activeMembers' => $this->getActiveMembers(),
-            'newRegistrations' => $this->getNewRegistrations($startOfMonth, $endOfMonth),
-            'todayRevenue' => $this->getTodayRevenue($now),
-            'expiringMemberships' => $this->getExpiringMembershipsCount($now, $sevenDaysFromNow),
-            'expiringMembersList' => $this->getExpiringMembersList($now, $sevenDaysFromNow),
-            'membershipDistribution' => $this->getMembershipDistribution(),
+            'totalMembers' => $this->getTotalMembers($accountId),
+            'activeMembers' => $this->getActiveMembers($accountId),
+            'newRegistrations' => $this->getNewRegistrations($accountId, $startOfMonth, $endOfMonth),
+            'todayRevenue' => $this->getTodayRevenue($accountId, $now),
+            'expiringMemberships' => $this->getExpiringMembershipsCount($accountId, $now, $sevenDaysFromNow),
+            'expiringMembersList' => $this->getExpiringMembersList($accountId, $now, $sevenDaysFromNow),
+            'membershipDistribution' => $this->getMembershipDistribution($accountId),
         ];
     }
 
@@ -40,9 +40,9 @@ class DashboardService
      *
      * @return int
      */
-    private function getTotalMembers(): int
+    private function getTotalMembers(int $accountId): int
     {
-        return Customer::count();
+        return Customer::where('account_id', $accountId)->count();
     }
 
     /**
@@ -50,10 +50,11 @@ class DashboardService
      *
      * @return int
      */
-    private function getActiveMembers(): int
+    private function getActiveMembers(int $accountId): int
     {
-        return Customer::whereHas('memberships', function ($query) {
+        return Customer::where('account_id', $accountId)->whereHas('memberships', function ($query) use ($accountId) {
             $query->where('status', 'Active')
+                  ->where('account_id', $accountId)
                   ->whereDate('membership_end_date', '>=', today());
         })->count();
     }
@@ -65,9 +66,11 @@ class DashboardService
      * @param Carbon $endOfMonth
      * @return int
      */
-    private function getNewRegistrations(Carbon $startOfMonth, Carbon $endOfMonth): int
+    private function getNewRegistrations(int $accountId, Carbon $startOfMonth, Carbon $endOfMonth): int
     {
-        return Customer::whereBetween('created_at', [$startOfMonth, $endOfMonth])->count();
+        return Customer::where('account_id', $accountId)
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->count();
     }
 
     /**
@@ -76,12 +79,13 @@ class DashboardService
      * @param Carbon $now
      * @return float
      */
-    private function getTodayRevenue(Carbon $now): float
+    private function getTodayRevenue(int $accountId, Carbon $now): float
     {
         $startOfDay = $now->copy()->startOfDay();
         $endOfDay = $now->copy()->endOfDay();
 
-        return CustomerPayment::whereBetween('payment_date', [$startOfDay, $endOfDay])
+        return CustomerPayment::where('account_id', $accountId)
+            ->whereBetween('payment_date', [$startOfDay, $endOfDay])
             ->sum('amount') ?? 0.0;
     }
 
@@ -92,9 +96,10 @@ class DashboardService
      * @param Carbon $sevenDaysFromNow
      * @return int
      */
-    private function getExpiringMembershipsCount(Carbon $now, Carbon $sevenDaysFromNow): int
+    private function getExpiringMembershipsCount(int $accountId, Carbon $now, Carbon $sevenDaysFromNow): int
     {
-        return CustomerMembership::where('status', 'Active')
+        return CustomerMembership::where('account_id', $accountId)
+            ->where('status', 'Active')
             ->whereBetween('membership_end_date', [$now->copy()->startOfDay(), $sevenDaysFromNow->copy()->endOfDay()])
             ->count();
     }
@@ -106,9 +111,10 @@ class DashboardService
      * @param Carbon $sevenDaysFromNow
      * @return array
      */
-    private function getExpiringMembersList(Carbon $now, Carbon $sevenDaysFromNow): array
+    private function getExpiringMembersList(int $accountId, Carbon $now, Carbon $sevenDaysFromNow): array
     {
         $expiringMemberships = CustomerMembership::with(['customer', 'membershipPlan'])
+            ->where('account_id', $accountId)
             ->where('status', 'Active')
             ->whereBetween('membership_end_date', [$now->copy()->startOfDay(), $sevenDaysFromNow->copy()->endOfDay()])
             ->orderBy('membership_end_date', 'asc')
@@ -149,13 +155,15 @@ class DashboardService
      *
      * @return array
      */
-    private function getMembershipDistribution(): array
+    private function getMembershipDistribution(int $accountId): array
     {
         // Get the latest membership ID for each customer
         $latestMembershipIds = CustomerMembership::select('id')
-            ->whereIn('id', function($query) {
+            ->where('account_id', $accountId)
+            ->whereIn('id', function($query) use ($accountId) {
                 $query->selectRaw('MAX(id)')
                     ->from('tb_customer_membership')
+                    ->where('account_id', $accountId)
                     ->where('status', 'Active')
                     ->groupBy('customer_id');
             })
@@ -163,6 +171,7 @@ class DashboardService
 
         // Get distribution based on latest memberships only
         $distribution = CustomerMembership::select('membership_plan_id', DB::raw('count(*) as count'))
+            ->where('account_id', $accountId)
             ->whereIn('id', $latestMembershipIds)
             ->groupBy('membership_plan_id')
             ->with('membershipPlan')
