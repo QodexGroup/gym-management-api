@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Constant\AccountPaymentRequestStatusConstant;
 use App\Models\Account\AccountPaymentRequest;
-use App\Services\Account\AccountSubscription\AccountPaymentRequestService;
+use App\Services\Admin\AdminPaymentRequestService;
 use Illuminate\Console\Command;
 
 class PaymentRequestReject extends Command
@@ -13,7 +13,7 @@ class PaymentRequestReject extends Command
 
     protected $description = 'Reject a pending payment request by account ID';
 
-    public function handle(AccountPaymentRequestService $service): int
+    public function handle(AdminPaymentRequestService $service): int
     {
         $accountId = (int) $this->argument('account_id');
         $reason = $this->option('reason');
