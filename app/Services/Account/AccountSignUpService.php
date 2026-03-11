@@ -3,79 +3,68 @@
 namespace App\Services\Account;
 
 use App\Constants\DefaultSignupCategories;
-use App\Models\Account;
+use App\Models\Account\Account;
 use App\Models\Account\AccountSubscriptionPlan;
-use App\Models\Account\PlatformSubscriptionPlan;
 use App\Models\Account\PtCategory;
 use App\Models\Common\ExpenseCategory;
 use App\Models\User;
+use App\Repositories\Account\AccountRepository;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AccountSignUpService
 {
+    public function __construct(
+        private AccountRepository $accountRepository
+    ) {
+    }
+
     /**
      * Create account and first user (owner).
-     * Idempotent: if user exists with same firebase_uid, returns existing user.
      *
-     * @return array{user: User, account: Account, isNew: bool}
+     * @return array{user: User, account: Account}
      */
     public function signUp(string $firebaseUid, array $data): array
     {
-        // Idempotent: user already exists
-        $existingUser = User::where('firebase_uid', $firebaseUid)->first();
+        // Check if user already exists
+        $existingUser = $this->accountRepository->findUserByFirebaseUid($firebaseUid);
         if ($existingUser) {
-            $existingUser->load(['account.activeAccountSubscriptionPlan.platformPlan', 'permissions']);
-            return [
-                'user' => $existingUser,
-                'account' => $existingUser->account,
-                'isNew' => false,
-            ];
+            throw new \Exception('User already exists. Please log in.');
         }
 
         // One-trial-per-email: block if email already used for a trial account
         $email = $data['email'] ?? null;
-        if ($email && Account::where('owner_email', $email)->exists()) {
+        if ($email && $this->accountRepository->accountExistsByEmail($email)) {
             throw new \Exception('An account with this email has already started a trial. Please log in or choose a different email.');
         }
 
-        $trialPlan = PlatformSubscriptionPlan::where('slug', 'trial')->firstOrFail();
+        // Find trial plan
+        $trialPlan = $this->accountRepository->findTrialPlan();
+        if (!$trialPlan) {
+            throw new \Exception('Trial subscription plan not found. Please contact support.');
+        }
+
         $trialEndsAt = now()->addDays($trialPlan->trial_days ?? 7);
 
         return DB::transaction(function () use ($firebaseUid, $data, $trialPlan, $trialEndsAt) {
-            $account = Account::create([
-                'name' => $data['accountName'],
-                'subscription_status' => Account::STATUS_TRIAL,
-                'owner_email' => $data['email'] ?? null,
-            ]);
+            // Create account
+            $account = $this->accountRepository->createAccountFromSignup($data);
 
-            AccountSubscriptionPlan::create([
-                'account_id' => $account->id,
-                'platform_subscription_plan_id' => $trialPlan->id,
-                'trial_starts_at' => now(),
-                'trial_ends_at' => $trialEndsAt,
-                'subscription_starts_at' => null,
-                'subscription_ends_at' => null,
-            ]);
+            // Create account subscription plan
+            $this->accountRepository->createTrialAccountSubscriptionPlan($account->id, $trialPlan, $trialEndsAt);
 
-            $user = User::create([
-                'account_id' => $account->id,
-                'firebase_uid' => $firebaseUid,
-                'firstname' => $data['firstname'],
-                'lastname' => $data['lastname'],
-                'email' => $data['email'] ?? null,
-                'phone' => $data['phone'] ?? null,
-                'role' => 'admin',
-                'status' => 'active',
-            ]);
+            // Create user
+            $user = $this->accountRepository->createUserFromSignup($firebaseUid, $account->id, $data);
 
+            // Seed default categories
             $this->seedDefaultCategoriesForAccount($account->id);
 
-            $user->load(['account.activeAccountSubscriptionPlan.platformPlan', 'permissions']);
+            // Load relationships
+            $user->load(['account.activeAccountSubscriptionPlan.subscriptionPlan', 'permissions']);
 
             return [
                 'user' => $user,
                 'account' => $account,
-                'isNew' => true,
             ];
         });
     }
@@ -102,17 +91,25 @@ class AccountSignUpService
 
     private function seedDefaultCategoriesForAccount(int $accountId): void
     {
-        foreach (DefaultSignupCategories::DEFAULT_EXPENSE_CATEGORIES as $name) {
-            ExpenseCategory::firstOrCreate(
-                ['account_id' => $accountId, 'name' => $name],
-                ['account_id' => $accountId, 'name' => $name]
-            );
-        }
-        foreach (DefaultSignupCategories::DEFAULT_PT_CATEGORIES as $categoryName) {
-            PtCategory::firstOrCreate(
-                ['account_id' => $accountId, 'category_name' => $categoryName],
-                ['account_id' => $accountId, 'category_name' => $categoryName]
-            );
+        try {
+            foreach (DefaultSignupCategories::DEFAULT_EXPENSE_CATEGORIES as $name) {
+                ExpenseCategory::firstOrCreate(
+                    ['account_id' => $accountId, 'name' => $name],
+                    ['account_id' => $accountId, 'name' => $name]
+                );
+            }
+            foreach (DefaultSignupCategories::DEFAULT_PT_CATEGORIES as $categoryName) {
+                PtCategory::firstOrCreate(
+                    ['account_id' => $accountId, 'category_name' => $categoryName],
+                    ['account_id' => $accountId, 'category_name' => $categoryName]
+                );
+            }
+        } catch (\Exception $e) {
+            Log::error('Error seeding default categories', [
+                'account_id' => $accountId,
+                'error' => $e->getMessage(),
+            ]);
+            // Don't throw - categories are not critical for signup
         }
     }
 }

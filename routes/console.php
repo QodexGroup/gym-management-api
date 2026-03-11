@@ -20,6 +20,6 @@ Schedule::command('membership:check-expiration')
 Schedule::command('cache:prune-stale --driver=database')
     ->dailyAt('01:00');
 
-// Account subscription billing lifecycle: generate invoices, mark overdue (5th), lock (10th)
-Schedule::command('account-billing:lifecycle --generate --overdue --lock')
-    ->dailyAt('06:00');
+// Account subscription billing: generate invoices on 5th, lock accounts on 10th
+Schedule::command('account-billing:generate-invoices')->monthlyOn(5, '06:00');
+Schedule::command('account-billing:lock-accounts')->monthlyOn(10, '06:00');

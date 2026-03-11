@@ -11,11 +11,13 @@ return new class extends Migration
         Schema::create('account_subscription_plans', function (Blueprint $table) {
             $table->id();
             $table->foreignId('account_id')->constrained('accounts')->cascadeOnDelete();
-            $table->foreignId('platform_subscription_plan_id')->constrained('platform_subscription_plans')->cascadeOnDelete();
+            $table->foreignId('subscription_plan_id')->constrained('subscription_plans')->cascadeOnDelete();
+            $table->string('plan_name')->nullable();
             $table->timestamp('trial_starts_at')->nullable();
             $table->timestamp('trial_ends_at')->nullable();
             $table->timestamp('subscription_starts_at')->nullable();
             $table->timestamp('subscription_ends_at')->nullable();
+            $table->timestamp('locked_at')->nullable();
             $table->timestamps();
 
             $table->index(['account_id']);

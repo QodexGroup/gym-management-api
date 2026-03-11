@@ -1,14 +1,13 @@
 <?php
 
-namespace App\Http\Requests\Auth;
+namespace App\Http\Requests\Account;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\GenericRequest;
 
-class SignUpRequest extends FormRequest
+class AccountRequest extends GenericRequest
 {
-
     /**
-     * Determine if the user is authorized to make this request.
+     * @return bool
      */
     public function authorize(): bool
     {
@@ -16,18 +15,14 @@ class SignUpRequest extends FormRequest
     }
 
     /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array
      */
     public function rules(): array
     {
         return [
             'accountName' => ['required', 'string', 'max:255'],
-            'firstname' => ['required', 'string', 'max:255'],
-            'lastname' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'accountEmail' => ['required', 'email', 'max:255'],
+            'accountPhone' => ['required', 'string', 'max:50'],
             'billingName' => ['required', 'string', 'max:255'],
             'billingEmail' => ['required', 'email', 'max:255'],
             'billingPhone' => ['required', 'string', 'max:50'],

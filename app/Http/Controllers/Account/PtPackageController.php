@@ -7,14 +7,12 @@ use App\Http\Requests\Account\PtPackageRequest;
 use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Account\PtPackageResource;
 use App\Repositories\Account\PtPackageRepository;
-use App\Services\Account\AccountLimitService;
 use Illuminate\Http\JsonResponse;
 
 class PtPackageController
 {
     public function __construct(
-        private PtPackageRepository $ptPackageRepository,
-        private AccountLimitService $accountLimitService
+        private PtPackageRepository $ptPackageRepository
     ) {
     }
 
@@ -36,10 +34,6 @@ class PtPackageController
     public function createPtPackage(PtPackageRequest $request): JsonResponse
     {
         $genericData = $request->getGenericDataWithValidated();
-        $check = $this->accountLimitService->canCreate($genericData->userData->account_id, AccountLimitService::RESOURCE_PT_PACKAGES);
-        if (!$check['allowed']) {
-            return ApiResponse::error($check['message'] ?? 'Not allowed', 403);
-        }
         $package = $this->ptPackageRepository->createPtPackage($genericData);
         return ApiResponse::success(new PtPackageResource($package), 'PT package created successfully', 201);
     }

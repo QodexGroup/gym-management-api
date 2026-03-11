@@ -6,7 +6,6 @@ use App\Constant\RecurringIntervalConstant;
 use App\Constant\ScheduleTypeConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\ClassSchedule;
-use App\Services\Account\AccountLimitService;
 use App\Models\Account\ClassScheduleSession;
 use App\Repositories\Account\ClassScheduleRepository;
 use App\Repositories\Account\ClassScheduleSessionRepository;
@@ -18,8 +17,7 @@ class ClassScheduleService
 {
     public function __construct(
         private ClassScheduleRepository $classScheduleRepository,
-        private ClassScheduleSessionRepository $sessionRepository,
-        private AccountLimitService $accountLimitService
+        private ClassScheduleSessionRepository $sessionRepository
     ) {
     }
 
@@ -31,11 +29,6 @@ class ClassScheduleService
      */
     public function createClassSchedule(GenericData $genericData): ClassSchedule
     {
-        $check = $this->accountLimitService->canCreate($genericData->userData->account_id, AccountLimitService::RESOURCE_CLASS_SCHEDULES);
-        if (!$check['allowed']) {
-            throw new \Exception($check['message'] ?? 'Limit reached');
-        }
-
         try {
             return DB::transaction(function () use ($genericData) {
                 // Create the class schedule

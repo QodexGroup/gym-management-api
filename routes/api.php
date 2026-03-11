@@ -1,15 +1,15 @@
 <?php
 
+use App\Http\Controllers\Account\AccountSubscription\AccountController;
 use App\Http\Controllers\Account\ClassScheduleController;
 use App\Http\Controllers\Account\ClassScheduleSessionController;
 use App\Http\Controllers\Account\MembershipPlanController;
-use App\Http\Controllers\Account\AccountSubscription\AccountBillingInformationController;
-use App\Http\Controllers\Account\AccountSubscription\PlatformSubscriptionPlanController;
-use App\Http\Controllers\Account\AccountSubscription\SubscriptionRequestController;
+use App\Http\Controllers\Account\AccountSubscription\SubscriptionPlanController;
+use App\Http\Controllers\Account\AccountSubscription\AccountPaymentRequestController;
 use App\Http\Controllers\Account\PtCategoryController;
 use App\Http\Controllers\Account\PtPackageController;
 use App\Http\Controllers\Account\UsersController;
-use App\Http\Controllers\Admin\AdminSubscriptionRequestController;
+use App\Http\Controllers\Admin\AdminPaymentRequestController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Common\ExpenseCategoryController;
 use App\Http\Controllers\Common\ExpenseController;
@@ -43,25 +43,22 @@ Route::middleware([VerifyFirebaseTokenMiddleware::class, 'throttle:5,1'])
 // Auth routes (protected)
 Route::middleware([FirebaseAuthMiddleware::class])->prefix('auth')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/account', [AccountController::class, 'getAccount']);
+    Route::get('/subscription-plans', [SubscriptionPlanController::class, 'getSubscriptionPlans']);
 });
 
-// Dashboard routes (protected)
-Route::middleware([FirebaseAuthMiddleware::class])->prefix('dashboard')->group(function () {
-    Route::get('/stats', [DashboardController::class, 'getStats']);
-    Route::get('/my-collection', [MyCollectionController::class, 'getStats']);
-});
 
 Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
-    Route::get('/platform-subscription-plans', [PlatformSubscriptionPlanController::class, 'getPlatformSubscriptionPlans']);
-
-    Route::get('/accounts/subscription-requests', [SubscriptionRequestController::class, 'getSubscriptionRequests']);
-    Route::post('/accounts/subscription-request', [SubscriptionRequestController::class, 'createSubscriptionRequest']);
-    Route::get('/accounts/billing-information', [AccountBillingInformationController::class, 'getBillingInformation']);
-    Route::put('/accounts/billing-information', [AccountBillingInformationController::class, 'saveBillingInformation']);
+    Route::prefix('accounts')->group(function () {
+        Route::get('/', [AccountController::class, 'getAccount']);
+        Route::put('/', [AccountController::class, 'updateAccount']);
+        Route::get('/payment-requests', [AccountPaymentRequestController::class, 'getPaymentRequests']);
+        Route::post('/payment-request', [AccountPaymentRequestController::class, 'createPaymentRequest']);
+    });
 
     Route::prefix('admin')->middleware([EnsurePlatformAdmin::class])->group(function () {
-        Route::get('/subscription-requests', [AdminSubscriptionRequestController::class, 'getPendingSubscriptionRequests']);
+        Route::get('/payment-requests', [AdminPaymentRequestController::class, 'getPendingPaymentRequests']);
     });
 
     Route::prefix('users')->middleware(['idempotent'])->group(function () {
@@ -91,6 +88,12 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
     Route::prefix('pt-categories')->group(function () {
         Route::get('/', [PtCategoryController::class, 'getAllPtCategories']);
+    });
+
+    // Dashboard routes (protected)
+    Route::prefix('dashboard')->group(function () {
+        Route::get('/stats', [DashboardController::class, 'getStats']);
+        Route::get('/my-collection', [MyCollectionController::class, 'getStats']);
     });
 
     Route::prefix('class-schedules')->middleware(['idempotent'])->group(function () {

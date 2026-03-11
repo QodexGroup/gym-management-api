@@ -7,15 +7,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\SignUpRequest;
 use App\Http\Resources\Account\AccountResource;
 use App\Http\Resources\Account\UserResource;
-use App\Services\Account\AccountLimitService;
 use App\Services\Account\AccountSignUpService;
 use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
     public function __construct(
-        private AccountSignUpService $signUpService,
-        private AccountLimitService $limitService
+        private AccountSignUpService $signUpService
     ) {
     }
 
@@ -32,15 +30,10 @@ class AuthController extends Controller
 
             $result = $this->signUpService->signUp($firebaseUid, $request->validated());
 
-            $message = $result['isNew']
-                ? 'Account created successfully. Your 7-day free trial has started. Enjoy all features!'
-                : 'Welcome back.';
-
             return ApiResponse::success([
                 'user' => new UserResource($result['user']),
                 'account' => new AccountResource($result['account']),
-                'usage' => $this->limitService->getUsageSummary($result['account']->id),
-            ], $message, 201);
+            ], 'Account created successfully. Your 7-day free trial has started. Enjoy all features!', 201);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }
@@ -61,22 +54,15 @@ class AuthController extends Controller
                 return ApiResponse::error('User not found', 404);
             }
 
-            // Load permissions and account with plan
+            // Load permissions only
             if (!$user->relationLoaded('permissions')) {
                 $user->load('permissions');
             }
-            if (!$user->relationLoaded('account')) {
-                $user->load('account.activeAccountSubscriptionPlan.platformPlan');
-            }
 
-            $data = (new UserResource($user))->toArray($request);
-            $data['account'] = $user->account ? (new AccountResource($user->account))->toArray($request) : null;
-            $data['usage'] = $this->limitService->getUsageSummary($user->account_id);
-            $adminEmails = config('app.platform_admin_emails', []);
-            $data['isPlatformAdmin'] = !empty($adminEmails) && in_array($user->email, $adminEmails, true);
-            $data['emailVerified'] = $request->attributes->get('email_verified', false);
-
-            return ApiResponse::success($data, 'User retrieved successfully');
+            return ApiResponse::success(
+                new UserResource($user),
+                'User retrieved successfully'
+            );
 
         } catch (\Exception $e) {
             return ApiResponse::error('Error fetching user data: ' . $e->getMessage(), 500);

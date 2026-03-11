@@ -2,65 +2,106 @@
 
 namespace App\Models\Account;
 
-use App\Models\Account;
+use App\Constant\AccountInvoiceStatusConstant;
+use App\Traits\HasCamelCaseAttributes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AccountInvoice extends Model
 {
-    protected $table = 'account_invoices';
+    use HasFactory, HasCamelCaseAttributes;
 
-    public const STATUS_DRAFT = 'draft';
-    public const STATUS_ISSUED = 'issued';
-    public const STATUS_PAID = 'paid';
-    public const STATUS_OVERDUE = 'overdue';
-    public const STATUS_VOID = 'void';
+    protected $table = 'account_invoices';
 
     protected $fillable = [
         'account_id',
         'account_subscription_plan_id',
         'invoice_number',
         'billing_period',
-        'plan_name',
-        'plan_interval',
-        'plan_price',
-        'billing_cycle_start_at',
+        'invoice_date',
+        'total_amount',
+        'discount_amount',
         'status',
+        'period_from',
+        'period_to',
+        'prorate',
         'invoice_details',
     ];
 
     protected function casts(): array
     {
         return [
-            'plan_price' => 'decimal:2',
-            'billing_cycle_start_at' => 'date',
-            'invoice_details' => 'array',
+            'invoice_date' => 'date',
+            'total_amount' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
+            'period_from' => 'date',
+            'period_to' => 'date',
+            'prorate' => 'integer',
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::created(function (self $invoice): void {
+            if (empty($invoice->invoice_number)) {
+                $invoice->updateQuietly([
+                    'invoice_number' => self::formatInvoiceNumberFromId($invoice->id),
+                ]);
+            }
+        });
+    }
+
+    /**
+     * @return BelongsTo
+     */
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
     }
 
+    /**
+     * @return BelongsTo
+     */
     public function accountSubscriptionPlan(): BelongsTo
     {
         return $this->belongsTo(AccountSubscriptionPlan::class, 'account_subscription_plan_id');
     }
 
-    public function subscriptionRequests(): HasMany
+    /**
+     * @return HasMany
+     */
+    public function paymentRequests(): HasMany
     {
-        return $this->hasMany(AccountSubscriptionRequest::class, 'account_invoice_id');
+        return $this->hasMany(AccountPaymentRequest::class, 'payment_transaction_id')
+            ->where('payment_transaction', self::class);
     }
 
+    /**
+     * @return bool
+     */
     public function isPaid(): bool
     {
-        return $this->status === self::STATUS_PAID;
+        return $this->status === AccountInvoiceStatusConstant::STATUS_PAID;
     }
 
+    /**
+     * @return bool
+     */
     public function isUnpaid(): bool
     {
-        return in_array($this->status, [self::STATUS_ISSUED, self::STATUS_OVERDUE], true);
+        return $this->status === AccountInvoiceStatusConstant::STATUS_PENDING;
+    }
+
+    /**
+     * Format invoice number from ID.
+     * @param int $id
+     *
+     * @return string
+     */
+    private static function formatInvoiceNumberFromId(int $id): string
+    {
+        return '#' . str_pad((string) $id, 7, '0', STR_PAD_LEFT);
     }
 }

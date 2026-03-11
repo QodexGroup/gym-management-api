@@ -7,14 +7,12 @@ use App\Http\Requests\Account\MembershipPlanRequest;
 use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Account\MembershipPlanResource;
 use App\Repositories\Account\MembershipPlanRepository;
-use App\Services\Account\AccountLimitService;
 use Illuminate\Http\JsonResponse;
 
 class MembershipPlanController
 {
     public function __construct(
-        private MembershipPlanRepository $membershipPlanRepository,
-        private AccountLimitService $accountLimitService
+        private MembershipPlanRepository $membershipPlanRepository
     ) {
     }
 
@@ -36,10 +34,6 @@ class MembershipPlanController
     public function createMembershipPlan(MembershipPlanRequest $request): JsonResponse
     {
         $genericData = $request->getGenericDataWithValidated();
-        $check = $this->accountLimitService->canCreate($genericData->userData->account_id, AccountLimitService::RESOURCE_MEMBERSHIP_PLANS);
-        if (!$check['allowed']) {
-            return ApiResponse::error($check['message'] ?? 'Not allowed', 403);
-        }
         $plan = $this->membershipPlanRepository->createMembershipPlan($genericData);
         return ApiResponse::success(new MembershipPlanResource($plan), 'Membership plan created successfully', 201);
     }
