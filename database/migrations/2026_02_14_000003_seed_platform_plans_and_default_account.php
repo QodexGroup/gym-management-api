@@ -2,11 +2,18 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
+        // Legacy seeder for platform-level plans. Skip if tables do not exist
+        // (newer schema uses `subscription_plans` instead).
+        if (! Schema::hasTable('platform_subscription_plans') || ! Schema::hasTable('accounts')) {
+            return;
+        }
+
         $now = now();
 
         // Insert Trial plan (used for new sign-ups)
@@ -99,6 +106,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasTable('platform_subscription_plans') || ! Schema::hasTable('accounts')) {
+            return;
+        }
+
         DB::table('accounts')->where('id', 1)->delete();
         DB::table('platform_subscription_plans')->truncate();
     }

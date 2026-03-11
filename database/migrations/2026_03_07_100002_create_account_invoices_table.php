@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('account_id')->constrained('accounts')->cascadeOnDelete();
             $table->foreignId('account_subscription_plan_id')->nullable()->constrained('account_subscription_plans')->nullOnDelete();
-            $table->string('invoice_number', 32)->unique();
+            $table->string('invoice_number', 32)->nullable()->unique();
             $table->string('billing_period', 16)->nullable(); // mdY e.g. 03072026
             $table->date('invoice_date')->nullable();
             $table->decimal('total_amount', 10, 2)->default(0);

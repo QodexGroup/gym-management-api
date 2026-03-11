@@ -4,7 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
-use App\Models\Account;
+use App\Models\Account\Account;
 use App\Models\Account\UserPermission;
 use App\Models\Core\Customer;
 use App\Traits\HasCamelCaseAttributes;
