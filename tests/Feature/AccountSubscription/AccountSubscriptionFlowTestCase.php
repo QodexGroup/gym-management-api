@@ -41,14 +41,17 @@ abstract class AccountSubscriptionFlowTestCase extends TestCase
     {
         parent::setUp();
 
-        $this->trialPlan = SubscriptionPlan::create([
-            'name' => 'Trial Plan',
-            'slug' => 'trial',
-            'interval' => null,
-            'price' => 0,
-            'trial_days' => 7,
-            'is_trial' => true,
-        ]);
+        // Use firstOrCreate to avoid duplicate slug errors when multiple tests run
+        $this->trialPlan = SubscriptionPlan::firstOrCreate(
+            ['slug' => 'trial-subscription'],
+            [
+                'name' => 'Trial Plan',
+                'interval' => null,
+                'price' => 0,
+                'trial_days' => 7,
+                'is_trial' => true,
+            ]
+        );
 
         $this->billingLifecycleService = app(BillingLifecycleService::class);
         $this->accountPaymentRequestService = app(AccountPaymentRequestService::class);
@@ -145,6 +148,7 @@ abstract class AccountSubscriptionFlowTestCase extends TestCase
             'account_id' => $account->id,
             'payment_transaction' => AccountInvoice::class,
             'payment_transaction_id' => $invoice->id,
+            'amount' => $invoice->total_amount,
             'receipt_url' => 'receipts/test-receipt.png',
             'receipt_file_name' => 'test-receipt.png',
             'status' => AccountPaymentRequestStatusConstant::STATUS_PENDING,
