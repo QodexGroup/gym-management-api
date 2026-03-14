@@ -33,8 +33,8 @@ class SendPaymentConfirmationEmail implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        public Customer $customer,
-        public CustomerPayment $payment
+        public int $customerId,
+        public int $paymentId
     ) {
     }
 
@@ -51,29 +51,33 @@ class SendPaymentConfirmationEmail implements ShouldQueue
      */
     public function handle(): void
     {
-        if (!$this->customer->email) {
-            Log::warning('Customer has no email address', ['customer_id' => $this->customer->id]);
+        $customer = Customer::find($this->customerId);
+        $payment = CustomerPayment::find($this->paymentId);
+        if (!$customer || !$payment) {
+            return;
+        }
+        if (!$customer->email) {
+            Log::warning('Customer has no email address', ['customer_id' => $customer->id]);
             return;
         }
 
         try {
-            Mail::to($this->customer->email)->send(new PaymentConfirmationMail($this->customer, $this->payment));
-            
+            Mail::to($customer->email)->send(new PaymentConfirmationMail($customer, $payment));
+
             Log::info('Payment confirmation email sent', [
-                'customer_id' => $this->customer->id,
-                'email' => $this->customer->email,
-                'payment_id' => $this->payment->id,
+                'customer_id' => $customer->id,
+                'email' => $customer->email,
+                'payment_id' => $payment->id,
                 'job_id' => $this->job->getJobId()
             ]);
         } catch (\Throwable $th) {
             Log::error('Error sending payment confirmation email', [
                 'error' => $th->getMessage(),
-                'customer_id' => $this->customer->id,
-                'payment_id' => $this->payment->id,
+                'customer_id' => $customer->id,
+                'payment_id' => $payment->id,
                 'job_id' => $this->job->getJobId()
             ]);
-            
-            // Re-throw to trigger retry mechanism
+
             throw $th;
         }
     }

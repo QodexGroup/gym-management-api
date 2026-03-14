@@ -8,7 +8,10 @@ use Illuminate\Database\Eloquent\Collection;
 
 class ExportExpenseService
 {
-    private const BUSINESS_NAME = 'Kaizen Gym';
+    private function getBusinessName(): string
+    {
+        return config('app.name');
+    }
 
     public function transformData(Collection $expenseData): array
     {
@@ -38,7 +41,7 @@ class ExportExpenseService
         $unposted = (float) $expenseData->where('status', ExpenseStatusConstant::EXPENSE_STATUS_UNPOSTED)->sum('amount');
 
         return [
-            'businessName' => self::BUSINESS_NAME,
+            'businessName' => $this->getBusinessName(),
             'title' => 'Expense Report',
             'summaryRows' => [
                 ['Total Expenses', $this->formatCurrency($totalExpenses)],

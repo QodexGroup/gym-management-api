@@ -16,7 +16,7 @@ class MembershipPlanChecker extends Command
      *
      * @var string
      */
-    protected $signature = 'membership:update-expired-status';
+    protected $signature = 'membership:update-expired-status {--account_id= : Optional account ID to run for a single account; omit to run for all accounts}';
 
     /**
      * The console command description.
@@ -45,9 +45,15 @@ class MembershipPlanChecker extends Command
             $this->info('Checking for expired memberships...');
         }
 
+        $query = CustomerMembership::query()
+            ->where('membership_end_date', '<', Carbon::now()->startOfDay());
+        $accountId = $this->option('account_id');
+        if ($accountId !== null && $accountId !== '') {
+            $query->where('account_id', (int) $accountId);
+        }
+
         // Find all active memberships that have expired
-        $expiredMemberships = CustomerMembership::where('account_id', 1)
-            ->where('membership_end_date', '<', Carbon::now()->startOfDay())
+        $expiredMemberships = $query
             ->where('status', '!=', CustomerMembershipConstant::STATUS_EXPIRED) // Only update if not already expired
             ->with(['customer', 'membershipPlan'])
             ->get();

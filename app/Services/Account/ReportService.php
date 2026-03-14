@@ -165,7 +165,7 @@ class ReportService
         $exportClass = $this->getReportExportClass($reportType);
 
         $summaryHeaderData = [
-            'businessName' => $data['summaryHeaderData']['businessName'] ?? 'Kaizen Gym',
+            'businessName' => $data['summaryHeaderData']['businessName'] ?? config('app.name'),
             'title' => $data['summaryHeaderData']['title'] ?? 'Report',
             'summaryRows' => $data['summaryHeaderData']['summaryRows'] ?? [],
             'periodLabel' => $data['periodLabel'] ?? '',

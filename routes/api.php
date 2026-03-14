@@ -1,11 +1,15 @@
 <?php
 
+use App\Http\Controllers\Account\AccountSubscription\AccountController;
 use App\Http\Controllers\Account\ClassScheduleController;
 use App\Http\Controllers\Account\ClassScheduleSessionController;
 use App\Http\Controllers\Account\MembershipPlanController;
+use App\Http\Controllers\Account\AccountSubscription\SubscriptionPlanController;
+use App\Http\Controllers\Account\AccountSubscription\AccountPaymentRequestController;
 use App\Http\Controllers\Account\PtCategoryController;
 use App\Http\Controllers\Account\PtPackageController;
 use App\Http\Controllers\Account\UsersController;
+use App\Http\Controllers\Admin\AdminPaymentRequestController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Common\ExpenseCategoryController;
 use App\Http\Controllers\Common\ExpenseController;
@@ -24,21 +28,39 @@ use App\Http\Controllers\Common\WalkinController;
 use App\Http\Controllers\Core\CustomerPtPackageController;
 use App\Http\Controllers\Core\PtBookingController;
 use App\Http\Controllers\NotificationPreferenceController;
+use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\FirebaseAuthMiddleware;
+use App\Http\Middleware\VerifyFirebaseTokenMiddleware;
 use Illuminate\Support\Facades\Route;
+
+// Sign-up: requires valid Firebase token, does not require user in DB
+Route::middleware([VerifyFirebaseTokenMiddleware::class, 'throttle:5,1'])
+    ->prefix('auth')
+    ->group(function () {
+        Route::post('/sign-up', [AuthController::class, 'signUp']);
+    });
 
 // Auth routes (protected)
 Route::middleware([FirebaseAuthMiddleware::class])->prefix('auth')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/account', [AccountController::class, 'getAccount']);
+    Route::get('/subscription-plans', [SubscriptionPlanController::class, 'getSubscriptionPlans']);
 });
 
-// Dashboard routes (protected)
-Route::middleware([FirebaseAuthMiddleware::class])->prefix('dashboard')->group(function () {
-    Route::get('/stats', [DashboardController::class, 'getStats']);
-    Route::get('/my-collection', [MyCollectionController::class, 'getStats']);
-});
 
 Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
+
+    Route::prefix('accounts')->middleware(['idempotent'])->group(function () {
+        Route::get('/', [AccountController::class, 'getAccount']);
+        Route::put('/', [AccountController::class, 'updateAccount']);
+        Route::get('/payment-requests', [AccountPaymentRequestController::class, 'getPaymentRequests']);
+        Route::post('/payment-request', [AccountPaymentRequestController::class, 'createPaymentRequest']);
+        Route::post('/reactivation-payment-request', [AccountPaymentRequestController::class, 'createReactivationPaymentRequest']);
+    });
+
+    Route::prefix('admin')->middleware([EnsurePlatformAdmin::class])->group(function () {
+        Route::get('/payment-requests', [AdminPaymentRequestController::class, 'getPendingPaymentRequests']);
+    });
 
     Route::prefix('users')->middleware(['idempotent'])->group(function () {
         Route::get('/', [UsersController::class, 'getAllUsers']);
@@ -53,20 +75,26 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
     Route::prefix('membership-plans')->middleware(['idempotent'])->group(function () {
         Route::get('/', [MembershipPlanController::class, 'getAllMembershipPlan']);
-        Route::post('/', [MembershipPlanController::class, 'store']);
+        Route::post('/', [MembershipPlanController::class, 'createMembershipPlan']);
         Route::put('/{id}', [MembershipPlanController::class, 'updateMembershipPlan']);
-        Route::delete('/{id}', [MembershipPlanController::class, 'delete']);
+        Route::delete('/{id}', [MembershipPlanController::class, 'deleteMembershipPlan']);
     });
 
     Route::prefix('pt-packages')->middleware(['idempotent'])->group(function () {
         Route::get('/', [PtPackageController::class, 'getAllPtPackages']);
-        Route::post('/', [PtPackageController::class, 'store']);
+        Route::post('/', [PtPackageController::class, 'createPtPackage']);
         Route::put('/{id}', [PtPackageController::class, 'updatePtPackage']);
-        Route::delete('/{id}', [PtPackageController::class, 'delete']);
+        Route::delete('/{id}', [PtPackageController::class, 'deletePtPackage']);
     });
 
     Route::prefix('pt-categories')->group(function () {
         Route::get('/', [PtCategoryController::class, 'getAllPtCategories']);
+    });
+
+    // Dashboard routes (protected)
+    Route::prefix('dashboard')->group(function () {
+        Route::get('/stats', [DashboardController::class, 'getStats']);
+        Route::get('/my-collection', [MyCollectionController::class, 'getStats']);
     });
 
     Route::prefix('class-schedules')->middleware(['idempotent'])->group(function () {

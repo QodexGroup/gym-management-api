@@ -31,7 +31,7 @@ class MembershipPlanController
      * @param MembershipPlanRequest $request
      * @return JsonResponse
      */
-    public function store(MembershipPlanRequest $request): JsonResponse
+    public function createMembershipPlan(MembershipPlanRequest $request): JsonResponse
     {
         $genericData = $request->getGenericDataWithValidated();
         $plan = $this->membershipPlanRepository->createMembershipPlan($genericData);
@@ -55,7 +55,7 @@ class MembershipPlanController
      * @param int $id
      * @return JsonResponse
      */
-    public function delete(GenericRequest $request, int $id): JsonResponse
+    public function deleteMembershipPlan(GenericRequest $request, int $id): JsonResponse
     {
         $data = $request->getGenericData();
         $this->membershipPlanRepository->deleteMembershipPlan($id, $data->userData->account_id);

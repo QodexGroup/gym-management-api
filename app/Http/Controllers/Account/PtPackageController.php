@@ -31,7 +31,7 @@ class PtPackageController
      * @param PtPackageRequest $request
      * @return JsonResponse
      */
-    public function store(PtPackageRequest $request): JsonResponse
+    public function createPtPackage(PtPackageRequest $request): JsonResponse
     {
         $genericData = $request->getGenericDataWithValidated();
         $package = $this->ptPackageRepository->createPtPackage($genericData);
@@ -55,7 +55,7 @@ class PtPackageController
      * @param int $id
      * @return JsonResponse
      */
-    public function delete(GenericRequest $request, int $id): JsonResponse
+    public function deletePtPackage(GenericRequest $request, int $id): JsonResponse
     {
         $data = $request->getGenericData();
         $this->ptPackageRepository->deletePtPackage($id, $data->userData->account_id);

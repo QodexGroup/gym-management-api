@@ -18,7 +18,7 @@ class CheckMembershipExpiration extends Command
      *
      * @var string
      */
-    protected $signature = 'membership:check-expiration';
+    protected $signature = 'membership:check-expiration {--account_id= : Optional account ID to run for a single account; omit to run for all accounts}';
 
     /**
      * The console command description.
@@ -54,9 +54,15 @@ class CheckMembershipExpiration extends Command
         $threshold = NotificationConstant::MEMBERSHIP_EXPIRATION_DAYS_THRESHOLD;
         $thresholdDate = Carbon::now()->addDays($threshold);
 
+        $query = CustomerMembership::query()
+            ->where('membership_end_date', '<=', $thresholdDate);
+        $accountId = $this->option('account_id');
+        if ($accountId !== null && $accountId !== '') {
+            $query->where('account_id', (int) $accountId);
+        }
+
         // Get memberships expiring within threshold
-        $expiringMemberships = CustomerMembership::where('account_id', 1)
-            ->where('membership_end_date', '<=', $thresholdDate)
+        $expiringMemberships = $query
             ->where('membership_end_date', '>=', Carbon::now())
             ->with(['customer', 'membershipPlan'])
             ->get();
