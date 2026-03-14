@@ -7,7 +7,10 @@ use Illuminate\Database\Eloquent\Collection;
 
 class ExportSummaryService
 {
-    private const BUSINESS_NAME = 'Kaizen Gym';
+    private function getBusinessName(): string
+    {
+        return config('app.name');
+    }
 
     public function transformData(Collection $expenseData): array
     {
@@ -44,7 +47,7 @@ class ExportSummaryService
         })->sum('amount');
 
         return [
-            'businessName' => self::BUSINESS_NAME,
+            'businessName' => $this->getBusinessName(),
             'title' => 'Summary Report',
             'summaryRows' => [
                 ['Total Revenue', $this->formatCurrency($totalRevenue)],

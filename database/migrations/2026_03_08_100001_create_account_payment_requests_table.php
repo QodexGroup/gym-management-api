@@ -13,6 +13,7 @@ return new class extends Migration
             $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade');
             $table->string('payment_transaction'); //model on which the payment request is made
             $table->unsignedBigInteger('payment_transaction_id')->nullable();  //id of the model on which the payment request is made
+            $table->decimal('amount', 10, 2);
             $table->string('receipt_url', 500);
             $table->string('receipt_file_name', 255)->nullable();
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');

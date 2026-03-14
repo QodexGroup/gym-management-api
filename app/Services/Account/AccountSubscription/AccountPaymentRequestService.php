@@ -2,6 +2,7 @@
 
 namespace App\Services\Account\AccountSubscription;
 
+use App\Constant\AccountFeeConstant;
 use App\Constant\AccountInvoiceStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\AccountInvoice;
@@ -53,6 +54,28 @@ class AccountPaymentRequestService
             $request = $this->requestRepository->createInvoicePaymentRequest($genericData, $invoice);
 
             return $request->load(['account', 'paymentTransaction']);
+        });
+    }
+
+    /**
+     * Create a standalone reactivation fee payment request.
+     *
+     * @param GenericData $genericData
+     *
+     * @return AccountPaymentRequest
+     */
+    public function createReactivationPaymentRequest(GenericData $genericData): AccountPaymentRequest
+    {
+        return DB::transaction(function () use ($genericData) {
+            $accountId = $genericData->userData->account_id;
+
+            if ($this->requestRepository->hasPendingForAccount($accountId, 'Reactivation Fee', null)) {
+                throw new \Exception('You already have a pending reactivation payment request. Please wait for approval.');
+            }
+
+            $request = $this->requestRepository->createReactivationPaymentRequest($genericData, AccountFeeConstant::REACTIVATION_FEE_AMOUNT);
+
+            return $request->load(['account']);
         });
     }
 

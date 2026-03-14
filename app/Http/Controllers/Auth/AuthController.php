@@ -9,6 +9,7 @@ use App\Http\Resources\Account\AccountResource;
 use App\Http\Resources\Account\UserResource;
 use App\Services\Account\AccountSignUpService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -54,11 +55,8 @@ class AuthController extends Controller
                 return ApiResponse::error('User not found', 404);
             }
 
-            // Load permissions only
-            if (!$user->relationLoaded('permissions')) {
-                $user->load('permissions');
-            }
-
+            // Load permissions and account with active subscription plan
+            $user->loadMissing(['permissions', 'account.activeAccountSubscriptionPlan.subscriptionPlan']);
             return ApiResponse::success(
                 new UserResource($user),
                 'User retrieved successfully'

@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\Account;
 
+use App\Constant\AccountStatusConstant;
+use App\Http\Resources\Account\AccountResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,8 +16,6 @@ class UserResource extends JsonResource
      */
     public function toArray($request): array
     {
-        $adminEmails = config('app.platform_admin_emails', []);
-        $isPlatformAdmin = !empty($adminEmails) && in_array($this->email, $adminEmails, true);
         $emailVerified = $request->attributes->get('email_verified', false);
 
         return [
@@ -32,8 +32,11 @@ class UserResource extends JsonResource
             'permissions' => $this->whenLoaded('permissions', function () {
                 return $this->permissions->pluck('permission')->toArray();
             }, []),
-            'isPlatformAdmin' => $isPlatformAdmin,
+            'isAccountOwner' => $this->is_account_owner,
             'emailVerified' => $emailVerified,
+            'account' => $this->whenLoaded('account', function () {
+                return new AccountResource($this->account);
+            }),
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
             'deletedAt' => $this->deleted_at,

@@ -117,15 +117,35 @@ This is separate from the legacy membership billing flow in `billing-and-members
 - **Service**: `BillingLifecycleService::lockAccountsWithUnpaidInvoiceForCurrentPeriod()`
 - **Repositories**:
   - `AccountInvoiceRepository::getPendingByBillingPeriods()`
-  - `AccountRepository::deactivateActiveAccountsByIds()`
+  - `AccountSubscriptionPlanRepository::lockAccountsByIds()`
 
 **Flow:**
 
 1. Computes current billing periods for all intervals (`currentBillingPeriodKeys()`).
 2. Retrieves **pending** invoices (`status = pending`) for any of those periods.
 3. Sends lock notice emails via `SendAccountInvoiceNotificationJob` (type `TYPE_LOCK_NOTICE`).
-4. Deactivates accounts with pending invoices:
-   - `AccountRepository::deactivateActiveAccountsByIds($accountIds)` sets account status to locked/ inactive.
+4. Locks accounts at the **subscription plan level**:
+   - `AccountSubscriptionPlanRepository::lockAccountsByIds($accountIds)` sets `locked_at` on the active `AccountSubscriptionPlan` for each account.
+   - `accounts.status` remains `active`, so login is still allowed.
+   - Backend permission checks (e.g. `canCreatePaidResources()`) plus frontend logic treat locked accounts as unable to use paid features until reactivation.
+
+### 2.5 Deactivating Delinquent Accounts (End of Month)
+
+- **Service**: `BillingLifecycleService::deactivateDelinquentAccounts()`
+- **Command**: `DeactivateDelinquentAccountsCommand`
+- **Signature**: `account-billing:deactivate-accounts`
+- **Schedule**: `lastDayOfMonth('00:00')` in `routes/console.php`
+
+**Flow:**
+
+1. Determines a cutoff date for long‑locked accounts (e.g. `locked_at` at least one full billing cycle in the past).
+2. Finds accounts whose `AccountSubscriptionPlan.locked_at` is older than the cutoff.
+3. Among those, finds accounts that **still have pending invoices**.
+4. Deactivates those accounts:
+   - `AccountRepository::deactivateActiveAccountsByIds($accountIds)` sets `accounts.status = 'deactivated'`.
+5. Deactivated accounts:
+   - Cannot proceed past the login screen.
+   - Are surfaced to the client via `/auth/me` (`UserResource::isAccountDeactivated` and `AccountResource::status`), so the frontend can show a banner and block access.
 
 ---
 
@@ -139,11 +159,21 @@ This is separate from the legacy membership billing flow in `billing-and-members
     - Returns paginated `AccountPaymentRequestResource` data.
   - `createPaymentRequest(AccountPaymentRequestRequest)`:
     - Validated fields: `invoiceId`, `receiptUrl`, `receiptFileName`.
-    - Calls `AccountPaymentRequestService::createInvoicePaymentRequest($genericData)`.
+    - Calls `AccountPaymentRequestService::createInvoicePaymentRequest($genericData)` to create a payment request linked to an `AccountInvoice`.
+  - `createReactivationPaymentRequest(AccountReactivationPaymentRequestRequest)`:
+    - Validated fields: `receiptUrl`, `receiptFileName`.
+    - Calls `AccountPaymentRequestService::createReactivationPaymentRequest($genericData)` to create a **standalone reactivation fee** payment request:
+      - `payment_transaction = 'Reactivation Fee'`
+      - `payment_transaction_id = null`
+      - `amount` set from configured reactivation fee (e.g. ₱1,200).
 
 - **Request**: `AccountPaymentRequestRequest`
   - Ensures `invoiceId` exists in `account_invoices`.
   - `receiptUrl` is a **string path** to a file in Firebase Storage (frontend already uploaded).
+
+- **Request**: `AccountReactivationPaymentRequestRequest`
+  - `receiptUrl` is a **string path** to a file in Firebase Storage (frontend already uploaded).
+  - `receiptFileName` is an optional, human‑readable name.
 
 - **Service**: `AccountPaymentRequestService::createInvoicePaymentRequest()`
   - Validates:
@@ -157,12 +187,30 @@ This is separate from the legacy membership billing flow in `billing-and-members
         - `account_id` from user
         - `payment_transaction = AccountInvoice::class`
         - `payment_transaction_id = invoice id`
+        - `amount` = invoice total amount
         - `receipt_url` = raw `receiptUrl` from request (Firebase path)
         - `receipt_file_name` (optional)
         - `status = pending`
         - `requested_by` = user id
         - `payment_details` = `{ invoice_number, total_amount }`
   - Returns the payment request with `account` and `paymentTransaction` relations loaded.
+
+- **Service**: `AccountPaymentRequestService::createReactivationPaymentRequest()`
+  - Validates:
+    - No existing pending reactivation payment request for the same account:
+      - `AccountPaymentRequestRepository::hasPendingForAccount($accountId, 'Reactivation Fee', null)`.
+  - Within a transaction:
+    - Calls `AccountPaymentRequestRepository::createReactivationPaymentRequest($genericData, amount)` which:
+      - Creates `AccountPaymentRequest` with:
+        - `account_id` from user
+        - `payment_transaction = 'Reactivation Fee'`
+        - `payment_transaction_id = null`
+        - `amount` = fixed reactivation fee
+        - `receipt_url` / `receipt_file_name`
+        - `status = pending`
+        - `requested_by` = user id
+        - `payment_details` = `{ type: 'reactivation_fee', amount }`
+  - Returns the payment request with `account` loaded.
 
 **Important:**
 
@@ -329,7 +377,8 @@ This is intentionally left out of the current implementation and can be added la
   - Signup + initial subscription: `AccountSignUpService`
   - Get/update account (incl. billing): `Account\AccountSubscription\AccountController`
   - List subscription plans: `SubscriptionPlanController::getSubscriptionPlans()`
-  - Create payment request: `AccountPaymentRequestController::createPaymentRequest()`
+  - Create invoice payment request: `AccountPaymentRequestController::createPaymentRequest()`
+  - Create reactivation payment request: `AccountPaymentRequestController::createReactivationPaymentRequest()`
   - List own payment requests (paginated): `AccountPaymentRequestController::getPaymentRequests()`
 
 - **Admin**
@@ -342,4 +391,5 @@ This is intentionally left out of the current implementation and can be added la
 - **Billing Lifecycle**
   - Generate invoices on 5th: `GenerateInvoicesCommand` → `BillingLifecycleService::generateInvoicesForCurrentCycle()`
   - Lock accounts on 10th: `LockAccountsCommand` → `BillingLifecycleService::lockAccountsWithUnpaidInvoiceForCurrentPeriod()`
+  - Deactivate delinquent accounts on last day of month: `DeactivateDelinquentAccountsCommand` → `BillingLifecycleService::deactivateDelinquentAccounts()`
 

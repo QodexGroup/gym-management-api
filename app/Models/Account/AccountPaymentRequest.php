@@ -19,6 +19,7 @@ class AccountPaymentRequest extends Model
         'account_id',
         'payment_transaction',
         'payment_transaction_id',
+        'amount',
         'receipt_url',
         'receipt_file_name',
         'status',
@@ -33,6 +34,7 @@ class AccountPaymentRequest extends Model
     {
         return [
             'approved_at' => 'datetime',
+            'amount' => 'decimal:2',
         ];
     }
 

@@ -2,8 +2,8 @@
 
 namespace App\Services\Account\AccountSubscription;
 
-use App\Constant\AccountInvoiceTypeConstant;
 use App\Constant\AccountInvoiceStatusConstant;
+use App\Constant\AccountInvoiceTypeConstant;
 use App\Constant\AccountSubscriptionIntervalConstant;
 use App\Constant\BillingCycleConstant;
 use App\Jobs\SendAccountInvoiceNotificationJob;
@@ -261,9 +261,43 @@ class BillingLifecycleService
             Queue::push(new SendAccountInvoiceNotificationJob($inv->id, AccountInvoiceNotificationMail::TYPE_LOCK_NOTICE));
         }
 
+        // Lock at the subscription-plan level instead of deactivating the account,
         $accountIds = $invoices->pluck('account_id')->unique()->values()->all();
 
-        return $this->accountRepository->deactivateActiveAccountsByIds($accountIds);
+        if (empty($accountIds)) {
+            return 0;
+        }
+        return $this->accountSubscriptionPlanRepository->lockAccountsByIds($accountIds);
+    }
+
+    /**
+     * Deactivate delinquent accounts that have been locked for at least one full billing cycle
+     * and still have unpaid invoices. Intended to run at month end.
+     *
+     * @param int|null $accountId
+     *
+     * @return int number of accounts deactivated
+     */
+    public function deactivateDelinquentAccounts(?int $accountId = null): int
+    {
+        $now = Carbon::now();
+        $lockedBefore = $now->copy()->subMonth();
+
+        // Accounts with locked subscription plan before cutoff
+        $lockedAccountIds = $this->accountSubscriptionPlanRepository->getAccountIdsLockedBefore($lockedBefore, $accountId);
+
+        if (empty($lockedAccountIds)) {
+            return 0;
+        }
+
+        // Those accounts that still have pending invoices
+        $delinquentAccountIds = $this->accountInvoiceRepository->getAccountIdsWithPendingInvoices($lockedAccountIds);
+
+        if (empty($delinquentAccountIds)) {
+            return 0;
+        }
+
+        return $this->accountRepository->deactivateActiveAccountsByIds($delinquentAccountIds);
     }
 
     /**

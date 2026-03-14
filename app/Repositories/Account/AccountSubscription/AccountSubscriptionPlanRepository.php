@@ -100,4 +100,37 @@ class AccountSubscriptionPlanRepository
             'locked_at'              => null,
         ]);
     }
+
+    /**
+     * Lock all active subscription plans for the given account IDs by setting locked_at.
+     *
+     * @param array<int> $accountIds
+     *
+     * @return int number of affected rows
+     */
+    public function lockAccountsByIds(array $accountIds): int
+    {
+        return AccountSubscriptionPlan::whereIn('account_id', $accountIds)
+            ->whereNull('locked_at')
+            ->update(['locked_at' => Carbon::now()]);
+    }
+
+    /**
+     * Get account IDs that have been locked before the given date.
+     *
+     * @param Carbon $lockedBefore
+     * @param int|null $accountId Optional account ID to filter by
+     *
+     * @return array<int>
+     */
+    public function getAccountIdsLockedBefore(Carbon $lockedBefore, ?int $accountId = null): array
+    {
+        return AccountSubscriptionPlan::query()
+            ->whereNotNull('locked_at')
+            ->where('locked_at', '<=', $lockedBefore)
+            ->when($accountId !== null, fn ($q) => $q->where('account_id', $accountId))
+            ->pluck('account_id')
+            ->unique()
+            ->all();
+    }
 }

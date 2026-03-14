@@ -50,11 +50,12 @@ Route::middleware([FirebaseAuthMiddleware::class])->prefix('auth')->group(functi
 
 Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
-    Route::prefix('accounts')->group(function () {
+    Route::prefix('accounts')->middleware(['idempotent'])->group(function () {
         Route::get('/', [AccountController::class, 'getAccount']);
         Route::put('/', [AccountController::class, 'updateAccount']);
         Route::get('/payment-requests', [AccountPaymentRequestController::class, 'getPaymentRequests']);
         Route::post('/payment-request', [AccountPaymentRequestController::class, 'createPaymentRequest']);
+        Route::post('/reactivation-payment-request', [AccountPaymentRequestController::class, 'createReactivationPaymentRequest']);
     });
 
     Route::prefix('admin')->middleware([EnsurePlatformAdmin::class])->group(function () {

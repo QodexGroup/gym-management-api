@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Account\AccountSubscription;
 
 use App\Helpers\ApiResponse;
 use App\Http\Requests\Account\AccountSubscription\AccountPaymentRequestRequest;
+use App\Http\Requests\Account\AccountSubscription\AccountReactivationPaymentRequestRequest;
 use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Account\AccountSubscription\AccountPaymentRequestResource;
 use App\Repositories\Account\AccountSubscription\AccountPaymentRequestRepository;
@@ -48,6 +49,29 @@ class AccountPaymentRequestController
 
             return ApiResponse::success(new AccountPaymentRequestResource($paymentRequest),
                 'Payment request submitted. Your receipt has been received and is pending approval.',
+                201
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+    }
+
+    /**
+     * Owner submits reactivation payment request (no invoice, fixed fee).
+     *
+     * @param AccountReactivationPaymentRequestRequest $request
+     *
+     * @return JsonResponse
+     */
+    public function createReactivationPaymentRequest(AccountReactivationPaymentRequestRequest $request): JsonResponse
+    {
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $paymentRequest = $this->paymentRequestService->createReactivationPaymentRequest($genericData);
+
+            return ApiResponse::success(
+                new AccountPaymentRequestResource($paymentRequest),
+                'Reactivation payment submitted. Pending admin approval.',
                 201
             );
         } catch (\Exception $e) {

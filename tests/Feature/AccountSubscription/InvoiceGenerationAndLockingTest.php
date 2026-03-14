@@ -58,7 +58,7 @@ class InvoiceGenerationAndLockingTest extends AccountSubscriptionFlowTestCase
         Queue::assertPushed(SendAccountInvoiceNotificationJob::class, 1);
     }
 
-    public function test_lock_accounts_marks_active_accounts_as_deactivated_when_unpaid(): void
+    public function test_lock_accounts_marks_active_accounts_as_locked_when_unpaid(): void
     {
         Queue::fake();
         Carbon::setTestNow(Carbon::create(2026, 3, 10, 6, 0, 0));
@@ -79,9 +79,9 @@ class InvoiceGenerationAndLockingTest extends AccountSubscriptionFlowTestCase
         $count = $this->billingLifecycleService->lockAccountsWithUnpaidInvoiceForCurrentPeriod();
 
         $this->assertSame(1, $count);
-        $this->assertDatabaseHas('accounts', [
-            'id' => $account->id,
-            'status' => AccountStatusConstant::STATUS_DEACTIVATED,
+        $this->assertDatabaseHas('account_subscription_plans', [
+            'id' => $asp->id,
+            'locked_at' => Carbon::now(),
         ]);
         Queue::assertPushed(SendAccountInvoiceNotificationJob::class, 1);
     }

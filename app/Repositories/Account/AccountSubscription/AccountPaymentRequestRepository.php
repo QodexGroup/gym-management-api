@@ -36,6 +36,7 @@ class AccountPaymentRequestRepository
             'account_id' => $genericData->userData->account_id,
             'payment_transaction' => AccountInvoice::class,
             'payment_transaction_id' => $invoice->id,
+            'amount' => $invoice->total_amount,
             'receipt_url' => trim((string) $data->receiptUrl),
             'receipt_file_name' => $data->receiptFileName ?? null,
             'status' => AccountPaymentRequestStatusConstant::STATUS_PENDING,
@@ -43,6 +44,29 @@ class AccountPaymentRequestRepository
             'payment_details' => json_encode([
                 'invoice_number' => $invoice->invoice_number,
                 'total_amount' => $invoice->total_amount,
+            ]),
+        ]);
+    }
+
+    /**
+     * Create a standalone reactivation fee payment request (no invoice).
+     */
+    public function createReactivationPaymentRequest(GenericData $genericData, float $amount): AccountPaymentRequest
+    {
+        $data = $genericData->getData();
+
+        return AccountPaymentRequest::create([
+            'account_id' => $genericData->userData->account_id,
+            'payment_transaction' => 'Reactivation Fee',
+            'payment_transaction_id' => null,
+            'amount' => $amount,
+            'receipt_url' => trim((string) $data->receiptUrl),
+            'receipt_file_name' => $data->receiptFileName ?? null,
+            'status' => AccountPaymentRequestStatusConstant::STATUS_PENDING,
+            'requested_by' => $genericData->userData->id,
+            'payment_details' => json_encode([
+                'type' => 'reactivation_fee',
+                'amount' => $amount,
             ]),
         ]);
     }

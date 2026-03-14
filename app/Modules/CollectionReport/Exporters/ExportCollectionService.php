@@ -7,7 +7,10 @@ use Illuminate\Database\Eloquent\Collection;
 
 class ExportCollectionService
 {
-    private const BUSINESS_NAME = 'Kaizen Gym';
+    private function getBusinessName(): string
+    {
+        return config('app.name');
+    }
 
     /**
      * Transform payment collection for export (payment-based).
@@ -54,7 +57,7 @@ class ExportCollectionService
         })->sum('amount');
 
         return [
-            'businessName' => self::BUSINESS_NAME,
+            'businessName' => $this->getBusinessName(),
             'title' => 'Collection Report',
             'summaryRows' => [
                 ['Total Collected', $this->formatCurrency($totalCollected)],

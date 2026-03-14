@@ -16,6 +16,7 @@ class AccountResource extends JsonResource
             'accountEmail' => $this->account_email,
             'accountPhone' => $this->account_phone,
             'status' => $this->status,
+            'isLocked' => (bool) optional($this->activeAccountSubscriptionPlan)->locked_at,
             'activeAccountSubscriptionPlan' => $this->whenLoaded('activeAccountSubscriptionPlan', function () {
                 return new AccountSubscriptionPlanResource($this->activeAccountSubscriptionPlan);
             }),

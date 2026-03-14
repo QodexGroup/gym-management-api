@@ -42,7 +42,7 @@ class AccountRepository
      */
     public function findTrialPlan(): ?SubscriptionPlan
     {
-        return SubscriptionPlan::where('slug', 'trial')->first();
+        return SubscriptionPlan::where('slug', 'trial-subscription')->first();
     }
 
     /**
@@ -108,6 +108,7 @@ class AccountRepository
             'email' => $signupData['email'] ?? null,
             'phone' => $signupData['phone'] ?? null,
             'role' => 'admin',
+            'is_account_owner' => true,
             'status' => 'active',
         ]);
 

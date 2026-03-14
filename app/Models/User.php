@@ -33,6 +33,7 @@ class User extends Authenticatable
         'role',
         'phone',
         'status',
+        'is_account_owner',
     ];
 
     /**

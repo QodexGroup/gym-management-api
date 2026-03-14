@@ -92,6 +92,6 @@ class Account extends Model
         if ($asp && $asp->subscriptionPlan) {
             return $asp->subscriptionPlan;
         }
-        return SubscriptionPlan::where('slug', 'trial')->first();
+        return SubscriptionPlan::where('slug', 'trial-subscription')->first();
     }
 }

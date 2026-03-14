@@ -89,4 +89,21 @@ class AccountInvoiceRepository
         ]);
     }
 
+    /**
+     * Get account IDs that have pending invoices from the given account IDs.
+     *
+     * @param array<int> $accountIds
+     *
+     * @return array<int>
+     */
+    public function getAccountIdsWithPendingInvoices(array $accountIds): array
+    {
+        return AccountInvoice::query()
+            ->whereIn('account_id', $accountIds)
+            ->where('status', AccountInvoiceStatusConstant::STATUS_PENDING)
+            ->pluck('account_id')
+            ->unique()
+            ->all();
+    }
+
 }
