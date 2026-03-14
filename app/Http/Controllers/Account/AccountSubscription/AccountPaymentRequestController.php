@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Account\AccountSubscription;
 use App\Helpers\ApiResponse;
 use App\Http\Requests\Account\AccountSubscription\AccountPaymentRequestRequest;
 use App\Http\Requests\Account\AccountSubscription\AccountReactivationPaymentRequestRequest;
+use App\Http\Requests\Account\AccountSubscription\AccountSubscriptionRequestRequest;
 use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Account\AccountSubscription\AccountPaymentRequestResource;
 use App\Repositories\Account\AccountSubscription\AccountPaymentRequestRepository;
@@ -73,6 +74,30 @@ class AccountPaymentRequestController
                 new AccountPaymentRequestResource($paymentRequest),
                 'Reactivation payment submitted. Pending admin approval.',
                 201
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+    }
+
+
+    /**
+     * Owner updates subscription plan selection (takes effect on next billing cycle).
+     *
+     * @param AccountSubscriptionRequestRequest $request
+     *
+     * @return JsonResponse
+     */
+    public function createSubscriptionRequest(AccountSubscriptionRequestRequest $request): JsonResponse
+    {
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $result = $this->paymentRequestService->createSubscriptionRequest($genericData);
+
+            return ApiResponse::success(
+                $result,
+                $result['message'],
+                200
             );
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 422);

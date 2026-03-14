@@ -56,6 +56,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::get('/payment-requests', [AccountPaymentRequestController::class, 'getPaymentRequests']);
         Route::post('/payment-request', [AccountPaymentRequestController::class, 'createPaymentRequest']);
         Route::post('/reactivation-payment-request', [AccountPaymentRequestController::class, 'createReactivationPaymentRequest']);
+        Route::post('/subscription-request', [AccountPaymentRequestController::class, 'createSubscriptionRequest']);
     });
 
     Route::prefix('admin')->middleware([EnsurePlatformAdmin::class])->group(function () {

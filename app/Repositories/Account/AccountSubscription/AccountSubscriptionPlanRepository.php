@@ -133,4 +133,21 @@ class AccountSubscriptionPlanRepository
             ->unique()
             ->all();
     }
+
+    /**
+     * Update subscription plan selection (takes effect on next billing cycle).
+     * Only updates the plan selection without changing subscription dates.
+     *
+     * @param AccountSubscriptionPlan $asp
+     * @param SubscriptionPlan $newPlan
+     *
+     * @return void
+     */
+    public function updatePlanSelection(AccountSubscriptionPlan $asp, SubscriptionPlan $newPlan): void
+    {
+        $asp->update([
+            'subscription_plan_id' => $newPlan->id,
+            'plan_name' => $newPlan->name,
+        ]);
+    }
 }
