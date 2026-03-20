@@ -5,6 +5,7 @@ namespace Tests\Feature\AccountSubscription;
 use App\Constant\AccountInvoiceStatusConstant;
 use App\Constant\AccountInvoiceTypeConstant;
 use App\Constant\AccountPaymentRequestStatusConstant;
+use App\Constant\AccountPaymentTypeConstant;
 use App\Constant\AccountStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\Account;
@@ -166,6 +167,7 @@ abstract class AccountSubscriptionFlowTestCase extends TestCase
         $genericData->userData = $user;
         $genericData->data = array_merge([
             'invoiceId' => $invoice->id,
+            'paymentType' => AccountPaymentTypeConstant::GCASH,
             'receiptUrl' => 'receipts/receipt.png',
             'receiptFileName' => 'receipt.png',
         ], $overrides);

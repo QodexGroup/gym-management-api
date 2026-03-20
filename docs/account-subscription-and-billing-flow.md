@@ -158,13 +158,13 @@ This is separate from the legacy membership billing flow in `billing-and-members
     - Uses `AccountPaymentRequestRepository::paginateByAccount($genericData)` ordered by `created_at desc`.
     - Returns paginated `AccountPaymentRequestResource` data.
   - `createPaymentRequest(AccountPaymentRequestRequest)`:
-    - Validated fields: `invoiceId`, `receiptUrl`, `receiptFileName`.
+    - Validated fields: `invoiceId`, `paymentType`, `receiptUrl`, `receiptFileName`.
     - Calls `AccountPaymentRequestService::createInvoicePaymentRequest($genericData)` to create a payment request linked to an `AccountInvoice`.
   - `createSubscriptionRequest(AccountSubscriptionRequestRequest)`:
     - Owner selects a new paid plan while authenticated.
     - Behavior depends on whether the account is still in trial or already has an active paid subscription.
   - `createReactivationPaymentRequest(AccountReactivationPaymentRequestRequest)`:
-    - Validated fields: `receiptUrl`, `receiptFileName`.
+    - Validated fields: `paymentType`, `receiptUrl`, `receiptFileName`.
     - Calls `AccountPaymentRequestService::createReactivationPaymentRequest($genericData)` to create a **standalone reactivation fee** payment request:
       - `payment_transaction = 'Reactivation Fee'`
       - `payment_transaction_id = null`
@@ -172,15 +172,22 @@ This is separate from the legacy membership billing flow in `billing-and-members
 
 - **Request**: `AccountPaymentRequestRequest`
   - Ensures `invoiceId` exists in `account_invoices`.
+  - Requires `paymentType` in:
+    - `GCASH`
+    - `MAYA`
   - `receiptUrl` is a **string path** to a file in Firebase Storage (frontend already uploaded).
 
 - **Request**: `AccountReactivationPaymentRequestRequest`
+  - Requires `paymentType` in:
+    - `GCASH`
+    - `MAYA`
   - `receiptUrl` is a **string path** to a file in Firebase Storage (frontend already uploaded).
   - `receiptFileName` is an optional, human‑readable name.
 
 - **Request**: `AccountSubscriptionRequestRequest`
   - `subscriptionPlanId` must be a valid non-trial paid plan.
   - For trial upgrades (when admin approval is required), receipt upload is required:
+    - `paymentType` (`GCASH` or `MAYA`)
     - `receiptUrl`
     - `receiptFileName`
 
@@ -197,6 +204,7 @@ This is separate from the legacy membership billing flow in `billing-and-members
         - `payment_transaction = AccountInvoice::class`
         - `payment_transaction_id = invoice id`
         - `amount` = invoice total amount
+        - `payment_type` = selected channel (`GCASH`/`MAYA`)
         - `receipt_url` = raw `receiptUrl` from request (Firebase path)
         - `receipt_file_name` (optional)
         - `status = pending`
@@ -215,6 +223,7 @@ This is separate from the legacy membership billing flow in `billing-and-members
         - `payment_transaction = 'Reactivation Fee'`
         - `payment_transaction_id = null`
         - `amount` = fixed reactivation fee
+        - `payment_type` = selected channel (`GCASH`/`MAYA`)
         - `receipt_url` / `receipt_file_name`
         - `status = pending`
         - `requested_by` = user id
@@ -228,11 +237,14 @@ This is separate from the legacy membership billing flow in `billing-and-members
         - `payment_transaction = AccountSubscriptionPlan::class`
         - `payment_transaction_id = <current ASP id>`
         - `payment_details = { type: 'subscription_upgrade', subscriptionPlanId, subscriptionPlanName, interval, requestedAt }`
-      - Requires Firebase receipt upload (`receiptUrl`).
+      - Requires:
+        - `paymentType` (`GCASH` or `MAYA`)
+        - Firebase receipt upload (`receiptUrl`)
       - Returns message: upgrade will start after admin approval.
     - If the owner already has an active paid subscription:
       - Stores a pending plan via `AccountSubscriptionPlanRepository::updatePlanSelection($asp, $newPlan, $effectiveAt)`.
-      - Takes effect on the next billing cycle when pending selection is applied during due-day generation.
+      - Effective date rule for pending plan: first due day (5th) on or after current `subscription_ends_at`.
+      - Takes effect on that due-day cycle when pending selection is applied before invoice generation.
 
 **Important:**
 
@@ -473,7 +485,7 @@ For receipts, frontend uploads file to Firebase, then sends path metadata to API
 `AdminPaymentRequestService::approve()` handles all supported payment request types:
 
 - `AccountInvoice::class`: marks invoice paid and activates paid subscription window (non-reactivation invoices).
-- `AccountSubscriptionPlan::class` (`subscription_upgrade`): applies paid window for trial-upgrade flow, activates account, clears trial fields, voids pending invoices.
+- `AccountSubscriptionPlan::class` (`subscription_upgrade`): applies paid window for trial-upgrade flow, activates account, keeps trial dates for history, voids pending invoices.
 - `'Reactivation Fee'`: applies reactivation window (monthly + free month), activates account, and voids pending invoices.
 
 ### 7.6 Plan Change Behavior (Owner-Initiated)
@@ -489,9 +501,10 @@ For receipts, frontend uploads file to Firebase, then sends path metadata to API
   - Stores:
     - `pending_subscription_plan_id`
     - `pending_plan_effective_at`
-  - Auto-applies on next due-day cycle before invoice generation.
+  - `pending_plan_effective_at` is set to the first due day (5th) on/after current `subscription_ends_at`.
+  - Auto-applies on that due-day cycle before invoice generation (prevents delayed interval jumps).
 
 ---
 *Last Updated: 2026-03-19*
-*Version: 1.4*
+*Version: 1.5*
 

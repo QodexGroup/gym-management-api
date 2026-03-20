@@ -4,6 +4,7 @@ namespace Tests\Feature\AccountSubscription;
 
 use App\Constant\AccountInvoiceStatusConstant;
 use App\Constant\AccountPaymentRequestStatusConstant;
+use App\Constant\AccountPaymentTypeConstant;
 use App\Constant\AccountSubscriptionIntervalConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\AccountInvoice;
@@ -44,6 +45,7 @@ class TrialUpgradePaymentProcessingTest extends AccountSubscriptionFlowTestCase
         $genericData->userData = $admin;
         $genericData->data = [
             'subscriptionPlanId' => $monthlyPlan->id,
+            'paymentType' => AccountPaymentTypeConstant::GCASH,
             'receiptUrl' => 'receipts/test-receipt.png',
             'receiptFileName' => 'test-receipt.png',
         ];
@@ -65,8 +67,8 @@ class TrialUpgradePaymentProcessingTest extends AccountSubscriptionFlowTestCase
 
         $trialAsp->refresh();
         $this->assertSame($monthlyPlan->id, $trialAsp->subscription_plan_id);
-        $this->assertNull($trialAsp->trial_starts_at);
-        $this->assertNull($trialAsp->trial_ends_at);
+        $this->assertEquals(Carbon::create(2026, 3, 5, 0, 0, 0)->toDateString(), $trialAsp->trial_starts_at?->toDateString());
+        $this->assertEquals(Carbon::create(2026, 3, 12, 0, 0, 0)->toDateString(), $trialAsp->trial_ends_at?->toDateString());
         $this->assertEquals(Carbon::create(2026, 4, 19, 0, 0, 0)->toDateString(), $trialAsp->subscription_starts_at?->toDateString());
         $this->assertEquals(Carbon::create(2026, 5, 19, 0, 0, 0)->toDateString(), $trialAsp->subscription_ends_at?->toDateString());
 
@@ -121,6 +123,7 @@ class TrialUpgradePaymentProcessingTest extends AccountSubscriptionFlowTestCase
         $genericData->userData = $admin;
         $genericData->data = [
             'subscriptionPlanId' => $monthlyPlan->id,
+            'paymentType' => AccountPaymentTypeConstant::GCASH,
             'receiptUrl' => 'receipts/test-receipt.png',
             'receiptFileName' => 'test-receipt.png',
         ];
@@ -199,6 +202,7 @@ class TrialUpgradePaymentProcessingTest extends AccountSubscriptionFlowTestCase
         $genericData->userData = $admin;
         $genericData->data = [
             'subscriptionPlanId' => $monthlyPlan->id,
+            'paymentType' => AccountPaymentTypeConstant::GCASH,
             'receiptUrl' => 'receipts/test-receipt.png',
             'receiptFileName' => 'test-receipt.png',
         ];

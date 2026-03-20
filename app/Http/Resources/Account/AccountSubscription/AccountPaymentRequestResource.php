@@ -15,6 +15,7 @@ class AccountPaymentRequestResource extends JsonResource
             'paymentTransaction' => $this->payment_transaction,
             'paymentTransactionId' => $this->payment_transaction_id,
             'amount' => $this->amount,
+            'paymentType' => $this->payment_type,
             'receiptUrl' => $this->receipt_url,
             'receiptFileName' => $this->receipt_file_name,
             'status' => $this->status,

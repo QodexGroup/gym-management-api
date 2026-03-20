@@ -3,6 +3,7 @@
 namespace Tests\Feature\AccountSubscription;
 
 use App\Constant\AccountPaymentRequestStatusConstant;
+use App\Constant\AccountPaymentTypeConstant;
 use App\Constant\AccountSubscriptionIntervalConstant;
 use App\Models\Account\AccountInvoice;
 
@@ -27,6 +28,7 @@ class AccountPaymentRequestTest extends AccountSubscriptionFlowTestCase
         $this->assertSame($account->id, $request->account_id);
         $this->assertSame(AccountInvoice::class, $request->payment_transaction);
         $this->assertSame($invoice->id, $request->payment_transaction_id);
+        $this->assertSame(AccountPaymentTypeConstant::GCASH, $request->payment_type);
         $this->assertSame($user->id, $request->requested_by);
         $this->assertSame('receipts/invoices/receipt-123.png', $request->receipt_url);
 

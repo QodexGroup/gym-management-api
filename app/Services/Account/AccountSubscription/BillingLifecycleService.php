@@ -97,11 +97,15 @@ class BillingLifecycleService
      */
     public function calculateProrate(AccountSubscriptionPlan $asp, float $planPrice, Carbon $periodStart, Carbon $periodEndExclusive): array
     {
-        $invoiceGenerationDay = BillingCycleConstant::CYCLE_DAY_DUE;
-
-        // Determine the effective end date (trial_ends_at or subscription_ends_at)
         $effectiveEndDate = null;
-        if ($asp->trial_ends_at && $asp->trial_ends_at->isFuture() && $asp->trial_ends_at->lessThan($periodEndExclusive)) {
+
+        $subscriptionHasStarted = $asp->subscription_starts_at !== null;
+
+        if (!$subscriptionHasStarted
+            && $asp->trial_ends_at
+            && $asp->trial_ends_at->isFuture()
+            && $asp->trial_ends_at->lessThan($periodEndExclusive)
+        ) {
             $effectiveEndDate = $asp->trial_ends_at;
         } elseif ($asp->subscription_ends_at && $asp->subscription_ends_at->isFuture() && $asp->subscription_ends_at->lessThan($periodEndExclusive)) {
             $effectiveEndDate = $asp->subscription_ends_at;

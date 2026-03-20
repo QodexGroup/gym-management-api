@@ -20,6 +20,7 @@ class AccountPaymentRequest extends Model
         'payment_transaction',
         'payment_transaction_id',
         'amount',
+        'payment_type',
         'receipt_url',
         'receipt_file_name',
         'status',

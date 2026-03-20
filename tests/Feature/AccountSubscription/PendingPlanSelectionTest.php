@@ -141,5 +141,53 @@ class PendingPlanSelectionTest extends AccountSubscriptionFlowTestCase
         $this->assertSame(AccountSubscriptionIntervalConstant::INTERVAL_QUARTER, (string) ($details['subscriptionPlan']['interval'] ?? ''));
         $this->assertEquals((float) $quarterlyPlan->price, (float) $invoice->total_amount);
     }
+
+    public function test_quarterly_to_monthly_change_with_june_end_applies_on_july_5(): void
+    {
+        Queue::fake();
+        Carbon::setTestNow(Carbon::create(2026, 6, 20, 10, 0, 0));
+
+        $account = $this->createAccount();
+        $owner = $this->createUser($account);
+
+        $quarterlyPlan = $this->createPlan([
+            'interval' => AccountSubscriptionIntervalConstant::INTERVAL_QUARTER,
+            'price' => 3300,
+        ]);
+
+        $monthlyPlan = $this->createPlan([
+            'interval' => AccountSubscriptionIntervalConstant::INTERVAL_MONTH,
+            'price' => 1200,
+        ]);
+
+        $asp = AccountSubscriptionPlan::create([
+            'account_id' => $account->id,
+            'subscription_plan_id' => $quarterlyPlan->id,
+            'plan_name' => $quarterlyPlan->name,
+            'trial_starts_at' => null,
+            'trial_ends_at' => null,
+            'subscription_starts_at' => Carbon::create(2026, 4, 5, 0, 0, 0),
+            'subscription_ends_at' => Carbon::create(2026, 6, 30, 0, 0, 0),
+            'locked_at' => null,
+        ]);
+
+        $genericData = new GenericData();
+        $genericData->userData = $owner;
+        $genericData->data = [
+            'subscriptionPlanId' => $monthlyPlan->id,
+        ];
+        $genericData->syncDataArray();
+
+        $response = $this->accountPaymentRequestService->createSubscriptionRequest($genericData);
+
+        $asp->refresh();
+        $this->assertSame($quarterlyPlan->id, (int) $asp->subscription_plan_id);
+        $this->assertSame($monthlyPlan->id, (int) $asp->pending_subscription_plan_id);
+        $this->assertEquals(
+            Carbon::create(2026, 7, 5, 0, 0, 0)->toDateString(),
+            $asp->pending_plan_effective_at?->toDateString()
+        );
+        $this->assertSame('Jul 05, 2026', $response['nextBillingDate'] ?? null);
+    }
 }
 

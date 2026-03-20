@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Account\AccountSubscription;
 
+use App\Constant\AccountPaymentTypeConstant;
 use App\Constant\AccountPaymentRequestStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\AccountInvoice;
@@ -38,6 +39,7 @@ class AccountPaymentRequestRepository
             'payment_transaction' => AccountInvoice::class,
             'payment_transaction_id' => $invoice->id,
             'amount' => $invoice->total_amount,
+            'payment_type' => $data->paymentType ?? AccountPaymentTypeConstant::GCASH,
             'receipt_url' => trim((string) $data->receiptUrl),
             'receipt_file_name' => $data->receiptFileName ?? null,
             'status' => AccountPaymentRequestStatusConstant::STATUS_PENDING,
@@ -61,6 +63,7 @@ class AccountPaymentRequestRepository
             'payment_transaction' => 'Reactivation Fee',
             'payment_transaction_id' => null,
             'amount' => $amount,
+            'payment_type' => $data->paymentType ?? AccountPaymentTypeConstant::GCASH,
             'receipt_url' => trim((string) $data->receiptUrl),
             'receipt_file_name' => $data->receiptFileName ?? null,
             'status' => AccountPaymentRequestStatusConstant::STATUS_PENDING,
@@ -85,6 +88,7 @@ class AccountPaymentRequestRepository
             'payment_transaction' => AccountSubscriptionPlan::class,
             'payment_transaction_id' => $asp->id,
             'amount' => $amount,
+            'payment_type' => $data->paymentType ?? AccountPaymentTypeConstant::GCASH,
             'receipt_url' => trim((string) $data->receiptUrl),
             'receipt_file_name' => $data->receiptFileName ?? null,
             'status' => AccountPaymentRequestStatusConstant::STATUS_PENDING,

@@ -236,11 +236,6 @@ class AdminPaymentRequestService
             $subscriptionEndsAtExclusive
         );
 
-        // Remove trial window so trial-based proration cannot trigger.
-        $asp->update([
-            'trial_starts_at' => null,
-            'trial_ends_at' => null,
-        ]);
 
         $this->accountRepository->activateAccountById($accountId);
 

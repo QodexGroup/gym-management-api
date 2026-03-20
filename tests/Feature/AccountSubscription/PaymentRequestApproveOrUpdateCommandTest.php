@@ -3,6 +3,7 @@
 namespace Tests\Feature\AccountSubscription;
 
 use App\Constant\AccountPaymentRequestStatusConstant;
+use App\Constant\AccountPaymentTypeConstant;
 use App\Constant\AccountSubscriptionIntervalConstant;
 use App\Models\Account\AccountPaymentRequest;
 use App\Models\Account\AccountSubscriptionPlan;
@@ -40,6 +41,7 @@ class PaymentRequestApproveOrUpdateCommandTest extends AccountSubscriptionFlowTe
         $genericData->userData = $admin;
         $genericData->data = [
             'subscriptionPlanId' => $monthlyPlan->id,
+            'paymentType' => AccountPaymentTypeConstant::GCASH,
             'receiptUrl' => 'receipts/test-receipt.png',
             'receiptFileName' => 'test-receipt.png',
         ];
@@ -72,8 +74,8 @@ class PaymentRequestApproveOrUpdateCommandTest extends AccountSubscriptionFlowTe
             $trialAsp->subscription_starts_at?->toDateString()
         );
         $this->assertSame(AccountPaymentRequestStatusConstant::STATUS_APPROVED, $paymentRequest->status);
-        $this->assertNull($trialAsp->trial_starts_at);
-        $this->assertNull($trialAsp->trial_ends_at);
+        $this->assertEquals(Carbon::create(2026, 3, 5, 0, 0, 0)->toDateString(), $trialAsp->trial_starts_at?->toDateString());
+        $this->assertEquals(Carbon::create(2026, 3, 1, 0, 0, 0)->toDateString(), $trialAsp->trial_ends_at?->toDateString());
     }
 
     public function test_command_processes_latest_approved_subscription_upgrade_when_no_pending(): void
@@ -104,6 +106,7 @@ class PaymentRequestApproveOrUpdateCommandTest extends AccountSubscriptionFlowTe
         $genericData->userData = $admin;
         $genericData->data = [
             'subscriptionPlanId' => $monthlyPlan->id,
+            'paymentType' => AccountPaymentTypeConstant::GCASH,
             'receiptUrl' => 'receipts/test-receipt.png',
             'receiptFileName' => 'test-receipt.png',
         ];

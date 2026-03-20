@@ -136,9 +136,13 @@ class AccountPaymentRequestService
             if ($subscriptionStartsAt === null) {
                 $receiptUrl = $data->receiptUrl ?? null;
                 $receiptFileName = $data->receiptFileName ?? null;
+                $paymentType = $data->paymentType ?? null;
 
                 if (empty($receiptUrl)) {
                     throw new \InvalidArgumentException('receiptUrl is required to submit a trial upgrade payment request.');
+                }
+                if (empty($paymentType)) {
+                    throw new \InvalidArgumentException('paymentType is required to submit a trial upgrade payment request.');
                 }
 
                 $amount = (float) $newPlan->price;
@@ -175,14 +179,9 @@ class AccountPaymentRequestService
                 $message .= "Your subscription will start with the {$newPlan->name} plan after payment approval.";
             } else {
                 // Active subscription - change takes effect on next billing cycle
-                // Calculate next billing cycle start based on current subscription end date
+                // Use first due-day on/after current period end (do not add interval again).
                 $endDate = $subscriptionEndsAt ?? Carbon::now();
-                $currentInterval = $currentPlan->interval ?? 'month';
-
-                $nextCycleStart = BillingLifecycleService::nextCycleStart(
-                    $endDate->copy(),
-                    $currentInterval
-                );
+                $nextCycleStart = $this->resolveNextDueDayFromEnd($endDate->copy());
 
                 // Active subscription: store as pending and apply on next billing cycle.
                 $this->accountSubscriptionPlanRepository->updatePlanSelection($asp, $newPlan, $nextCycleStart);
@@ -197,5 +196,22 @@ class AccountPaymentRequestService
             ];
         });
     }
+
+        /**
+     * Resolve pending-plan effective date as the first due-day boundary on/after current window end.
+     * This avoids double-adding the current interval (e.g., quarter -> +3 months again).
+     */
+    private function resolveNextDueDayFromEnd(Carbon $subscriptionEndsAt): Carbon
+    {
+        $effectiveAt = $subscriptionEndsAt->copy()->startOfDay();
+        $dueDay = (int) BillingCycleConstant::CYCLE_DAY_DUE;
+
+        if ((int) $effectiveAt->day > $dueDay) {
+            $effectiveAt->addMonthNoOverflow();
+        }
+
+        return $effectiveAt->day($dueDay)->startOfDay();
+    }
+
 
 }

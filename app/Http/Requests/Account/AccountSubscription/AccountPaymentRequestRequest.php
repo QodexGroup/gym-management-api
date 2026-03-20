@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Account\AccountSubscription;
 
+use App\Constant\AccountPaymentTypeConstant;
 use App\Http\Requests\GenericRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,6 +27,7 @@ class AccountPaymentRequestRequest extends GenericRequest
                 'integer',
                 Rule::exists('account_invoices', 'id'),
             ],
+            'paymentType' => ['required', 'string', Rule::in(AccountPaymentTypeConstant::values())],
             'receiptUrl' => ['required', 'string', 'max:500'],
             'receiptFileName' => ['nullable', 'string', 'max:255'],
         ]);
