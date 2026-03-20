@@ -76,6 +76,8 @@ class AccountSubscriptionPlanRepository
         $asp->update([
             'subscription_starts_at' => $cycleStart,
             'subscription_ends_at'   => $subscriptionEndsAt,
+            'pending_subscription_plan_id' => null,
+            'pending_plan_effective_at' => null,
             'locked_at'              => null,
         ]);
     }
@@ -97,6 +99,8 @@ class AccountSubscriptionPlanRepository
             'plan_name'            => $newPlan->name,
             'subscription_starts_at' => $startsAt,
             'subscription_ends_at'   => $endsAt,
+            'pending_subscription_plan_id' => null,
+            'pending_plan_effective_at' => null,
             'locked_at'              => null,
         ]);
     }
@@ -143,11 +147,48 @@ class AccountSubscriptionPlanRepository
      *
      * @return void
      */
-    public function updatePlanSelection(AccountSubscriptionPlan $asp, SubscriptionPlan $newPlan): void
+    public function updatePlanSelection(AccountSubscriptionPlan $asp, SubscriptionPlan $newPlan, Carbon $effectiveAt): void
     {
         $asp->update([
-            'subscription_plan_id' => $newPlan->id,
-            'plan_name' => $newPlan->name,
+            'pending_subscription_plan_id' => $newPlan->id,
+            'pending_plan_effective_at' => $effectiveAt,
         ]);
+    }
+
+    /**
+     * Apply pending plan selections when the effective date is reached.
+     * Returns number of ASP rows updated.
+     */
+    public function applyPendingPlanSelectionsDue(Carbon $cycleStart): int
+    {
+        $updated = 0;
+
+        AccountSubscriptionPlan::query()
+            ->with(['pendingSubscriptionPlan'])
+            ->whereNotNull('pending_subscription_plan_id')
+            ->whereNotNull('pending_plan_effective_at')
+            ->where('pending_plan_effective_at', '<=', $cycleStart)
+            ->chunkById(100, function (Collection $plans) use (&$updated) {
+                foreach ($plans as $asp) {
+                    $pendingPlan = $asp->pendingSubscriptionPlan;
+                    if (!$pendingPlan || $pendingPlan->is_trial) {
+                        $asp->update([
+                            'pending_subscription_plan_id' => null,
+                            'pending_plan_effective_at' => null,
+                        ]);
+                        continue;
+                    }
+
+                    $asp->update([
+                        'subscription_plan_id' => $pendingPlan->id,
+                        'plan_name' => $pendingPlan->name,
+                        'pending_subscription_plan_id' => null,
+                        'pending_plan_effective_at' => null,
+                    ]);
+                    $updated++;
+                }
+            });
+
+        return $updated;
     }
 }

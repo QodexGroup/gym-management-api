@@ -6,6 +6,7 @@ use App\Constant\AccountPaymentRequestStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\AccountInvoice;
 use App\Models\Account\AccountPaymentRequest;
+use App\Models\Account\AccountSubscriptionPlan;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Builder;
@@ -68,6 +69,27 @@ class AccountPaymentRequestRepository
                 'type' => 'reactivation_fee',
                 'amount' => $amount,
             ]),
+        ]);
+    }
+
+    /**
+     * Create standalone payment request for trial upgrade approvals.
+     * This does NOT create an AccountInvoice; it only activates the subscription window after admin approval.
+     */
+    public function createSubscriptionUpgradePaymentRequest(GenericData $genericData, AccountSubscriptionPlan $asp, float $amount, array $paymentDetails): AccountPaymentRequest
+    {
+        $data = $genericData->getData();
+
+        return AccountPaymentRequest::create([
+            'account_id' => $genericData->userData->account_id,
+            'payment_transaction' => AccountSubscriptionPlan::class,
+            'payment_transaction_id' => $asp->id,
+            'amount' => $amount,
+            'receipt_url' => trim((string) $data->receiptUrl),
+            'receipt_file_name' => $data->receiptFileName ?? null,
+            'status' => AccountPaymentRequestStatusConstant::STATUS_PENDING,
+            'requested_by' => $genericData->userData->id,
+            'payment_details' => json_encode($paymentDetails),
         ]);
     }
 

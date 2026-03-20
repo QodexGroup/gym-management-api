@@ -23,6 +23,10 @@ class AccountSubscriptionRequestRequest extends GenericRequest
                 'integer',
                 Rule::exists('subscription_plans', 'id')->where('is_trial', false),
             ],
+            // Required only when we create a standalone "upgrade payment" (i.e. upgrade during trial).
+            // Stored as a Firebase storage path (not a full URL).
+            'receiptUrl' => ['nullable', 'string', 'max:500'],
+            'receiptFileName' => ['nullable', 'string', 'max:255'],
         ]);
     }
 }

@@ -8,6 +8,7 @@ use App\Constant\BillingCycleConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\AccountInvoice;
 use App\Models\Account\AccountPaymentRequest;
+use App\Models\Account\AccountSubscriptionPlan;
 use App\Repositories\Account\AccountRepository;
 use App\Repositories\Account\AccountSubscription\AccountInvoiceRepository;
 use App\Repositories\Account\AccountSubscription\AccountPaymentRequestRepository;
@@ -131,7 +132,39 @@ class AccountPaymentRequestService
             $subscriptionStartsAt = $asp->subscription_starts_at;
 
             // Update the plan selection via repository
-            $this->accountSubscriptionPlanRepository->updatePlanSelection($asp, $newPlan);
+            // Special case: upgrading during trial requires a standalone upgrade payment.
+            if ($subscriptionStartsAt === null) {
+                $receiptUrl = $data->receiptUrl ?? null;
+                $receiptFileName = $data->receiptFileName ?? null;
+
+                if (empty($receiptUrl)) {
+                    throw new \InvalidArgumentException('receiptUrl is required to submit a trial upgrade payment request.');
+                }
+
+                $amount = (float) $newPlan->price;
+
+                if ($this->requestRepository->hasPendingForAccount($accountId, AccountSubscriptionPlan::class, $asp->id)) {
+                    throw new \Exception('You already have a pending subscription upgrade request. Please wait for approval.');
+                }
+
+                $requestedAt = Carbon::now();
+
+                $paymentDetails = [
+                    'type' => 'subscription_upgrade',
+                    'subscriptionPlanId' => $newPlan->id,
+                    'subscriptionPlanName' => $newPlan->name,
+                    'interval' => $newPlan->interval,
+                    'requestedAt' => $requestedAt->toDateTimeString(),
+                ];
+
+                // Create a standalone payment request (no invoice).
+                $this->requestRepository->createSubscriptionUpgradePaymentRequest($genericData, $asp, $amount, $paymentDetails);
+
+                return [
+                    'message' => "Upgrade payment submitted. Your {$newPlan->name} plan will start after admin approval.",
+                    'nextBillingDate' => null,
+                ];
+            }
 
             // Determine when the change takes effect and build message
             $message = "Plan updated successfully. ";
@@ -150,6 +183,9 @@ class AccountPaymentRequestService
                     $endDate->copy(),
                     $currentInterval
                 );
+
+                // Active subscription: store as pending and apply on next billing cycle.
+                $this->accountSubscriptionPlanRepository->updatePlanSelection($asp, $newPlan, $nextCycleStart);
 
                 $nextBillingDate = $nextCycleStart->format('M d, Y');
                 $message .= "Your next billing cycle (starting {$nextBillingDate}) will be for the {$newPlan->name} plan.";

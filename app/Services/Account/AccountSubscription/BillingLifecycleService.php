@@ -116,17 +116,11 @@ class BillingLifecycleService
             ];
         }
 
-        // Calculate proration: from period start to the 5th of the month containing effective end date
+        // Calculate proration as "remaining uncovered service" inside the billing period.
+        // periodStart..periodEndExclusive is the full billing period.
+        // effectiveEndDate is when the already-paid/prepaid window ends.
+        // So we charge only the remaining days: effectiveEndDate..periodEndExclusive.
         $actualEndDate = $effectiveEndDate->copy();
-
-        // If effective end date is on or before the 5th of that month, use it
-        // Otherwise, calculate until the 5th of that month
-        if ($actualEndDate->day <= $invoiceGenerationDay) {
-            // Use the effective end date as-is (it's on or before the 5th)
-        } else {
-            // Calculate until the 5th of the month containing the effective end date
-            $actualEndDate = $actualEndDate->copy()->day($invoiceGenerationDay)->startOfDay();
-        }
 
         // Ensure actual end date doesn't exceed period end
         if ($actualEndDate->greaterThan($periodEndExclusive)) {
@@ -143,7 +137,7 @@ class BillingLifecycleService
         }
 
         $daysTotal = (int) $periodStart->diffInDays($periodEndExclusive);
-        $daysCharged = (int) $periodStart->diffInDays($actualEndDate);
+        $daysCharged = (int) $actualEndDate->diffInDays($periodEndExclusive);
 
         if ($daysTotal <= 0 || $daysCharged <= 0) {
             return [
@@ -162,7 +156,7 @@ class BillingLifecycleService
             'effectiveEndDate' => $effectiveEndDate->toDateString(),
             'actualEndDate' => $actualEndDate->toDateString(),
             'daysTotal' => $daysTotal,
-            'daysCharged' => $daysCharged,
+            'daysCharged' => $daysCharged, // remaining days from actualEndDate -> periodEndExclusive
             'proratedAmount' => $amount,
         ];
 
@@ -313,6 +307,10 @@ class BillingLifecycleService
 
         // Generate invoices for all intervals on the 5th (account-based due filtering is handled in repository queries).
         if ($day === BillingCycleConstant::CYCLE_DAY_DUE) {
+            $cycleStart = $now->copy()->day(BillingCycleConstant::CYCLE_DAY_DUE)->startOfDay();
+            // Apply any pending plan selections that are due this billing cycle before invoice generation.
+            $this->accountSubscriptionPlanRepository->applyPendingPlanSelectionsDue($cycleStart);
+
             $monthlyPeriod = self::currentBillingPeriodForInterval(AccountSubscriptionIntervalConstant::INTERVAL_MONTH);
             $count += $this->generateInvoicesForInterval($monthlyPeriod, AccountSubscriptionIntervalConstant::INTERVAL_MONTH);
 

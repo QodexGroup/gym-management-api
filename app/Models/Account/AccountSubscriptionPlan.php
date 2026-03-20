@@ -17,11 +17,13 @@ class AccountSubscriptionPlan extends Model
     protected $fillable = [
         'account_id',
         'subscription_plan_id',
+        'pending_subscription_plan_id',
         'plan_name',
         'trial_starts_at',
         'trial_ends_at',
         'subscription_starts_at',
         'subscription_ends_at',
+        'pending_plan_effective_at',
         'locked_at',
     ];
 
@@ -32,6 +34,7 @@ class AccountSubscriptionPlan extends Model
             'trial_ends_at' => 'datetime',
             'subscription_starts_at' => 'datetime',
             'subscription_ends_at' => 'datetime',
+            'pending_plan_effective_at' => 'datetime',
             'locked_at' => 'datetime',
         ];
     }
@@ -50,6 +53,14 @@ class AccountSubscriptionPlan extends Model
     public function subscriptionPlan(): BelongsTo
     {
         return $this->belongsTo(SubscriptionPlan::class, 'subscription_plan_id');
+    }
+
+    /**
+     * @return BelongsTo
+     */
+    public function pendingSubscriptionPlan(): BelongsTo
+    {
+        return $this->belongsTo(SubscriptionPlan::class, 'pending_subscription_plan_id');
     }
 
     /**
