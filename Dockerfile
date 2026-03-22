@@ -57,6 +57,9 @@ RUN composer install --no-dev --optimize-autoloader --no-scripts
 # Copy the rest of the application code into the container
 COPY . /app
 
+# Composer install ran when only composer.json/lock existed; regenerate autoload now that app/ exists.
+RUN composer dump-autoload --optimize --no-dev --no-scripts
+
 # Configure Nginx for Laravel:
 COPY .docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY .docker/nginx/default.conf /etc/nginx/conf.d/default.conf
