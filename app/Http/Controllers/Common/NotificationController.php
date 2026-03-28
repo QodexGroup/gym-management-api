@@ -24,11 +24,12 @@ class NotificationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $accountId = $this->getAccountId($request);
         $page = $request->query('page', 1);
         $limit = $request->query('limit', 20);
         $unreadOnly = filter_var($request->query('unread_only', false), FILTER_VALIDATE_BOOLEAN);
 
-        $result = $this->notificationService->getNotifications((int) $page, (int) $limit);
+        $result = $this->notificationService->getNotifications($accountId, (int) $page, (int) $limit);
 
         if ($unreadOnly) {
             $result['data'] = $result['data']->filter(function ($notification) {
@@ -51,9 +52,9 @@ class NotificationController extends Controller
      *
      * @return JsonResponse
      */
-    public function getUnreadCount(): JsonResponse
+    public function getUnreadCount(Request $request): JsonResponse
     {
-        $count = $this->notificationService->getUnreadCount();
+        $count = $this->notificationService->getUnreadCount($this->getAccountId($request));
 
         return ApiResponse::success(['count' => $count]);
     }
@@ -61,12 +62,13 @@ class NotificationController extends Controller
     /**
      * Mark a notification as read.
      *
+     * @param Request $request
      * @param int $id
      * @return JsonResponse
      */
-    public function markAsRead(int $id): JsonResponse
+    public function markAsRead(Request $request, int $id): JsonResponse
     {
-        $notification = $this->notificationService->markAsRead($id);
+        $notification = $this->notificationService->markAsRead($id, $this->getAccountId($request));
 
         return ApiResponse::success(
             new NotificationResource($notification),
@@ -77,15 +79,32 @@ class NotificationController extends Controller
     /**
      * Mark all notifications as read.
      *
+     * @param Request $request
      * @return JsonResponse
      */
-    public function markAllAsRead(): JsonResponse
+    public function markAllAsRead(Request $request): JsonResponse
     {
-        $count = $this->notificationService->markAllAsRead();
+        $count = $this->notificationService->markAllAsRead($this->getAccountId($request));
 
         return ApiResponse::success(
             ['marked_count' => $count],
             "{$count} notifications marked as read"
         );
+    }
+    /**
+     * Get the authenticated user's account ID from the request.
+     *
+     * @param Request $request
+     * @return int
+     */
+    private function getAccountId(Request $request): int
+    {
+        $user = $request->attributes->get('user');
+
+        if (!$user || !$user->account_id) {
+            abort(401, 'Unauthorized');
+        }
+
+        return (int) $user->account_id;
     }
 }

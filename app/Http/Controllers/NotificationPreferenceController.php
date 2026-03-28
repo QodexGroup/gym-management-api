@@ -18,9 +18,10 @@ class NotificationPreferenceController extends Controller
      *
      * @return JsonResponse
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $preferences = $this->repository->getByAccountId(1);
+        $accountId = $this->getAccountId($request);
+        $preferences = $this->repository->getByAccountId($accountId);
 
         if (!$preferences) {
             // Return defaults if no preferences exist
@@ -46,13 +47,15 @@ class NotificationPreferenceController extends Controller
      */
     public function update(Request $request): JsonResponse
     {
+        $accountId = $this->getAccountId($request);
+
         $data = $request->validate([
             'membership_expiry_enabled' => 'sometimes|boolean',
             'payment_alerts_enabled' => 'sometimes|boolean',
             'new_registrations_enabled' => 'sometimes|boolean',
         ]);
 
-        $preferences = $this->repository->updateOrCreate(1, $data);
+        $preferences = $this->repository->updateOrCreate($accountId, $data);
 
         return response()->json([
             'message' => 'Preferences updated successfully',
@@ -62,5 +65,22 @@ class NotificationPreferenceController extends Controller
                 'new_registrations_enabled' => $preferences->new_registrations_enabled,
             ]
         ]);
+    }
+
+    /**
+     * Get the authenticated user's account ID from the request.
+     *
+     * @param Request $request
+     * @return int
+     */
+    private function getAccountId(Request $request): int
+    {
+        $user = $request->attributes->get('user');
+
+        if (!$user || !$user->account_id) {
+            abort(401, 'Unauthorized');
+        }
+
+        return (int) $user->account_id;
     }
 }
