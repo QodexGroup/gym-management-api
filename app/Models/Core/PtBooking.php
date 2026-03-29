@@ -21,6 +21,7 @@ class PtBooking extends Model
         'account_id',
         'customer_id',
         'pt_package_id',
+        'package_name',
         'coach_id',
         'class_schedule_id',
         'booking_date',

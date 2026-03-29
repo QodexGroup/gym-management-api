@@ -19,6 +19,7 @@ class PtBookingResource extends JsonResource
         return [
             'id' => $this->id,
             'ptPackageId' => $this->pt_package_id,
+            'packageName' => $this->package_name,
             'ptPackage' => $this->whenLoaded('ptPackage', function () {
                 return new PtPackageResource($this->ptPackage);
             }),

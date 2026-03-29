@@ -195,6 +195,7 @@ class CustomerService
                 $customer = $this->repository->findCustomerById($customerId, $accountId);
                 // find selected pt package
                 $ptPackage = $this->ptPackageRepository->findPtPackageById($data->ptPackageId, $accountId);
+                $genericData->getData()->packageName = $ptPackage->package_name;
                 // additional data for bill and customer pt package
                 $genericData->getData()->grossAmount = $ptPackage->price;
                 $genericData->getData()->netAmount = $ptPackage->price;

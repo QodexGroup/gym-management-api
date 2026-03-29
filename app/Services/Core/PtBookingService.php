@@ -6,7 +6,6 @@ use App\Constant\ClassTypeScheduleConstant;
 use App\Constant\ScheduleTypeConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\PtBooking;
-use App\Models\Account\PtPackage;
 use App\Repositories\Account\ClassScheduleSessionRepository;
 use App\Repositories\Core\PtBookingRepository;
 use App\Services\Account\ClassScheduleService;
@@ -21,7 +20,6 @@ class PtBookingService
     public function __construct(
         private PtBookingRepository $ptBookingRepository,
         private ClassScheduleService $classScheduleService,
-        private PtPackageRepository $ptPackageRepository,
         private CustomerPtPackageRepository $customerPtPackageRepository,
         private ClassScheduleSessionRepository $classScheduleSessionRepository,
     ) {
@@ -50,16 +48,10 @@ class PtBookingService
             $genericData->getData()->ptPackageId = $customerPtPackage->pt_package_id;
             $genericData->syncDataArray();
 
-            // find pt package by id
-            $ptPackage = $this->ptPackageRepository->findPtPackageById(
-                $customerPtPackage->pt_package_id,
-                $genericData->userData->account_id
-            );
-
             // create pt booking record
             $ptBooking = $this->ptBookingRepository->createPtBooking($genericData);
 
-            $genericData = $this->transformDataToClassSchedule($genericData, $ptPackage);
+            $genericData = $this->transformDataToClassSchedule($genericData);
             $genericData->syncDataArray();
             // create a class schedule and generate session with pt as class type
             $classSchedule = $this->classScheduleService->createClassSchedule($genericData);
@@ -98,15 +90,9 @@ class PtBookingService
                 $genericData->getData()->ptPackageId = $customerPtPackage->pt_package_id;
                 $genericData->syncDataArray();
 
-                // find pt package by id
-                $ptPackage = $this->ptPackageRepository->findPtPackageById(
-                    $customerPtPackage->pt_package_id,
-                    $genericData->userData->account_id
-                );
-
                 // update pt booking record
                 $ptBooking = $this->ptBookingRepository->updatePtBooking($id, $genericData);
-                $genericData = $this->transformDataToClassSchedule($genericData, $ptPackage);
+                $genericData = $this->transformDataToClassSchedule($genericData);
                 // update class schedule and class session
                 $classScheduleId = $ptBooking->class_schedule_id;
                 if ($classScheduleId) {
@@ -161,13 +147,13 @@ class PtBookingService
 
 
 
-    private function transformDataToClassSchedule(GenericData $genericData, PtPackage $ptPackage): GenericData
+    private function transformDataToClassSchedule(GenericData $genericData): GenericData
     {
         $data = $genericData->getData();
         $dateAndTime = Carbon::parse($data->bookingDate . ' ' . $data->bookingTime);
-        // this session is for the coach schedule
-        $genericData->getData()->className = $ptPackage->package_name;
-        $genericData->getData()->description = $ptPackage->description;
+        // this session is for the coach schedule (names from client payload)
+        $genericData->getData()->className = $data->packageName;
+        $genericData->getData()->description = '';
         $genericData->getData()->coachId = $data->coachId;
         $genericData->getData()->capacity = 1;
         $genericData->getData()->duration = $data->duration;

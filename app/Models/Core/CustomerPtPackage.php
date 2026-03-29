@@ -20,6 +20,7 @@ class CustomerPtPackage extends Model
         'account_id',
         'customer_id',
         'pt_package_id',
+        'package_name',
         'coach_id',
         'start_date',
         'status',

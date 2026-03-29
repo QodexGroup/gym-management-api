@@ -19,6 +19,7 @@ class CustomerPtPackageResource extends JsonResource
         return [
             'id' => $this->id,
             'ptPackageId' => $this->pt_package_id,
+            'packageName' => $this->package_name,
             'startDate' => $this->start_date,
             'status' => $this->status,
             'numberOfSessionsRemaining' => $this->number_of_sessions_remaining,

@@ -22,6 +22,7 @@ class PtBookingRequest extends GenericRequest
             'customerId' => 'required|integer',
             'customerPtPackageId' => 'required|integer',
             'coachId' => 'required|integer',
+            'packageName' => 'required|string|max:255',
             'bookingDate' => 'required|date',
             'bookingTime' => 'required',
             'duration' => 'required|integer',
