@@ -206,8 +206,8 @@ class CustomerRepository
      */
     public function createMembershipWithFreeMonth(int $accountId, int $customerId, MembershipPlan $membershipPlan, Carbon $startDate): CustomerMembership
     {
-        // Free month = 1 month from start date (regardless of plan type)
-        $endDate = $startDate->copy()->addMonth();
+        // One calendar month free (regardless of plan period/interval).
+        $endDate = $startDate->copy()->startOfDay()->addMonth()->subDay()->startOfDay();
 
         // Deactivate existing active memberships
         CustomerMembership::where('customer_id', $customerId)

@@ -94,7 +94,8 @@ class ReactivationFeeTest extends BillingAndMembershipFlowTestCase
         $this->assertNotNull($membership, 'New membership should be created after reactivation fee payment');
         $this->assertEquals($this->monthlyPlan->id, $membership->membership_plan_id, 'Should use same plan as expired membership');
         $this->assertEquals($paymentDate, $membership->membership_start_date->toDateString(), 'Start date should be payment date');
-        $this->assertEquals(Carbon::parse($paymentDate)->addMonth()->toDateString(), $membership->membership_end_date->toDateString(), 'Should have 1 free month');
+        $expectedEnd = Carbon::parse($paymentDate)->startOfDay()->addMonth()->subDay()->toDateString();
+        $this->assertEquals($expectedEnd, $membership->membership_end_date->toDateString(), 'Should have 1 free month (inclusive end, aligned with calculateEndDate)');
     }
 
     /**
@@ -136,7 +137,7 @@ class ReactivationFeeTest extends BillingAndMembershipFlowTestCase
         $this->assertNotNull($membership);
         $this->assertEquals($this->quarterlyPlan->id, $membership->membership_plan_id);
         $this->assertEquals($paymentDate, $membership->membership_start_date->toDateString());
-        // Should be 1 month, not 3 months (quarterly period)
-        $this->assertEquals(Carbon::parse($paymentDate)->addMonth()->toDateString(), $membership->membership_end_date->toDateString(), 'Should have 1 free month regardless of plan type');
+        $expectedEnd = Carbon::parse($paymentDate)->startOfDay()->addMonth()->subDay()->toDateString();
+        $this->assertEquals($expectedEnd, $membership->membership_end_date->toDateString(), 'Should have 1 free month regardless of plan type');
     }
 }
