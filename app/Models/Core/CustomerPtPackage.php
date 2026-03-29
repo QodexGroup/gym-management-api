@@ -42,7 +42,7 @@ class CustomerPtPackage extends Model
      */
     public function ptPackage(): BelongsTo
     {
-        return $this->belongsTo(PtPackage::class, 'pt_package_id');
+        return $this->belongsTo(PtPackage::class, 'pt_package_id')->withTrashed();
     }
     /**
      * @return BelongsTo

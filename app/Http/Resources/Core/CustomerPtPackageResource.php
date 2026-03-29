@@ -23,6 +23,8 @@ class CustomerPtPackageResource extends JsonResource
             'startDate' => $this->start_date,
             'status' => $this->status,
             'numberOfSessionsRemaining' => $this->number_of_sessions_remaining,
+            'totalSessions' => optional($this->ptPackage)->number_of_sessions,
+            'packagePrice' => optional($this->ptPackage)->price,
             'ptPackage' => $this->whenLoaded('ptPackage', function () {
                 return new PtPackageResource($this->ptPackage);
             }),
