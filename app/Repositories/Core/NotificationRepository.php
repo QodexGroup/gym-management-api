@@ -15,8 +15,10 @@ class NotificationRepository
      */
     public function create(array $data): Notification
     {
-        // Set defaults
-        $data['account_id'] = $data['account_id'] ?? 1;
+        // account_id must be explicitly provided
+        if (!isset($data['account_id'])) {
+            throw new \InvalidArgumentException('account_id is required to create a notification');
+        }
         
         // For global notifications, user_id should be null
         // Uncomment when user management is implemented
@@ -31,9 +33,9 @@ class NotificationRepository
      * @param int $id
      * @return Notification
      */
-    public function getById(int $id): Notification
+    public function getById(int $id, int $accountId): Notification
     {
-        return Notification::where('account_id', 1)
+        return Notification::where('account_id', $accountId)
             ->findOrFail($id);
     }
 
@@ -44,9 +46,9 @@ class NotificationRepository
      * @param int $limit
      * @return Collection
      */
-    public function getGlobalNotifications(int $limit = 50): Collection
+    public function getGlobalNotifications(int $accountId, int $limit = 50): Collection
     {
-        return Notification::where('account_id', 1)
+        return Notification::where('account_id', $accountId)
             ->global() // Only global notifications (user_id IS NULL)
             ->orderBy('created_at', 'desc')
             ->limit($limit)
@@ -74,9 +76,9 @@ class NotificationRepository
      *
      * @return Collection
      */
-    public function getUnreadGlobal(): Collection
+    public function getUnreadGlobal(int $accountId): Collection
     {
-        return Notification::where('account_id', 1)
+        return Notification::where('account_id', $accountId)
             ->global()
             ->unread()
             ->orderBy('created_at', 'desc')
@@ -104,9 +106,9 @@ class NotificationRepository
      *
      * @return int
      */
-    public function getUnreadCountGlobal(): int
+    public function getUnreadCountGlobal(int $accountId): int
     {
-        return Notification::where('account_id', 1)
+        return Notification::where('account_id', $accountId)
             ->global()
             ->unread()
             ->count();
@@ -133,9 +135,9 @@ class NotificationRepository
      * @param int $id
      * @return Notification
      */
-    public function markAsRead(int $id): Notification
+    public function markAsRead(int $id, int $accountId): Notification
     {
-        $notification = $this->getById($id);
+        $notification = $this->getById($id, $accountId);
         $notification->markAsRead();
         return $notification;
     }
@@ -145,9 +147,9 @@ class NotificationRepository
      *
      * @return int Number of notifications marked as read
      */
-    public function markAllAsReadGlobal(): int
+    public function markAllAsReadGlobal(int $accountId): int
     {
-        return Notification::where('account_id', 1)
+        return Notification::where('account_id', $accountId)
             ->global()
             ->unread()
             ->update(['read_at' => now()]);
@@ -176,9 +178,9 @@ class NotificationRepository
      * @param int $hoursThreshold
      * @return bool
      */
-    public function notificationExists(string $type, array $data, int $hoursThreshold = 24): bool
+    public function notificationExists(int $accountId, string $type, array $data, int $hoursThreshold = 24): bool
     {
-        $query = Notification::where('account_id', 1)
+        $query = Notification::where('account_id', $accountId)
             ->where('type', $type)
             ->where('created_at', '>=', now()->subHours($hoursThreshold));
 

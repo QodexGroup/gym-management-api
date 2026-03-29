@@ -41,9 +41,9 @@ class NotificationService
      *
      * @return bool
      */
-    private function shouldSendMembershipExpiryNotification(): bool
+    private function shouldSendMembershipExpiryNotification(int $accountId): bool
     {
-        $prefs = $this->preferenceRepository->getByAccountId(1);
+        $prefs = $this->preferenceRepository->getByAccountId($accountId);
         return $prefs === null ? true : ($prefs->membership_expiry_enabled ?? true);
     }
 
@@ -52,9 +52,9 @@ class NotificationService
      *
      * @return bool
      */
-    private function shouldSendPaymentAlertNotification(): bool
+    private function shouldSendPaymentAlertNotification(int $accountId): bool
     {
-        $prefs = $this->preferenceRepository->getByAccountId(1);
+        $prefs = $this->preferenceRepository->getByAccountId($accountId);
         return $prefs === null ? true : ($prefs->payment_alerts_enabled ?? true);
     }
 
@@ -63,9 +63,9 @@ class NotificationService
      *
      * @return bool
      */
-    private function shouldSendNewRegistrationNotification(): bool
+    private function shouldSendNewRegistrationNotification(int $accountId): bool
     {
-        $prefs = $this->preferenceRepository->getByAccountId(1);
+        $prefs = $this->preferenceRepository->getByAccountId($accountId);
         return $prefs === null ? true : ($prefs->new_registrations_enabled ?? true);
     }
 
@@ -77,8 +77,10 @@ class NotificationService
      */
     public function createMembershipExpiringNotification(CustomerMembership $membership): void
     {
+        $accountId = $membership->account_id;
+
         // Check if membership expiry notifications are enabled
-        if (!$this->shouldSendMembershipExpiryNotification()) {
+        if (!$this->shouldSendMembershipExpiryNotification($accountId)) {
             Log::info('Membership expiry notifications disabled', [
                 'customer_id' => $membership->customer_id,
                 'membership_id' => $membership->id
@@ -91,6 +93,7 @@ class NotificationService
             
             // Check if notification already sent in last 24 hours
             if ($this->notificationRepository->notificationExists(
+                $accountId,
                 NotificationConstant::TYPE_MEMBERSHIP_EXPIRING,
                 [
                     'customer_id' => $customer->id,
@@ -110,6 +113,7 @@ class NotificationService
 
             // Create global in-app notification
             $this->notificationRepository->create([
+                'account_id' => $accountId,
                 'user_id' => null, // Global notification
                 'type' => NotificationConstant::TYPE_MEMBERSHIP_EXPIRING,
                 'title' => 'Membership Expiring Soon',
@@ -163,8 +167,10 @@ class NotificationService
      */
     public function createPaymentReceivedNotification(CustomerPayment $payment): void
     {
+        $accountId = $payment->account_id;
+
         // Check if payment alert notifications are enabled
-        if (!$this->shouldSendPaymentAlertNotification()) {
+        if (!$this->shouldSendPaymentAlertNotification($accountId)) {
             Log::info('Payment alert notifications disabled', [
                 'payment_id' => $payment->id,
                 'customer_id' => $payment->customer_id
@@ -181,6 +187,7 @@ class NotificationService
 
             // Create global in-app notification
             $this->notificationRepository->create([
+                'account_id' => $accountId,
                 'user_id' => null, // Global notification
                 'type' => NotificationConstant::TYPE_PAYMENT_RECEIVED,
                 'title' => 'Payment Received',
@@ -238,8 +245,10 @@ class NotificationService
      */
     public function createCustomerRegisteredNotification(Customer $customer): void
     {
+        $accountId = $customer->account_id;
+
         // Check if new registration notifications are enabled
-        if (!$this->shouldSendNewRegistrationNotification()) {
+        if (!$this->shouldSendNewRegistrationNotification($accountId)) {
             Log::info('New registration notifications disabled', [
                 'customer_id' => $customer->id
             ]);
@@ -252,8 +261,9 @@ class NotificationService
 
             // Create global in-app notification
             $membership = $customer->memberships()->latest()->first();
-            
+
             $this->notificationRepository->create([
+                'account_id' => $accountId,
                 'user_id' => null, // Global notification
                 'type' => NotificationConstant::TYPE_CUSTOMER_REGISTERED,
                 'title' => 'New Customer Registered',
@@ -396,12 +406,12 @@ class NotificationService
      * @param int $limit
      * @return array
      */
-    public function getNotifications(int $page = 1, int $limit = 20): array
+    public function getNotifications(int $accountId, int $page = 1, int $limit = 20): array
     {
         $offset = (int) (($page - 1) * $limit);
         $limit = (int) max(1, $limit);
 
-        $baseQuery = Notification::where('account_id', 1)
+        $baseQuery = Notification::where('account_id', $accountId)
             ->global()
             ->orderBy('created_at', 'desc');
 
@@ -425,12 +435,9 @@ class NotificationService
      *
      * @return int
      */
-    public function getUnreadCount(): int
+    public function getUnreadCount(int $accountId): int
     {
-        return $this->notificationRepository->getUnreadCountGlobal();
-        
-        // When user management is implemented, uncomment this for user-specific count
-        // return $this->notificationRepository->getUnreadCountByUserId($userId);
+        return $this->notificationRepository->getUnreadCountGlobal($accountId);
     }
 
     /**
@@ -439,9 +446,9 @@ class NotificationService
      * @param int $notificationId
      * @return Notification
      */
-    public function markAsRead(int $notificationId): Notification
+    public function markAsRead(int $notificationId, int $accountId): Notification
     {
-        return $this->notificationRepository->markAsRead($notificationId);
+        return $this->notificationRepository->markAsRead($notificationId, $accountId);
     }
 
     /**
@@ -449,11 +456,8 @@ class NotificationService
      *
      * @return int
      */
-    public function markAllAsRead(): int
+    public function markAllAsRead(int $accountId): int
     {
-        return $this->notificationRepository->markAllAsReadGlobal();
-        
-        // When user management is implemented, uncomment this for user-specific mark all
-        // return $this->notificationRepository->markAllAsRead($userId);
+        return $this->notificationRepository->markAllAsReadGlobal($accountId);
     }
 }
