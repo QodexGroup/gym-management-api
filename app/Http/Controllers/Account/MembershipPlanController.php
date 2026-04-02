@@ -57,9 +57,13 @@ class MembershipPlanController
      */
     public function deleteMembershipPlan(GenericRequest $request, int $id): JsonResponse
     {
-        $data = $request->getGenericData();
-        $this->membershipPlanRepository->deleteMembershipPlan($id, $data->userData->account_id);
-        return ApiResponse::success(null, 'Membership plan deleted successfully');
+        try {
+            $data = $request->getGenericData();
+            $this->membershipPlanRepository->deleteMembershipPlan($id, $data->userData->account_id);
+            return ApiResponse::success(null, 'Membership plan deleted successfully');
+        } catch (\RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
     }
 }
 

@@ -77,7 +77,8 @@ class MembershipPlanRepository
     }
 
     /**
-     * Delete a membership plan (soft delete)
+     * Delete a membership plan (soft delete).
+     * Throws RuntimeException if any customer memberships are linked to the plan.
      *
      * @param int $id
      * @param int $accountId
@@ -86,6 +87,13 @@ class MembershipPlanRepository
     public function deleteMembershipPlan(int $id, int $accountId): bool
     {
         $plan = $this->findMembershipPlanById($id, $accountId);
+
+        if ($plan->customerMemberships()->exists()) {
+            throw new \RuntimeException(
+                'This membership plan cannot be deleted because it has existing memberships assigned to it.'
+            );
+        }
+
         return $plan->delete();
     }
 }
