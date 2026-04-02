@@ -13,6 +13,7 @@ php artisan view:clear 2>/dev/null || true
 
 # Optimize application (quick operations)
 echo "Optimizing application..."
+php artisan config:cache 2>/dev/null || true
 php artisan route:cache 2>/dev/null || true
 php artisan view:cache 2>/dev/null || true
 echo "✓ Application optimization completed!"
