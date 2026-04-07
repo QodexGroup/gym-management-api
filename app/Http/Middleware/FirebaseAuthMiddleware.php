@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Constant\UserStatusConstant;
 use App\Models\User;
 use App\Services\Auth\FirebaseService;
 use Closure;
@@ -33,6 +34,12 @@ class FirebaseAuthMiddleware
 
             if (!$user) {
                 return response()->json(['message' => 'User not found'], 401);
+            }
+
+            if ($user->status === UserStatusConstant::DEACTIVATED) {
+                return response()->json([
+                    'message' => 'Your account has been deactivated. Please contact the administrator.'
+                ], 403);
             }
 
             $request->attributes->set('user', $user);
