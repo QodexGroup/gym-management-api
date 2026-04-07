@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Rules\ValidEmail;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SignUpRequest extends FormRequest
@@ -26,10 +27,10 @@ class SignUpRequest extends FormRequest
             'accountName' => ['required', 'string', 'max:255'],
             'firstname' => ['required', 'string', 'max:255'],
             'lastname' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email'],
+            'email' => ['required', new ValidEmail()],
             'phone' => ['nullable', 'string', 'max:50'],
             'billingName' => ['required', 'string', 'max:255'],
-            'billingEmail' => ['required', 'email', 'max:255'],
+            'billingEmail' => ['required', 'max:255', new ValidEmail()],
             'billingPhone' => ['required', 'string', 'max:50'],
             'billingAddress' => ['required', 'string', 'max:255'],
             'billingCity' => ['required', 'string', 'max:100'],

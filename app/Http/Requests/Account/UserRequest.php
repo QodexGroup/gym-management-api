@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Account;
 
 use App\Http\Requests\GenericRequest;
+use App\Rules\ValidEmail;
 use Illuminate\Validation\Rule;
 
 class UserRequest extends GenericRequest
@@ -16,14 +17,14 @@ class UserRequest extends GenericRequest
     {
         $userId = $this->route('id'); // For update requests
         $userData = $this->getUserData(); // Get user data from GenericRequest
-        $accountId = $userData?->account_id; // Get account_id from authenticated user
+        $accountId = $userData ? $userData->account_id : null; // Get account_id from authenticated user
 
         return array_merge(parent::rules(), [
             'firstname' => ['required', 'string', 'max:255'],
             'lastname' => ['required', 'string', 'max:255'],
             'email' => [
                 $this->isMethod('post') ? 'required' : 'nullable',
-                'email',
+                new ValidEmail(),
                 'max:255',
                 Rule::unique('users', 'email')
                     ->where('account_id', $accountId)
