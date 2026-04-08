@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Core;
 
 use App\Http\Requests\GenericRequest;
+use App\Rules\ValidEmail;
 
 class CustomerRequest extends GenericRequest
 {
@@ -20,7 +21,7 @@ class CustomerRequest extends GenericRequest
             'dateOfBirth' => ['required', 'date'],
             'photo' => ['nullable', 'string', 'max:500'],
             'phoneNumber' => ['required', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'email' => ['nullable', 'max:255', new ValidEmail()],
             'address' => ['nullable', 'string'],
             'medicalNotes' => ['nullable', 'string'],
             'emergencyContactName' => ['nullable', 'string', 'max:255'],
