@@ -38,6 +38,7 @@ Route::middleware([VerifyFirebaseTokenMiddleware::class, 'throttle:5,1'])
     ->prefix('auth')
     ->group(function () {
         Route::post('/sign-up', [AuthController::class, 'signUp']);
+        Route::post('/send-verification-email', [AuthController::class, 'sendVerificationEmail']);
     });
 
 // Auth routes (protected)
