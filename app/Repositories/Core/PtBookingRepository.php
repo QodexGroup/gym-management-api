@@ -4,6 +4,7 @@ namespace App\Repositories\Core;
 
 use App\Constant\ClassSessionBookingStatusConstant;
 use App\Helpers\GenericData;
+use App\Models\Account\ClassSchedule;
 use App\Models\Account\ClassScheduleSession;
 use App\Models\Core\PtBooking;
 use Carbon\Carbon;
@@ -138,13 +139,17 @@ class PtBookingRepository
             ClassScheduleSession::where('class_schedule_id', $ptBooking->class_schedule_id)
                 ->where('account_id', $genericData->userData->account_id)
                 ->delete();
+
+            ClassSchedule::where('id', $ptBooking->class_schedule_id)
+                ->where('account_id', $genericData->userData->account_id)
+                ->delete();
         }
 
         return $ptBooking->fresh();
     }
 
     /**
-     * Mark a PT booking as coach-cancelled and soft-delete the linked class schedule session.
+     * Mark a PT booking as coach-cancelled and soft-delete the linked class schedule and session.
      *
      * @param int $id
      * @param GenericData $genericData
@@ -159,6 +164,10 @@ class PtBookingRepository
 
         if ($ptBooking->class_schedule_id) {
             ClassScheduleSession::where('class_schedule_id', $ptBooking->class_schedule_id)
+                ->where('account_id', $genericData->userData->account_id)
+                ->delete();
+
+            ClassSchedule::where('id', $ptBooking->class_schedule_id)
                 ->where('account_id', $genericData->userData->account_id)
                 ->delete();
         }

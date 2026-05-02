@@ -91,9 +91,14 @@ class WalkinController extends Controller
      */
     public function createWalkinCustomer(int $walkinId, WalkinRequest $request): JsonResponse
     {
-        $genericData = $request->getGenericDataWithValidated();
-        $walkinCustomer = $this->walkinService->createWalkinCustomer($walkinId, $genericData);
-        return ApiResponse::success(new WalkinCustomerResource($walkinCustomer));
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $walkinCustomer = $this->walkinService->createWalkinCustomer($walkinId, $genericData);
+            return ApiResponse::success(new WalkinCustomerResource($walkinCustomer));
+        } catch (\Exception $e) {
+            Log::error('Error creating walkin customer: ' . $e->getMessage());
+            return ApiResponse::error($e->getMessage(), 400);
+        }
     }
 
     /**
