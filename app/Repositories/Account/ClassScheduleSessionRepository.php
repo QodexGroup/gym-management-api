@@ -199,4 +199,24 @@ class ClassScheduleSessionRepository
             ->firstOrFail();
         return $session->delete();
     }
+
+    /**
+     * Cancel a session: marks all member bookings as cancelled then deletes the session.
+     *
+     * @param int $id
+     * @param int $accountId
+     * @return void
+     */
+    public function cancelSession(int $id, int $accountId): void
+    {
+        $session = ClassScheduleSession::where('id', $id)
+            ->where('account_id', $accountId)
+            ->firstOrFail();
+
+        $session->bookings()->update([
+            'status' => ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED,
+        ]);
+
+        $session->delete();
+    }
 }

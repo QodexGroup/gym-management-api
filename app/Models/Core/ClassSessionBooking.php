@@ -52,7 +52,7 @@ class ClassSessionBooking extends Model
      */
     public function classScheduleSession(): BelongsTo
     {
-        return $this->belongsTo(ClassScheduleSession::class, 'class_schedule_session_id');
+        return $this->belongsTo(ClassScheduleSession::class, 'class_schedule_session_id')->withTrashed();
     }
 
     /**

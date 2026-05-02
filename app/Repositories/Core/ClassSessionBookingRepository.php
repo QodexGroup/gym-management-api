@@ -163,6 +163,10 @@ class ClassSessionBookingRepository
     {
         $query = ClassSessionBooking::where('account_id', $genericData->userData->account_id)
             ->with(['classScheduleSession.classSchedule.coach', 'customer'])
+            ->whereNotIn('status', [
+                ClassSessionBookingStatusConstant::STATUS_CANCELLED,
+                ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED,
+            ])
             ->whereHas('classScheduleSession', function ($q) use ($genericData) {
                 $q->whereDate('start_time', '>=', $genericData->getData()->startDate);
             })
@@ -238,7 +242,8 @@ class ClassSessionBookingRepository
                 $q->whereIn('status', [
                     ClassSessionBookingStatusConstant::STATUS_ATTENDED,
                     ClassSessionBookingStatusConstant::STATUS_NO_SHOW,
-                    ClassSessionBookingStatusConstant::STATUS_CANCELLED
+                    ClassSessionBookingStatusConstant::STATUS_CANCELLED,
+                    ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED,
                 ])
                 ->orWhereHas('classScheduleSession', function ($subQ) use ($today) {
                     $subQ->whereDate('start_time', '<', $today);

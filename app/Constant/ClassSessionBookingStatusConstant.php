@@ -8,4 +8,5 @@ class ClassSessionBookingStatusConstant
     const STATUS_ATTENDED = 'ATTENDED';
     const STATUS_NO_SHOW = 'NO_SHOW';
     const STATUS_CANCELLED = 'CANCELLED';
+    const STATUS_COACH_CANCELLED = 'COACH_CANCELLED';
 }

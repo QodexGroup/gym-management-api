@@ -42,6 +42,10 @@ class PtBookingRepository
     {
         $query = PtBooking::where('account_id', $genericData->userData->account_id)
             ->where('coach_id', $coachId)
+            ->whereNotIn('status', [
+                ClassSessionBookingStatusConstant::STATUS_CANCELLED,
+                ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED,
+            ])
             ->whereDate('booking_date', '>=', $genericData->getData()->startDate)
             ->whereDate('booking_date', '<=', $genericData->getData()->endDate);
 
@@ -126,10 +130,39 @@ class PtBookingRepository
     public function markAsCancelled(int $id, GenericData $genericData): PtBooking
     {
         $ptBooking = $this->findPtBookingById($genericData->userData->account_id, $id);
-        $oldStatus = $ptBooking->status;
         $ptBooking->status = ClassSessionBookingStatusConstant::STATUS_CANCELLED;
         $ptBooking->updated_by = $genericData->userData->id;
         $ptBooking->save();
+
+        if ($ptBooking->class_schedule_id) {
+            ClassScheduleSession::where('class_schedule_id', $ptBooking->class_schedule_id)
+                ->where('account_id', $genericData->userData->account_id)
+                ->delete();
+        }
+
+        return $ptBooking->fresh();
+    }
+
+    /**
+     * Mark a PT booking as coach-cancelled and soft-delete the linked class schedule session.
+     *
+     * @param int $id
+     * @param GenericData $genericData
+     * @return PtBooking
+     */
+    public function markAsCoachCancelled(int $id, GenericData $genericData): PtBooking
+    {
+        $ptBooking = $this->findPtBookingById($genericData->userData->account_id, $id);
+        $ptBooking->status = ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED;
+        $ptBooking->updated_by = $genericData->userData->id;
+        $ptBooking->save();
+
+        if ($ptBooking->class_schedule_id) {
+            ClassScheduleSession::where('class_schedule_id', $ptBooking->class_schedule_id)
+                ->where('account_id', $genericData->userData->account_id)
+                ->delete();
+        }
+
         return $ptBooking->fresh();
     }
 

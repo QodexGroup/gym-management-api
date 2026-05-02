@@ -111,6 +111,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
     Route::prefix('class-schedule-sessions')->middleware(['idempotent'])->group(function () {
         Route::get('/', [ClassScheduleSessionController::class, 'getAllSessions']);
         Route::put('/{id}', [ClassScheduleSessionController::class, 'updateSession']);
+        Route::delete('/{id}', [ClassScheduleSessionController::class, 'cancelSession']);
     });
 
     Route::prefix('class-session-bookings')->middleware(['idempotent'])->group(function () {
@@ -130,6 +131,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::post('/', [PtBookingController::class, 'create']);
         Route::put('/{id}', [PtBookingController::class, 'update']);
         Route::put('/{id}/cancel', [PtBookingController::class, 'markAsCancelled']);
+        Route::put('/{id}/coach-cancel', [PtBookingController::class, 'markAsCoachCancelled']);
         Route::put('/{id}/attend', [PtBookingController::class, 'markAsAttended']);
         Route::put('/{id}/no-show', [PtBookingController::class, 'markAsNoShow']);
     });

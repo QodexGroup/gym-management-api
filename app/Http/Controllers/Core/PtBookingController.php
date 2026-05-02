@@ -124,6 +124,21 @@ class PtBookingController extends Controller
      *
      * @return JsonResponse
      */
+    public function markAsCoachCancelled(int $id, GenericRequest $request): JsonResponse
+    {
+        $genericData = $request->getGenericData();
+        $ptBooking = $this->ptBookingRepository->markAsCoachCancelled($id, $genericData);
+        if (!$ptBooking) {
+            return ApiResponse::error('Failed to mark PT booking as coach cancelled', Response::HTTP_BAD_REQUEST);
+        }
+        return ApiResponse::success(new PtBookingResource($ptBooking), 'PT booking marked as coach cancelled successfully');
+    }
+
+    /**
+     * @param int $id
+     *
+     * @return JsonResponse
+     */
     public function markAsAttended(int $id, GenericRequest $request): JsonResponse
     {
         $genericData = $request->getGenericData();

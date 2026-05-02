@@ -32,6 +32,24 @@ class ClassScheduleSessionController
     }
 
     /**
+     * Cancel a class schedule session and all its member bookings.
+     *
+     * @param GenericRequest $request
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function cancelSession(GenericRequest $request, int $id): JsonResponse
+    {
+        try {
+            $genericData = $request->getGenericData();
+            $this->classScheduleSessionRepository->cancelSession($id, $genericData->userData->account_id);
+            return ApiResponse::success(null, 'Session cancelled successfully');
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
      * Update a class schedule session
      *
      * @param ClassScheduleSessionRequest $request
