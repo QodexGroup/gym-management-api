@@ -2,7 +2,6 @@
 
 namespace App\Models\Core;
 
-use App\Constant\CustomerBillConstant;
 use App\Models\User;
 use App\Models\Account\MembershipPlan;
 use App\Traits\HasCamelCaseAttributes;
@@ -92,26 +91,6 @@ class CustomerBill extends Model
     public function membershipPlan(): BelongsTo
     {
         return $this->belongsTo(MembershipPlan::class, 'billable_id');
-    }
-
-    /**
-     * Expose plan id for membership subscription bills where the DB column is billable_id.
-     */
-    public function getMembershipPlanIdAttribute($value): ?int
-    {
-        if (($this->attributes['bill_type'] ?? null) === CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION) {
-            return isset($this->attributes['billable_id']) && $this->attributes['billable_id'] !== null
-                ? (int) $this->attributes['billable_id']
-                : null;
-        }
-
-        if (array_key_exists('membership_plan_id', $this->attributes)) {
-            return $this->attributes['membership_plan_id'] !== null
-                ? (int) $this->attributes['membership_plan_id']
-                : null;
-        }
-
-        return $value !== null && $value !== '' ? (int) $value : null;
     }
 
     /**

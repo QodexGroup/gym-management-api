@@ -269,7 +269,7 @@ class CustomerService
             'billDate' => Carbon::now(),
             'billStatus' => CustomerBillConstant::BILL_STATUS_ACTIVE,
             'billType' => CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION,
-            'membershipPlanId' => $membershipPlanId,
+            'billableId' => $membershipPlanId,
             'createdBy' => $data->createdBy ?? $genericData->userData->id,
             'updatedBy' => $data->updatedBy ?? $genericData->userData->id,
         ];

@@ -31,7 +31,7 @@ class CustomerBillRequest extends GenericRequest
             'billDate' => ['required', 'date'],
             'billStatus' => ['nullable', 'string', Rule::in(['paid', 'partial', 'active'])],
             'billType' => ['required', 'string', 'max:255'],
-            'membershipPlanId' => ['nullable','integer'],
+            'billableId' => ['nullable', 'integer'],
             'customService' => ['nullable','string','max:255'],
         ]);
     }

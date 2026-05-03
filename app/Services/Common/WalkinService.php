@@ -35,7 +35,7 @@ class WalkinService
             if (!$walkin) {
                 throw new \Exception('Walkin not found');
             }
-            // check if walkin customer already exists
+            // Prevent duplicate check-in for the same customer on the same day
             $walkinCustomer = $this->walkinRepository->getWalkinCustomer($walkinId, $genericData);
 
             if ($walkinCustomer) {

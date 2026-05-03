@@ -27,7 +27,7 @@ class CustomerBillResource extends JsonResource
             'billingPeriod' => $this->billing_period,
             'billStatus' => $this->bill_status,
             'billType' => $this->bill_type,
-            'membershipPlanId' => $this->membership_plan_id,
+            'billableId' => $this->billable_id,
             'customService' => $this->custom_service,
             'membershipPlan' => $this->whenLoaded('membershipPlan', function () {
                 return new MembershipPlanResource($this->membershipPlan);

@@ -48,9 +48,9 @@ class CustomerBillService
                 }
                 else{
                     // this is for membership subscription
-                    $membershipPlanId = $data->membershipPlanId ?? null;
+                    $planId = $data->billableId ?? null;
 
-                    if ($membershipPlanId) {
+                    if ($planId) {
                         $customer = $this->customerRepository->findCustomerById($customerId, $accountId);
                         $currentMembership = $customer->currentMembership;
                         $billDate = isset($data->billDate)
@@ -70,7 +70,7 @@ class CustomerBillService
 
                         if ($isNewMember || $isExpiredMembership || $isCurrentPeriod) {
                             // Create membership for new members, expired memberships, or current period bills
-                            $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById($membershipPlanId, $accountId);
+                            $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById($planId, $accountId);
                             $this->customerRepository->createMembership($accountId, $customerId, $membershipPlan, $billDate);
                         }
                         // For future renewal bills: don't create membership yet, wait for payment
@@ -119,8 +119,10 @@ class CustomerBillService
                 // Get the existing bill to check for membership plan changes
                 $existingBill = $this->customerBillRepository->findBillById($id, $accountId);
                 $this->ensureBillIsEditableForCurrentCycle($existingBill, $accountId);
-                $oldMembershipPlanId = $existingBill->membership_plan_id;
-                $newMembershipPlanId = $data->membershipPlanId ?? null;
+                $oldMembershipPlanId = $existingBill->bill_type === CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION
+                    ? $existingBill->billable_id
+                    : null;
+                $newMembershipPlanId = $data->billableId ?? null;
 
                 // Handle membership subscription bill type
                 if($data->billType == CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION) {
@@ -274,7 +276,7 @@ class CustomerBillService
      */
     public function isRenewalBill(CustomerBill $bill, ?CustomerMembership $membership): bool
     {
-        if ($bill->bill_type !== CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION || !$bill->membership_plan_id) {
+        if ($bill->bill_type !== CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION || !$bill->billable_id) {
             return false;
         }
 

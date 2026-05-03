@@ -194,7 +194,7 @@ class CustomerPaymentService
     private function handleAutomatedBillPayment(CustomerBill $bill, float $newPaidAmount, int $accountId): void
     {
         // Only process membership subscription bills
-        if ($bill->bill_type !== CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION || !$bill->membership_plan_id) {
+        if ($bill->bill_type !== CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION || !$bill->billable_id) {
             return;
         }
 
@@ -208,12 +208,12 @@ class CustomerPaymentService
             $membership = $this->customerRepository->findLatestMembershipForPlan(
                 $bill->customer_id,
                 $accountId,
-                $bill->membership_plan_id
+                (int) $bill->billable_id
             );
 
             if (!$membership) {
                 // No existing membership - this is a new member, create membership
-                $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById($bill->membership_plan_id, $accountId);
+                $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById((int) $bill->billable_id, $accountId);
                 $billDate = Carbon::parse($bill->bill_date);
 
                 $this->customerRepository->createMembership($accountId, $bill->customer_id, $membershipPlan, $billDate);
@@ -221,7 +221,7 @@ class CustomerPaymentService
                 Log::info('Membership created for new member via bill payment', [
                     'bill_id' => $bill->id,
                     'customer_id' => $bill->customer_id,
-                    'membership_plan_id' => $bill->membership_plan_id,
+                    'billable_id' => $bill->billable_id,
                     'start_date' => $billDate->toDateString(),
                 ]);
                 return;
@@ -233,7 +233,7 @@ class CustomerPaymentService
             if ($isRenewalBill) {
                 $billDate = Carbon::parse($bill->bill_date)->startOfDay();
                 $membershipEndDate = Carbon::parse($membership->membership_end_date)->startOfDay();
-                $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById($bill->membership_plan_id, $accountId);
+                $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById((int) $bill->billable_id, $accountId);
 
                 // New start date = bill date (or membership end date, whichever is later)
                 $newStartDate = $billDate->greaterThan($membershipEndDate) ? $billDate : $membershipEndDate;
