@@ -228,6 +228,10 @@ class PtBookingRepository
             ->where('booking_date', $sessionDate)
             ->where('coach_id', $session->classSchedule->coach_id)
             ->where('account_id', $accountId)
+            ->whereNotIn('status', [
+                ClassSessionBookingStatusConstant::STATUS_CANCELLED,
+                ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED,
+            ])
             ->with(['customer', 'coach', 'ptPackage'])
             ->get();
     }
