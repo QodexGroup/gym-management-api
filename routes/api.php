@@ -96,6 +96,9 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
     // Dashboard routes (protected)
     Route::prefix('dashboard')->group(function () {
         Route::get('/stats', [DashboardController::class, 'getStats']);
+        Route::get('/account-metrics', [DashboardController::class, 'getAccountMetrics']);
+        Route::get('/upcoming-sessions', [DashboardController::class, 'getUpcomingSessions']);
+        Route::get('/coach/pt-clients', [DashboardController::class, 'getCoachPtClients']);
         Route::get('/my-collection', [MyCollectionController::class, 'getStats']);
     });
 

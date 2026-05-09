@@ -2,9 +2,16 @@
 
 namespace App\Services\Core;
 
+use App\Constant\ClassSessionBookingStatusConstant;
+use App\Constant\ClassTypeScheduleConstant;
+use App\Constant\CustomerPtPackageConstant;
+use App\Models\Account\ClassScheduleSession;
+use App\Models\Core\ClassSessionBooking;
 use App\Models\Core\Customer;
 use App\Models\Core\CustomerMembership;
 use App\Models\Core\CustomerPayment;
+use App\Models\Core\CustomerPtPackage;
+use App\Models\Core\PtBooking;
 use App\Models\Account\MembershipPlan;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +39,21 @@ class DashboardService
             'expiringMemberships' => $this->getExpiringMembershipsCount($accountId, $now, $sevenDaysFromNow),
             'expiringMembersList' => $this->getExpiringMembersList($accountId, $now, $sevenDaysFromNow),
             'membershipDistribution' => $this->getMembershipDistribution($accountId),
+        ];
+    }
+
+    /**
+     * Minimal dashboard payload for coaches (no revenue or account-wide metrics).
+     *
+     * @return array{expiringMembersList: array}
+     */
+    public function getCoachDashboardStats(int $accountId): array
+    {
+        $now = Carbon::now();
+        $sevenDaysFromNow = $now->copy()->addDays(7);
+
+        return [
+            'expiringMembersList' => $this->getExpiringMembersList($accountId, $now, $sevenDaysFromNow),
         ];
     }
 
@@ -186,5 +208,221 @@ class DashboardService
                 'color' => $colors[$index % count($colors)],
             ];
         })->toArray();
+    }
+
+    /**
+     * Upcoming class schedule sessions (from start of today) with participant names for dashboards.
+     *
+     * @return array{sessions: array<int, array<string, mixed>>}
+     */
+    public function getUpcomingSessionsWithParticipants(int $accountId, ?int $coachUserId, bool $scopeSessionsToCoach, int $limit = 10): array
+    {
+        $startOfToday = Carbon::now()->startOfDay();
+
+        $query = ClassScheduleSession::query()
+            ->where('account_id', $accountId)
+            ->where('start_time', '>=', $startOfToday)
+            ->with(['classSchedule.coach']);
+
+        if ($scopeSessionsToCoach && $coachUserId !== null) {
+            $query->whereHas('classSchedule', function ($q) use ($coachUserId) {
+                $q->where('coach_id', $coachUserId);
+            });
+        }
+
+        $sessions = $query->orderBy('start_time')->limit($limit)->get();
+
+        if ($sessions->isEmpty()) {
+            return ['sessions' => []];
+        }
+
+        $groupSessionIds = $sessions->filter(function ($s) {
+            return $s->classSchedule
+                && $s->classSchedule->class_type === ClassTypeScheduleConstant::GROUP_CLASS;
+        })->pluck('id');
+
+        $groupBookingsBySession = collect();
+        if ($groupSessionIds->isNotEmpty()) {
+            $groupBookingsBySession = ClassSessionBooking::where('account_id', $accountId)
+                ->whereIn('class_schedule_session_id', $groupSessionIds)
+                ->whereNotIn('status', [
+                    ClassSessionBookingStatusConstant::STATUS_CANCELLED,
+                    ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED,
+                ])
+                ->with('customer')
+                ->get()
+                ->groupBy(fn ($b) => (int) $b->class_schedule_session_id);
+        }
+
+        $ptSessions = $sessions->filter(function ($s) {
+            return $s->classSchedule
+                && $s->classSchedule->class_type === ClassTypeScheduleConstant::PERSONAL_TRAINING;
+        });
+
+        $scheduleIds = $ptSessions->pluck('class_schedule_id')->unique()->filter()->values();
+        $ptBookingsBySessionKey = collect();
+        if ($scheduleIds->isNotEmpty()) {
+            $ptDateMin = $ptSessions->min('start_time');
+            $ptDateMax = $ptSessions->max('start_time');
+            $bookingFrom = $ptDateMin
+                ? Carbon::parse($ptDateMin)->copy()->subDay()->startOfDay()
+                : $startOfToday->copy()->subDay();
+            $bookingTo = $ptDateMax
+                ? Carbon::parse($ptDateMax)->copy()->addDay()->endOfDay()
+                : $startOfToday->copy()->addDays(31)->endOfDay();
+
+            $ptBookingsBySessionKey = PtBooking::where('account_id', $accountId)
+                ->whereIn('class_schedule_id', $scheduleIds)
+                ->whereBetween('booking_date', [$bookingFrom->toDateString(), $bookingTo->toDateString()])
+                ->whereNotIn('status', [
+                    ClassSessionBookingStatusConstant::STATUS_CANCELLED,
+                    ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED,
+                ])
+                ->with('customer')
+                ->get()
+                ->groupBy(function ($pb) {
+                    return (int) $pb->class_schedule_id.'|'
+                        .Carbon::parse($pb->booking_date)->format('Y-m-d').'|'
+                        .(int) $pb->coach_id;
+                });
+        }
+
+        $out = [];
+        foreach ($sessions as $session) {
+            $schedule = $session->classSchedule;
+            if (!$schedule) {
+                continue;
+            }
+
+            $participants = [];
+            if ($schedule->class_type === ClassTypeScheduleConstant::GROUP_CLASS) {
+                $bookings = $groupBookingsBySession->get((int) $session->id, collect());
+                foreach ($bookings as $b) {
+                    if ($b->customer) {
+                        $participants[] = [
+                            'customerId' => $b->customer->id,
+                            'name' => $this->formatCustomerFullName($b->customer),
+                        ];
+                    }
+                }
+            } else {
+                $sessionDate = $session->start_time->format('Y-m-d');
+                $ptKey = (int) $schedule->id.'|'.$sessionDate.'|'.(int) $schedule->coach_id;
+                $matched = $ptBookingsBySessionKey->get($ptKey, collect());
+                foreach ($matched as $pb) {
+                    if ($pb->customer) {
+                        $participants[] = [
+                            'customerId' => $pb->customer->id,
+                            'name' => $this->formatCustomerFullName($pb->customer),
+                        ];
+                    }
+                }
+            }
+
+            $coach = $schedule->coach;
+            $out[] = [
+                'id' => $session->id,
+                'startTime' => $session->start_time->toIso8601String(),
+                'endTime' => $session->end_time ? $session->end_time->toIso8601String() : null,
+                'className' => $schedule->class_name,
+                'classType' => $schedule->class_type,
+                'coach' => $coach ? [
+                    'id' => $coach->id,
+                    'firstname' => $coach->firstname,
+                    'lastname' => $coach->lastname,
+                    'fullName' => $coach->full_name,
+                ] : null,
+                'participants' => $participants,
+            ];
+        }
+
+        return ['sessions' => $out];
+    }
+
+    /**
+     * Customers with at least one active PT package assigned to the coach.
+     *
+     * @return array{members: array<int, array<string, mixed>>, total: int}
+     */
+    public function getCoachAssignedPtClients(int $accountId, int $coachId, int $limit = 10): array
+    {
+        $ptTable = (new CustomerPtPackage())->getTable();
+
+        $base = Customer::query()
+            ->where('account_id', $accountId)
+            ->whereIn('id', function ($sub) use ($accountId, $coachId, $ptTable) {
+                $sub->select('customer_id')
+                    ->from($ptTable)
+                    ->where('account_id', $accountId)
+                    ->where('coach_id', $coachId)
+                    ->where('status', CustomerPtPackageConstant::STATUS_ACTIVE)
+                    ->whereNull('deleted_at');
+            });
+
+        $total = (clone $base)->count();
+
+        $customers = (clone $base)
+            ->with(['currentMembership.membershipPlan'])
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->limit($limit)
+            ->get();
+
+        $now = Carbon::now();
+        $sevenDaysFromNow = $now->copy()->addDays(7);
+
+        $members = $customers->map(function (Customer $c) use ($now, $sevenDaysFromNow) {
+            $m = $c->currentMembership;
+            $planName = $m && $m->membershipPlan ? $m->membershipPlan->plan_name : '—';
+            $membershipStatus = $this->deriveMembershipDisplayStatus($m, $now, $sevenDaysFromNow);
+
+            return [
+                'id' => $c->id,
+                'name' => $this->formatCustomerFullName($c),
+                'firstName' => $c->first_name,
+                'lastName' => $c->last_name,
+                'email' => $c->email,
+                'photo' => $c->photo,
+                'membership' => $planName,
+                'membershipStatus' => $membershipStatus,
+            ];
+        })->toArray();
+
+        return [
+            'members' => $members,
+            'total' => $total,
+        ];
+    }
+
+    private function formatCustomerFullName(Customer $customer): string
+    {
+        $name = trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? ''));
+
+        return $name !== '' ? $name : 'Unknown';
+    }
+
+    private function deriveMembershipDisplayStatus(?CustomerMembership $membership, Carbon $now, Carbon $sevenDaysFromNow): string
+    {
+        if (!$membership || strtolower((string) $membership->status) !== 'active') {
+            return 'expired';
+        }
+
+        $end = $membership->membership_end_date
+            ? Carbon::parse($membership->membership_end_date)->copy()->startOfDay()
+            : null;
+
+        if (!$end) {
+            return 'active';
+        }
+
+        if ($end->toDateString() < today()->toDateString()) {
+            return 'expired';
+        }
+
+        if ($end->between($now->copy()->startOfDay(), $sevenDaysFromNow->copy()->endOfDay())) {
+            return 'expiring';
+        }
+
+        return 'active';
     }
 }

@@ -40,6 +40,36 @@ class CustomerRepository
             });
         }
 
+        if (isset($genericData->filters['assignedPtCoachId'])) {
+            $assignedPtCoachId = $genericData->filters['assignedPtCoachId'];
+            unset($genericData->filters['assignedPtCoachId']);
+
+            $role = (string) ($genericData->userData->role ?? '');
+            $coachId = null;
+
+            if ($role === 'coach') {
+                $coachId = (int) $genericData->userData->id;
+            } elseif ($assignedPtCoachId === 'self' || $assignedPtCoachId === '') {
+                $coachId = (int) $genericData->userData->id;
+            } elseif (is_numeric($assignedPtCoachId)) {
+                $parsed = (int) $assignedPtCoachId;
+                $coachId = $parsed > 0 ? $parsed : null;
+            }
+
+            if ($coachId !== null && $coachId > 0) {
+                $accountId = (int) $genericData->userData->account_id;
+
+                $query->whereIn('id', function ($sub) use ($accountId, $coachId) {
+                    $sub->select('customer_id')
+                        ->from((new CustomerPtPackage())->getTable())
+                        ->where('account_id', $accountId)
+                        ->where('coach_id', $coachId)
+                        ->where('status', CustomerPtPackageConstant::STATUS_ACTIVE)
+                        ->whereNull('deleted_at');
+                });
+            }
+        }
+
         // Apply relations, filters, and sorts using GenericData methods
         $query = $genericData->applyRelations($query, ['currentMembership.membershipPlan', 'currentTrainer']);
         $query = $genericData->applyFilters($query);
