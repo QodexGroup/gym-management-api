@@ -261,6 +261,7 @@ class DashboardService
 
         $scheduleIds = $ptSessions->pluck('class_schedule_id')->unique()->filter()->values();
         $ptBookingsBySessionKey = collect();
+        $ptBookingsByScheduleDate = collect();
         if ($scheduleIds->isNotEmpty()) {
             $ptDateMin = $ptSessions->min('start_time');
             $ptDateMax = $ptSessions->max('start_time');
@@ -271,7 +272,7 @@ class DashboardService
                 ? Carbon::parse($ptDateMax)->copy()->addDay()->endOfDay()
                 : $startOfToday->copy()->addDays(31)->endOfDay();
 
-            $ptBookingsBySessionKey = PtBooking::where('account_id', $accountId)
+            $ptBookings = PtBooking::where('account_id', $accountId)
                 ->whereIn('class_schedule_id', $scheduleIds)
                 ->whereBetween('booking_date', [$bookingFrom->toDateString(), $bookingTo->toDateString()])
                 ->whereNotIn('status', [
@@ -279,12 +280,18 @@ class DashboardService
                     ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED,
                 ])
                 ->with('customer')
-                ->get()
-                ->groupBy(function ($pb) {
-                    return (int) $pb->class_schedule_id.'|'
-                        .Carbon::parse($pb->booking_date)->format('Y-m-d').'|'
-                        .(int) $pb->coach_id;
-                });
+                ->get();
+
+            $ptBookingsBySessionKey = $ptBookings->groupBy(function ($pb) {
+                return (int) $pb->class_schedule_id.'|'
+                    .Carbon::parse($pb->booking_date)->format('Y-m-d').'|'
+                    .(int) $pb->coach_id;
+            });
+
+            $ptBookingsByScheduleDate = $ptBookings->groupBy(function ($pb) {
+                return (int) $pb->class_schedule_id.'|'
+                    .Carbon::parse($pb->booking_date)->format('Y-m-d');
+            });
         }
 
         $out = [];
@@ -309,6 +316,9 @@ class DashboardService
                 $sessionDate = $session->start_time->format('Y-m-d');
                 $ptKey = (int) $schedule->id.'|'.$sessionDate.'|'.(int) $schedule->coach_id;
                 $matched = $ptBookingsBySessionKey->get($ptKey, collect());
+                if ($matched->isEmpty()) {
+                    $matched = $ptBookingsByScheduleDate->get((int) $schedule->id.'|'.$sessionDate, collect());
+                }
                 foreach ($matched as $pb) {
                     if ($pb->customer) {
                         $participants[] = [
