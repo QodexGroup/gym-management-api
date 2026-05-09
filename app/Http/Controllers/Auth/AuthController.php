@@ -4,15 +4,18 @@ namespace App\Http\Controllers\Auth;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\SignUpRequest;
 use App\Http\Resources\Account\AccountResource;
 use App\Http\Resources\Account\UserResource;
 use App\Mail\EmailVerificationMail;
+use App\Mail\ForgotPasswordMail;
 use App\Services\Account\AccountSignUpService;
 use App\Services\Auth\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Kreait\Firebase\Exception\AuthException;
 
 class AuthController extends Controller
 {
@@ -101,6 +104,46 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to send verification email', ['error' => $e->getMessage()]);
             return ApiResponse::error('Failed to send verification email. Please try again.', 500);
+        }
+    }
+
+    /**
+     * Generate a Firebase password reset link and send a branded email.
+     */
+    public function forgotPassword(ForgotPasswordRequest $request)
+    {
+        $genericMessage = 'If an account exists for this email, you will receive password reset instructions.';
+
+        $email = strtolower(trim($request->validated('email')));
+
+        try {
+            $firebaseLink = FirebaseService::auth()->getPasswordResetLink($email);
+            $parsed = parse_url($firebaseLink);
+            parse_str($parsed['query'] ?? '', $queryParams);
+            $oobCode = $queryParams['oobCode'] ?? null;
+
+            if (!$oobCode) {
+                $safeLink = \is_string($firebaseLink) ? strtok($firebaseLink, '?') : null;
+                Log::error('Failed to extract oobCode from Firebase password reset link', ['link_without_query' => $safeLink]);
+                return ApiResponse::error('Failed to prepare password reset link. Please try again.', 500);
+            }
+
+            $frontendUrl = rtrim(env('FRONTEND_URL', 'https://gymhubtech-67e6f.web.app'), '/');
+            $resetUrl = $frontendUrl . '/reset-password?oobCode=' . urlencode($oobCode);
+
+            Mail::to($email)->send(new ForgotPasswordMail($resetUrl));
+
+            return ApiResponse::success(null, $genericMessage);
+        } catch (AuthException $e) {
+            Log::notice('Forgot password Firebase Auth layer declined', [
+                'exception' => \get_class($e),
+                'message' => $e->getMessage(),
+            ]);
+
+            return ApiResponse::success(null, $genericMessage);
+        } catch (\Exception $e) {
+            Log::error('Failed to send password reset email', ['error' => $e->getMessage()]);
+            return ApiResponse::error('Failed to send password reset email. Please try again.', 500);
         }
     }
 }
