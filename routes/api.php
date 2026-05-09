@@ -33,6 +33,13 @@ use App\Http\Middleware\FirebaseAuthMiddleware;
 use App\Http\Middleware\VerifyFirebaseTokenMiddleware;
 use Illuminate\Support\Facades\Route;
 
+// Forgot password: public, no Firebase token
+Route::middleware(['throttle:5,1'])
+    ->prefix('auth')
+    ->group(function () {
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    });
+
 // Sign-up: requires valid Firebase token, does not require user in DB
 Route::middleware([VerifyFirebaseTokenMiddleware::class, 'throttle:5,1'])
     ->prefix('auth')
