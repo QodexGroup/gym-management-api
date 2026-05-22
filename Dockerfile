@@ -80,9 +80,10 @@ RUN chown -R 82:82 /app/storage /app/bootstrap/cache \
     && chmod -R 755 /var/log/nginx /var/cache/nginx \
     && chmod 1777 /tmp
 
-# Copy startup script
+# Copy startup scripts
 COPY .docker/startup.sh /usr/local/bin/startup.sh
-RUN chmod +x /usr/local/bin/startup.sh
+COPY .docker/start-worker.sh /usr/local/bin/start-worker.sh
+RUN chmod +x /usr/local/bin/startup.sh /usr/local/bin/start-worker.sh
 
 # === CRITICAL FIX: Switch user before CMD ===
 # This ensures the startup script and all running services run as the non-root user

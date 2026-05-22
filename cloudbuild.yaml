@@ -37,6 +37,23 @@ steps:
       - '--platform'
       - 'managed'
 
+  # Keep the queue worker on the same image tag as the API.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'services'
+      - 'update'
+      - '${_WORKER_SERVICE_NAME}'
+      - '--image'
+      - '${_IMAGE_REPO}/${_IMAGE_NAME}:$SHORT_SHA'
+      - '--command'
+      - '/usr/local/bin/start-worker.sh'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+
   # Update Cloud Run Jobs to use the same freshly built image tag.
   # Set multiple job names in _JOB_NAMES separated by commas.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -60,6 +77,7 @@ images:
 substitutions:
   _REGION: 'asia-southeast1'
   _SERVICE_NAME: 'gym-management-api'
+  _WORKER_SERVICE_NAME: 'gym-management-api-worker'
   _JOB_NAMES: 'payment-request'
   _IMAGE_REPO: 'gcr.io/$PROJECT_ID'
   _IMAGE_NAME: 'gym-management-api'
