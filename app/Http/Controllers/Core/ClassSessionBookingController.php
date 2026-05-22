@@ -8,7 +8,9 @@ use App\Http\Requests\Common\FilterDateRequest;
 use App\Http\Requests\Core\ClassSessionBookingRequest;
 use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Core\ClassSessionBookingResource;
+use App\Repositories\Account\ClassScheduleSessionRepository;
 use App\Repositories\Core\ClassSessionBookingRepository;
+use App\Services\Account\GroupClassSessionAuthorizationService;
 use App\Services\Core\ClassSessionBookingService;
 use Illuminate\Http\JsonResponse;
 
@@ -16,7 +18,9 @@ class ClassSessionBookingController
 {
     public function __construct(
         private ClassSessionBookingService $bookingService,
-        private ClassSessionBookingRepository $bookingRepository
+        private ClassSessionBookingRepository $bookingRepository,
+        private ClassScheduleSessionRepository $sessionRepository,
+        private GroupClassSessionAuthorizationService $groupClassSessionAuthorization
     ) {
     }
 
@@ -32,8 +36,13 @@ class ClassSessionBookingController
             $genericData = $request->getGenericDataWithValidated();
 
             $this->bookingService->bookSession($genericData);
+
             return ApiResponse::success(null, 'Class session booked successfully');
         } catch (\Exception $e) {
+            if (ClassSessionBookingService::isDeactivatedClientCannotJoinMessage($e->getMessage())) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+
             return ApiResponse::error($e->getMessage(), 400);
         }
     }
@@ -67,10 +76,25 @@ class ClassSessionBookingController
     {
         try {
             $genericData = $request->getGenericDataWithValidated();
+            $existing = $this->bookingRepository->findBookingById($bookingId, $genericData);
+
+            if (!$existing || !$existing->classScheduleSession) {
+                return ApiResponse::error('Booking not found', 404);
+            }
+
+            $this->groupClassSessionAuthorization->assertMayManageGroupClassSession(
+                $genericData->userData,
+                $existing->classScheduleSession
+            );
+
             $booking = $this->bookingService->updateAttendanceStatus($bookingId, $genericData);
 
             return ApiResponse::success(new ClassSessionBookingResource($booking), 'Attendance status updated successfully');
         } catch (\Exception $e) {
+            if (GroupClassSessionAuthorizationService::isForbiddenAuthorizationMessage($e->getMessage())) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+
             return ApiResponse::error($e->getMessage(), 400);
         }
     }
@@ -86,6 +110,35 @@ class ClassSessionBookingController
     {
         try {
             $genericData = $request->getGenericDataWithValidated();
+            $existing = $this->bookingRepository->findBookingById($bookingId, $genericData);
+
+            if (!$existing || !$existing->classScheduleSession) {
+                return ApiResponse::error('Booking not found', 404);
+            }
+
+            $this->groupClassSessionAuthorization->assertMayManageGroupClassSession(
+                $genericData->userData,
+                $existing->classScheduleSession
+            );
+
+            $dto = $genericData->getData();
+            $accountId = (int) $genericData->userData->account_id;
+
+            if (isset($dto->sessionId) && (int) $dto->sessionId !== (int) $existing->class_schedule_session_id) {
+                $targetSession = $this->sessionRepository->getSessionById((int) $dto->sessionId, $accountId);
+                $this->groupClassSessionAuthorization->assertMayManageGroupClassSession(
+                    $genericData->userData,
+                    $targetSession
+                );
+            }
+
+            if (isset($dto->customerId) && (int) $dto->customerId !== (int) $existing->customer_id) {
+                $this->bookingService->ensureCustomerMayJoinGroupClassSession(
+                    (int) $dto->customerId,
+                    $accountId
+                );
+            }
+
             $booking = $this->bookingRepository->updateBooking($bookingId, $genericData);
 
             if (!$booking) {
@@ -94,6 +147,14 @@ class ClassSessionBookingController
 
             return ApiResponse::success(new ClassSessionBookingResource($booking), 'Booking updated successfully');
         } catch (\Exception $e) {
+            if (GroupClassSessionAuthorizationService::isForbiddenAuthorizationMessage($e->getMessage())) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+
+            if (ClassSessionBookingService::isDeactivatedClientCannotJoinMessage($e->getMessage())) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+
             return ApiResponse::error($e->getMessage(), 400);
         }
     }
@@ -132,9 +193,20 @@ class ClassSessionBookingController
     {
         try {
             $genericData = $request->getGenericDataWithValidated();
+            $accountId = (int) $genericData->userData->account_id;
+            $session = $this->sessionRepository->getSessionById($sessionId, $accountId);
+            $this->groupClassSessionAuthorization->assertMayManageGroupClassSession(
+                $genericData->userData,
+                $session
+            );
+
             $updatedCount = $this->bookingService->markAllAsAttended($sessionId, $genericData);
             return ApiResponse::success($updatedCount, 'All bookings marked as attended');
         } catch (\Exception $e) {
+            if (GroupClassSessionAuthorizationService::isForbiddenAuthorizationMessage($e->getMessage())) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+
             return ApiResponse::error($e->getMessage(), 400);
         }
     }

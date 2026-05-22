@@ -112,6 +112,14 @@ class CustomerRepository
             ->firstOrFail();
     }
 
+    public function findCustomerByIdWithCurrentMembership(int $customerId, int $accountId): ?Customer
+    {
+        return Customer::where('id', $customerId)
+            ->where('account_id', $accountId)
+            ->with('currentMembership')
+            ->first();
+    }
+
     /**
      * Update a customer
      *

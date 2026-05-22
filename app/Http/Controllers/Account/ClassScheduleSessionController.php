@@ -8,13 +8,15 @@ use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Account\ClassScheduleSessionResource;
 use App\Repositories\Account\ClassScheduleSessionRepository;
 use App\Services\Account\ClassScheduleService;
+use App\Services\Account\GroupClassSessionAuthorizationService;
 use Illuminate\Http\JsonResponse;
 
 class ClassScheduleSessionController
 {
     public function __construct(
         private ClassScheduleSessionRepository $classScheduleSessionRepository,
-        private ClassScheduleService $classScheduleService
+        private ClassScheduleService $classScheduleService,
+        private GroupClassSessionAuthorizationService $groupClassSessionAuthorization
     ) {
     }
 
@@ -42,9 +44,21 @@ class ClassScheduleSessionController
     {
         try {
             $genericData = $request->getGenericData();
-            $this->classScheduleSessionRepository->cancelSession($id, $genericData->userData->account_id);
+            $accountId = (int) $genericData->userData->account_id;
+            $session = $this->classScheduleSessionRepository->getSessionById($id, $accountId);
+            $this->groupClassSessionAuthorization->assertMayManageGroupClassSession(
+                $genericData->userData,
+                $session
+            );
+
+            $this->classScheduleSessionRepository->cancelSession($id, $accountId);
+
             return ApiResponse::success(null, 'Session cancelled successfully');
         } catch (\Exception $e) {
+            if (GroupClassSessionAuthorizationService::isForbiddenAuthorizationMessage($e->getMessage())) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+
             return ApiResponse::error($e->getMessage(), 400);
         }
     }
@@ -60,9 +74,21 @@ class ClassScheduleSessionController
     {
         try {
             $genericData = $request->getGenericDataWithValidated();
+            $accountId = (int) $genericData->userData->account_id;
+            $session = $this->classScheduleSessionRepository->getSessionById($id, $accountId);
+            $this->groupClassSessionAuthorization->assertMayManageGroupClassSession(
+                $genericData->userData,
+                $session
+            );
+
             $session = $this->classScheduleService->updateClassScheduleSession($id, $genericData);
+
             return ApiResponse::success(new ClassScheduleSessionResource($session), 'Session updated successfully');
         } catch (\Exception $e) {
+            if (GroupClassSessionAuthorizationService::isForbiddenAuthorizationMessage($e->getMessage())) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+
             return ApiResponse::error($e->getMessage(), 400);
         }
     }

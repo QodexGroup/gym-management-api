@@ -9,13 +9,15 @@ use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Account\ClassScheduleResource;
 use App\Repositories\Account\ClassScheduleRepository;
 use App\Services\Account\ClassScheduleService;
+use App\Services\Account\GroupClassSessionAuthorizationService;
 use Illuminate\Http\JsonResponse;
 
 class ClassScheduleController
 {
     public function __construct(
         private ClassScheduleRepository $classScheduleRepository,
-        private ClassScheduleService $classScheduleService
+        private ClassScheduleService $classScheduleService,
+        private GroupClassSessionAuthorizationService $groupClassSessionAuthorization
     ) {
     }
 
@@ -66,10 +68,18 @@ class ClassScheduleController
     {
         try {
             $genericData = $request->getGenericDataWithValidated();
-            $genericData->getData()->classType = ClassTypeScheduleConstant::GROUP_CLASS;
+            $dto = $genericData->getData();
+            $this->groupClassSessionAuthorization->assertCoachSelfAssignCoachIdOnCreate(
+                $genericData->userData,
+                (int) $dto->coachId
+            );
+            $dto->classType = ClassTypeScheduleConstant::GROUP_CLASS;
             $schedule = $this->classScheduleService->createClassSchedule($genericData);
             return ApiResponse::success(new ClassScheduleResource($schedule), 'Class schedule created successfully', 201);
         } catch (\Exception $e) {
+            if (GroupClassSessionAuthorizationService::isForbiddenAuthorizationMessage($e->getMessage())) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
             if (str_contains($e->getMessage(), 'limit') || str_contains($e->getMessage(), 'trial')) {
                 return ApiResponse::error($e->getMessage(), 403);
             }
@@ -84,9 +94,32 @@ class ClassScheduleController
      */
     public function updateClassSchedule(ClassScheduleRequest $request, int $id): JsonResponse
     {
-        $genericData = $request->getGenericDataWithValidated();
-        $schedule = $this->classScheduleService->updateClassSchedule($id, $genericData);
-        return ApiResponse::success(new ClassScheduleResource($schedule), 'Class schedule updated successfully');
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $accountId = (int) $genericData->userData->account_id;
+            $schedule = $this->classScheduleRepository->findClassScheduleById($id, $accountId);
+            $this->groupClassSessionAuthorization->assertMayManageExistingGroupSchedule(
+                $genericData->userData,
+                $schedule
+            );
+
+            $dto = $genericData->getData();
+            $coachFromPayload = isset($dto->coachId) ? (int) $dto->coachId : null;
+            $this->groupClassSessionAuthorization->assertCoachGroupScheduleUpdateCoachIdAllowed(
+                $genericData->userData,
+                $coachFromPayload
+            );
+
+            $schedule = $this->classScheduleService->updateClassSchedule($id, $genericData);
+
+            return ApiResponse::success(new ClassScheduleResource($schedule), 'Class schedule updated successfully');
+        } catch (\Exception $e) {
+            if (GroupClassSessionAuthorizationService::isForbiddenAuthorizationMessage($e->getMessage())) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+
+            throw $e;
+        }
     }
 
     /**
@@ -96,8 +129,23 @@ class ClassScheduleController
      */
     public function delete(GenericRequest $request, int $id): JsonResponse
     {
-        $genericData = $request->getGenericData();
-        $this->classScheduleService->deleteClassSchedule($id, $genericData);
-        return ApiResponse::success(null, 'Class schedule deleted successfully');
+        try {
+            $genericData = $request->getGenericData();
+            $accountId = (int) $genericData->userData->account_id;
+            $schedule = $this->classScheduleRepository->findClassScheduleById($id, $accountId);
+            $this->groupClassSessionAuthorization->assertMayManageExistingGroupSchedule(
+                $genericData->userData,
+                $schedule
+            );
+            $this->classScheduleService->deleteClassSchedule($id, $genericData);
+
+            return ApiResponse::success(null, 'Class schedule deleted successfully');
+        } catch (\Exception $e) {
+            if (GroupClassSessionAuthorizationService::isForbiddenAuthorizationMessage($e->getMessage())) {
+                return ApiResponse::error($e->getMessage(), 403);
+            }
+
+            throw $e;
+        }
     }
 }

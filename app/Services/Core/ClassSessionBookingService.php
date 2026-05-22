@@ -3,18 +3,47 @@
 namespace App\Services\Core;
 
 use App\Constant\ClassSessionBookingStatusConstant;
+use App\Constant\CustomerMembershipConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\ClassSessionBooking;
 use App\Repositories\Account\ClassScheduleSessionRepository;
 use App\Repositories\Core\ClassSessionBookingRepository;
+use App\Repositories\Core\CustomerRepository;
 use Illuminate\Support\Facades\DB;
 
 class ClassSessionBookingService
 {
+    public const CLIENT_DEACTIVATED_CANNOT_JOIN_MESSAGE = 'Client membership is deactivated and cannot join group class sessions';
+
     public function __construct(
         private ClassSessionBookingRepository $bookingRepository,
-        private ClassScheduleSessionRepository $sessionRepository
+        private ClassScheduleSessionRepository $sessionRepository,
+        private CustomerRepository $customerRepository
     ) {
+    }
+
+    public static function isDeactivatedClientCannotJoinMessage(?string $message): bool
+    {
+        return $message === self::CLIENT_DEACTIVATED_CANNOT_JOIN_MESSAGE;
+    }
+
+    /**
+     * Rejects group class bookings when the customer's latest membership row is deactivated.
+     *
+     * @throws \Exception
+     */
+    public function ensureCustomerMayJoinGroupClassSession(int $customerId, int $accountId): void
+    {
+        $customer = $this->customerRepository->findCustomerByIdWithCurrentMembership($customerId, $accountId);
+
+        if ($customer === null) {
+            throw new \Exception('Customer not found');
+        }
+
+        $membership = $customer->currentMembership;
+        if ($membership !== null && $membership->status === CustomerMembershipConstant::STATUS_DEACTIVATED) {
+            throw new \Exception(self::CLIENT_DEACTIVATED_CANNOT_JOIN_MESSAGE);
+        }
     }
 
     /**
@@ -38,6 +67,8 @@ class ClassSessionBookingService
             if (!$session) {
                 throw new \Exception('Class session not found');
             }
+
+            $this->ensureCustomerMayJoinGroupClassSession((int) $customerId, (int) $genericData->userData->account_id);
 
             // Check capacity - count all bookings except 'cancelled'
             $bookingsCount = $this->bookingRepository->getBookingsCount($sessionId, $genericData);
