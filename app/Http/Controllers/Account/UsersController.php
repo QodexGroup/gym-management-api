@@ -86,7 +86,7 @@ class UsersController
     public function deactivateUser(GenericRequest $request, int $id): JsonResponse
     {
         $data = $request->getGenericData();
-        $this->usersRepository->deactivateUser($id, $data->userData->account_id);
+        $this->usersService->deactivateUser($id, $data->userData->account_id);
         return ApiResponse::success(null, 'User deactivated successfully');
     }
 
@@ -99,7 +99,7 @@ class UsersController
     public function activateUser(GenericRequest $request, int $id): JsonResponse
     {
         $data = $request->getGenericData();
-        $this->usersRepository->activateUser($id, $data->userData->account_id);
+        $this->usersService->activateUser($id, $data->userData->account_id);
         return ApiResponse::success(null, 'User activated successfully');
     }
 

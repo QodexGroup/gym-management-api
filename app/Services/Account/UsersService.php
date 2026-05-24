@@ -2,6 +2,7 @@
 
 namespace App\Services\Account;
 
+use App\Constant\UserRoleConstant;
 use App\Helpers\GenericData;
 use App\Models\User;
 use App\Repositories\Account\UserPermissionRepository;
@@ -73,6 +74,10 @@ class UsersService
                 // Create user via repository
                 $user = $this->usersRepository->createUser($genericData);
 
+                if ($user->role === UserRoleConstant::ADMIN) {
+                    $permissions = [];
+                }
+
                 // Attach permissions
                 $this->attachPermissions($user->id, $permissions);
 
@@ -111,8 +116,9 @@ class UsersService
                 // Update user via repository
                 $user = $this->usersRepository->updateUser($id, $genericData);
 
-                // Update permissions if provided
-                if ($permissions !== null) {
+                if ($user->role === UserRoleConstant::ADMIN) {
+                    $this->syncPermissions($user->id, []);
+                } elseif ($permissions !== null) {
                     $this->syncPermissions($user->id, $permissions);
                 }
 
@@ -258,6 +264,56 @@ class UsersService
 
                 // Soft delete the user (permanent - no restoration)
                 return $user->delete();
+            });
+        } catch (\Throwable $th) {
+            throw $th;
+        }
+    }
+
+    /**
+     * Deactivate a user and disable Firebase access
+     *
+     * @param int $id
+     * @param int $accountId
+     * @return bool
+     * @throws \Throwable
+     */
+    public function deactivateUser(int $id, int $accountId): bool
+    {
+        try {
+            return DB::transaction(function () use ($id, $accountId) {
+                $user = $this->usersRepository->findUserById($id, $accountId);
+
+                if ($user->firebase_uid) {
+                    $this->disableFirebaseUser($user->firebase_uid);
+                }
+
+                return $this->usersRepository->deactivateUser($id, $accountId);
+            });
+        } catch (\Throwable $th) {
+            throw $th;
+        }
+    }
+
+    /**
+     * Activate a user and re-enable Firebase access
+     *
+     * @param int $id
+     * @param int $accountId
+     * @return bool
+     * @throws \Throwable
+     */
+    public function activateUser(int $id, int $accountId): bool
+    {
+        try {
+            return DB::transaction(function () use ($id, $accountId) {
+                $user = $this->usersRepository->findUserById($id, $accountId);
+
+                if ($user->firebase_uid) {
+                    $this->enableFirebaseUser($user->firebase_uid);
+                }
+
+                return $this->usersRepository->activateUser($id, $accountId);
             });
         } catch (\Throwable $th) {
             throw $th;
