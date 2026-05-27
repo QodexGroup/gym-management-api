@@ -18,6 +18,6 @@ jobs:
         run: bash <(curl -fsSL cli.new/install)
 
       - name: Deploy to Railway
-        run: railway up --service ${{ vars.RAILWAY_SERVICE_NAME }} --detach
+        run: railway up --service ${{ vars.RAILWAY_SERVICE_NAME }} --environment staging --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
