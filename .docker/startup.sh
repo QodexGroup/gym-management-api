@@ -73,7 +73,7 @@ echo "========================================="
 # Start Queue Worker in background
 (
     echo "Starting queue worker..."
-    php artisan queue:listen --sleep=3 --tries=3
+    php artisan queue:work --sleep=3 --tries=3 --max-time=3600
 ) &
 
 # Start Scheduler in background
