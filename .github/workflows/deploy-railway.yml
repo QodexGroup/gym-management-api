@@ -5,6 +5,9 @@ on:
     branches:
       - master
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
     name: Deploy to Railway
@@ -15,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Railway CLI
-        run: bash <(curl -fsSL cli.new/install)
+        run: npm install -g @railway/cli
 
       - name: Deploy to Railway
         run: railway up --service ${{ vars.RAILWAY_SERVICE_NAME }} --environment staging --detach
