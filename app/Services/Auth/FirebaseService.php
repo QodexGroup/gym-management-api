@@ -12,7 +12,15 @@ class FirebaseService
     public static function auth(): Auth
     {
         if (!self::$auth) {
-            $factory = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+            $credentialsJson = env('FIREBASE_CREDENTIALS');
+
+            if ($credentialsJson) {
+                $credentials = json_decode($credentialsJson, true);
+                $factory = (new Factory)->withServiceAccount($credentials);
+            } else {
+                $factory = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+            }
+
             self::$auth = $factory->createAuth();
         }
 
