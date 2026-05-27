@@ -74,10 +74,10 @@ COPY .docker/php-fpm/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
 # The user www-data belongs to the group www-data (GID 82)
 RUN chown -R 82:82 /app/storage /app/bootstrap/cache \
     && chmod -R 775 /app/storage /app/bootstrap/cache \
-    && mkdir -p /var/log/nginx /var/cache/nginx \
+    && mkdir -p /var/log/nginx /var/cache/nginx /var/lib/nginx/logs \
                /tmp/client_body /tmp/proxy /tmp/fastcgi /tmp/uwsgi /tmp/scgi \
-    && chown -R 82:82 /var/log/nginx /var/cache/nginx /tmp \
-    && chmod -R 755 /var/log/nginx /var/cache/nginx \
+    && chown -R 82:82 /var/log/nginx /var/cache/nginx /var/lib/nginx /tmp \
+    && chmod -R 755 /var/log/nginx /var/cache/nginx /var/lib/nginx \
     && chmod 1777 /tmp
 
 # Copy startup script

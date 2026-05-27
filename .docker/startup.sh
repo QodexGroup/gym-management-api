@@ -70,10 +70,15 @@ echo "========================================="
     fi
 ) &
 
-# Start Queue Worker in background
+# Start Queue Worker in background with auto-restart loop
+# --max-time=3600 prevents memory leaks by restarting every hour
 (
-    echo "Starting queue worker..."
-    php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    while true; do
+        echo "Starting queue worker..."
+        php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+        echo "Queue worker exited, restarting in 5 seconds..."
+        sleep 5
+    done
 ) &
 
 # Start Scheduler in background
