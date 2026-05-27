@@ -75,7 +75,7 @@ echo "========================================="
 (
     while true; do
         echo "Starting queue worker..."
-        php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+        php artisan queue:work --sleep=3 --tries=3 --timeout=60 --max-time=3600
         echo "Queue worker exited, restarting in 5 seconds..."
         sleep 5
     done
