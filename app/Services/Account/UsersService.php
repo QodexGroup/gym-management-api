@@ -134,6 +134,11 @@ class UsersService
     {
         try {
             $existingFirebaseUser = FirebaseService::auth()->getUserByEmail($genericData->getData()->email);
+
+            if (User::where('email', $genericData->getData()->email)->whereNull('deleted_at')->exists()) {
+                throw new \InvalidArgumentException('This email address is already in use.');
+            }
+
             $genericData->getData()->firebaseUid = $existingFirebaseUser->uid;
             $genericData->syncDataArray();
 
@@ -255,6 +260,10 @@ class UsersService
                 if ($user->firebase_uid) {
                     $this->disableFirebaseUser($user->firebase_uid);
                 }
+
+                $user->email = null;
+                $user->firebase_uid = null;
+                $user->save();
 
                 // Soft delete the user (permanent - no restoration)
                 return $user->delete();

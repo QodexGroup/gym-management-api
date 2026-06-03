@@ -16,8 +16,6 @@ class UserRequest extends GenericRequest
     public function rules(): array
     {
         $userId = $this->route('id'); // For update requests
-        $userData = $this->getUserData(); // Get user data from GenericRequest
-        $accountId = $userData ? $userData->account_id : null; // Get account_id from authenticated user
 
         return array_merge(parent::rules(), [
             'firstname' => ['required', 'string', 'max:255'],
@@ -27,7 +25,6 @@ class UserRequest extends GenericRequest
                 new ValidEmail(),
                 'max:255',
                 Rule::unique('users', 'email')
-                    ->where('account_id', $accountId)
                     ->whereNull('deleted_at')
                     ->ignore($userId),
             ],

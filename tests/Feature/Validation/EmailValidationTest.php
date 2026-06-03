@@ -50,13 +50,17 @@ class EmailValidationTest extends TestCase
         $signUpRequest = file_get_contents($root . DIRECTORY_SEPARATOR . 'app/Http/Requests/Auth/SignUpRequest.php');
         $this->assertIsString($signUpRequest);
         $this->assertStringContainsString('use App\\Rules\\ValidEmail;', $signUpRequest);
-        $this->assertStringContainsString("'email' => ['required', new ValidEmail()", $signUpRequest);
+        $this->assertStringContainsString('new ValidEmail()', $signUpRequest);
+        $this->assertStringContainsString("Rule::unique('users', 'email')", $signUpRequest);
+        $this->assertStringContainsString("->whereNull('deleted_at')", $signUpRequest);
         $this->assertStringContainsString("'billingEmail' => ['required', 'max:255', new ValidEmail()", $signUpRequest);
 
         $userRequest = file_get_contents($root . DIRECTORY_SEPARATOR . 'app/Http/Requests/Account/UserRequest.php');
         $this->assertIsString($userRequest);
         $this->assertStringContainsString('use App\\Rules\\ValidEmail;', $userRequest);
         $this->assertStringContainsString('new ValidEmail()', $userRequest);
+        $this->assertStringContainsString("->whereNull('deleted_at')", $userRequest);
+        $this->assertStringNotContainsString("->where('account_id'", $userRequest);
 
         $customerRequest = file_get_contents($root . DIRECTORY_SEPARATOR . 'app/Http/Requests/Core/CustomerRequest.php');
         $this->assertIsString($customerRequest);

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Auth;
 
 use App\Rules\ValidEmail;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class SignUpRequest extends FormRequest
 {
@@ -27,7 +28,12 @@ class SignUpRequest extends FormRequest
             'accountName' => ['required', 'string', 'max:255'],
             'firstname' => ['required', 'string', 'max:255'],
             'lastname' => ['required', 'string', 'max:255'],
-            'email' => ['required', new ValidEmail()],
+            'email' => [
+                'required',
+                new ValidEmail(),
+                'max:255',
+                Rule::unique('users', 'email')->whereNull('deleted_at'),
+            ],
             'phone' => ['nullable', 'string', 'max:50'],
             'billingName' => ['required', 'string', 'max:255'],
             'billingEmail' => ['required', 'max:255', new ValidEmail()],
@@ -37,6 +43,16 @@ class SignUpRequest extends FormRequest
             'billingProvince' => ['required', 'string', 'max:100'],
             'billingZip' => ['required', 'string', 'max:20'],
             'billingCountry' => ['required', 'string', 'size:2'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'email.unique' => 'This email address is already in use.',
         ];
     }
 }
