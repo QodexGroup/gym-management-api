@@ -2,86 +2,66 @@
 
 namespace App\Http\Controllers\Core;
 
+use App\Constant\UserStatusConstant;
+use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\GenericRequest;
 use App\Services\Core\DashboardService;
 use Illuminate\Http\JsonResponse;
-use Throwable;
 
 class DashboardController extends Controller
 {
-    protected DashboardService $dashboardService;
-
-    public function __construct(DashboardService $dashboardService)
-    {
-        $this->dashboardService = $dashboardService;
-    }
+    public function __construct(
+        protected DashboardService $dashboardService
+    ) {}
 
     /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function jsonError(string $message, int $status, ?Throwable $e = null, array $payload = []): JsonResponse
-    {
-        $body = array_merge(['success' => false, 'message' => $message], $payload);
-        if ($e !== null && config('app.debug')) {
-            $body['error'] = $e->getMessage();
-        }
-
-        return response()->json($body, $status);
-    }
-
-    /**
-     * Full account dashboard metrics (admin/staff only). Used by reports and admin surfaces.
+     * @param GenericRequest $request
+     *
+     * @return JsonResponse
      */
     public function getAccountMetrics(GenericRequest $request): JsonResponse
     {
         try {
             $user = $request->getUserData();
-            $role = (string) ($user->role ?? '');
 
-            if (!in_array($role, ['admin', 'staff'], true)) {
-                return $this->jsonError('Forbidden', 403);
+            if (!in_array($user->role ?? '', [UserStatusConstant::ADMIN, UserStatusConstant::STAFF], true)) {
+                return ApiResponse::error('Forbidden', 403);
             }
 
             $stats = $this->dashboardService->getStats((int) $user->account_id);
 
-            return response()->json([
-                'success' => true,
-                'data' => $stats,
-            ]);
+            return ApiResponse::success($stats);
         } catch (\Throwable $e) {
-            return $this->jsonError('Failed to fetch account metrics', 500, $e);
+            return ApiResponse::error('Failed to fetch account metrics', 500);
         }
     }
 
     /**
-     * Get dashboard statistics
+     * @param GenericRequest $request
      *
      * @return JsonResponse
      */
     public function getStats(GenericRequest $request): JsonResponse
     {
         try {
-            $getUserData = $request->getUserData();
-            $accountId = (int) $getUserData->account_id;
+            $user = $request->getUserData();
+            $accountId = (int) $user->account_id;
 
-            if (($getUserData->role ?? '') === 'coach') {
-                $stats = $this->dashboardService->getCoachDashboardStats($accountId);
-            } else {
-                $stats = $this->dashboardService->getStats($accountId);
-            }
+            $stats = ($user->role ?? '') === UserStatusConstant::COACH
+                ? $this->dashboardService->getCoachDashboardStats($accountId)
+                : $this->dashboardService->getStats($accountId);
 
-            return response()->json([
-                'success' => true,
-                'data' => $stats,
-            ]);
+            return ApiResponse::success($stats);
         } catch (\Throwable $e) {
-            return $this->jsonError('Failed to fetch dashboard statistics', 500, $e);
+            return ApiResponse::error('Failed to fetch dashboard statistics', 500);
         }
     }
 
     /**
-     * Today's and upcoming class / PT sessions with participants (dashboards).
+     * @param GenericRequest $request
+     *
+     * @return JsonResponse
      */
     public function getUpcomingSessions(GenericRequest $request): JsonResponse
     {
@@ -89,7 +69,7 @@ class DashboardController extends Controller
             $user = $request->getUserData();
             $accountId = (int) $user->account_id;
             $limit = min(50, max(1, (int) $request->query('limit', 10)));
-            $isCoach = isset($user->role) && $user->role === 'coach';
+            $isCoach = ($user->role ?? '') === UserStatusConstant::COACH;
             $coachId = $isCoach ? (int) $user->id : null;
 
             $payload = $this->dashboardService->getUpcomingSessionsWithParticipants(
@@ -99,24 +79,24 @@ class DashboardController extends Controller
                 $limit
             );
 
-            return response()->json([
-                'success' => true,
-                'data' => $payload,
-            ]);
+            return ApiResponse::success($payload);
         } catch (\Throwable $e) {
-            return $this->jsonError('Failed to fetch upcoming sessions', 500, $e);
+            return ApiResponse::error('Failed to fetch upcoming sessions', 500);
         }
     }
 
     /**
-     * Coach-only: assigned PT clients for dashboard list.
+     * @param GenericRequest $request
+     *
+     * @return JsonResponse
      */
     public function getCoachPtClients(GenericRequest $request): JsonResponse
     {
         try {
             $user = $request->getUserData();
-            if (!isset($user->role) || $user->role !== 'coach') {
-                return $this->jsonError('Forbidden', 403);
+
+            if (($user->role ?? '') !== UserStatusConstant::COACH) {
+                return ApiResponse::error('Forbidden', 403);
             }
 
             $limit = min(50, max(1, (int) $request->query('limit', 10)));
@@ -126,12 +106,9 @@ class DashboardController extends Controller
                 $limit
             );
 
-            return response()->json([
-                'success' => true,
-                'data' => $payload,
-            ]);
+            return ApiResponse::success($payload);
         } catch (\Throwable $e) {
-            return $this->jsonError('Failed to fetch PT clients', 500, $e);
+            return ApiResponse::error('Failed to fetch PT clients', 500);
         }
     }
 }

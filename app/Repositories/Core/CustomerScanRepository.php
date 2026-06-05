@@ -2,12 +2,14 @@
 
 namespace App\Repositories\Core;
 
+use App\Repositories\BaseRepository;
+
 use App\Helpers\GenericData;
 use Illuminate\Pagination\LengthAwarePaginator;
 use App\Models\Core\CustomerScans;
 use Illuminate\Database\Eloquent\Collection;
 
-class CustomerScanRepository
+class CustomerScanRepository extends BaseRepository
 {
     /**
      * @param GenericData $genericData
@@ -28,11 +30,7 @@ class CustomerScanRepository
             ];
         }
 
-        $genericData->applyRelations($query);
-        $genericData->applyFilters($query);
-        $genericData->applySorts($query);
-
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData);
     }
 
     /**

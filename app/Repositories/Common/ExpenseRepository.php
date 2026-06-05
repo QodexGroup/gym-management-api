@@ -2,13 +2,15 @@
 
 namespace App\Repositories\Common;
 
+use App\Repositories\BaseRepository;
+
 use App\Constant\ExpenseStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Common\Expense;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
-class ExpenseRepository
+class ExpenseRepository extends BaseRepository
 {
     /**
      * Get all expenses for account_id
@@ -32,11 +34,9 @@ class ExpenseRepository
         }
         $genericData->filters = array_diff_key($filters, array_flip(['dateFrom', 'dateTo', 'date_from', 'date_to']));
 
-        $genericData->applyRelations($query);
-        $genericData->applyFilters($query);
-        $genericData->applySorts($query);
+        $query->orderByDesc('expense_date');
 
-        return $query->orderByDesc('expense_date')->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData);
     }
 
     /**

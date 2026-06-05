@@ -2,11 +2,13 @@
 
 namespace App\Repositories\Core;
 
+use App\Repositories\BaseRepository;
+
 use App\Helpers\GenericData;
 use App\Models\Core\CustomerProgress;
 use Illuminate\Pagination\LengthAwarePaginator;
 
-class CustomerProgressRepository
+class CustomerProgressRepository extends BaseRepository
 {
     public function getAllProgress(GenericData $genericData): LengthAwarePaginator
     {
@@ -26,11 +28,7 @@ class CustomerProgressRepository
             ];
         }
 
-        $genericData->applyRelations($query);
-        $genericData->applyFilters($query);
-        $genericData->applySorts($query);
-
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData);
     }
 
     /**

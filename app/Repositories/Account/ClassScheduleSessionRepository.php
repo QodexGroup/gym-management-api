@@ -2,6 +2,8 @@
 
 namespace App\Repositories\Account;
 
+use App\Repositories\BaseRepository;
+
 use App\Constant\ClassSessionBookingStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\ClassScheduleSession;
@@ -9,7 +11,7 @@ use App\Models\Core\PtBooking;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
-class ClassScheduleSessionRepository
+class ClassScheduleSessionRepository extends BaseRepository
 {
     /**
      * Get all class schedule sessions
@@ -58,13 +60,7 @@ class ClassScheduleSessionRepository
             $query->whereDate('start_time', '<=', $endDate);
         }
 
-        $query = $genericData->applyRelations($query);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
-
-        return $genericData->pageSize > 0
-            ? $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page)
-            : $query->get();
+        return $this->paginateWithGenericData($query, $genericData);
     }
 
 

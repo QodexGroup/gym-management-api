@@ -2,6 +2,8 @@
 
 namespace App\Repositories\Core;
 
+use App\Repositories\BaseRepository;
+
 use App\Constant\ClassSessionBookingStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\ClassSchedule;
@@ -11,7 +13,7 @@ use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
-class PtBookingRepository
+class PtBookingRepository extends BaseRepository
 {
      /**
      * Get PT bookings by date range for calendar view
@@ -25,13 +27,9 @@ class PtBookingRepository
             ->whereDate('booking_date', '>=', $genericData->getData()->startDate)
             ->whereDate('booking_date', '<=', $genericData->getData()->endDate);
 
-        // Apply relations, filters, and sorts using GenericData methods
-        $query = $genericData->applyRelations($query);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
-
-        return $query->get();
+        return $this->applyGenericData($query, $genericData)->get();
     }
+
     /**
      * Get PT bookings by coach ID and date range
      *
@@ -50,12 +48,7 @@ class PtBookingRepository
             ->whereDate('booking_date', '>=', $genericData->getData()->startDate)
             ->whereDate('booking_date', '<=', $genericData->getData()->endDate);
 
-        // Apply relations, filters, and sorts using GenericData methods
-        $query = $genericData->applyRelations($query);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
-
-        return $query->get();
+        return $this->applyGenericData($query, $genericData)->get();
     }
 
     /**
@@ -253,12 +246,7 @@ class PtBookingRepository
             ->whereDate('booking_date', '>=', $today)
             ->where('status', '!=', ClassSessionBookingStatusConstant::STATUS_CANCELLED);
 
-        // Apply relations, filters, and sorts using GenericData methods
-        $query = $genericData->applyRelations($query);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
-
-        return $query->get();
+        return $this->applyGenericData($query, $genericData)->get();
     }
 
     /**
@@ -284,11 +272,6 @@ class PtBookingRepository
                   ]);
             });
 
-        // Apply relations, filters, and sorts using GenericData methods
-        $query = $genericData->applyRelations($query);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
-
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData);
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Repositories\Core;
 
+use App\Repositories\BaseRepository;
+
 use App\Constant\CustomerMembershipConstant;
 use App\Constant\CustomerPtPackageConstant;
 use App\Helpers\GenericData;
@@ -16,7 +18,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class CustomerRepository
+class CustomerRepository extends BaseRepository
 {
     /**
      * Get all customers with pagination, filtering, sorting, and relations
@@ -70,12 +72,7 @@ class CustomerRepository
             }
         }
 
-        // Apply relations, filters, and sorts using GenericData methods
-        $query = $genericData->applyRelations($query, ['currentMembership.membershipPlan', 'currentTrainer']);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
-
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData, ['currentMembership.membershipPlan', 'currentTrainer']);
 
     }
 
