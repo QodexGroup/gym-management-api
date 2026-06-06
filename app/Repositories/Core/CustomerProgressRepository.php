@@ -19,12 +19,13 @@ class CustomerProgressRepository extends BaseRepository
         // Set default relations if not specified
         if (empty($genericData->relations)) {
             $genericData->relations = [
+                'recordedByUser',
                 'files' => function ($query) use ($accountId) {
                     $query->where('account_id', $accountId);
                 },
                 'scan.files' => function ($query) use ($accountId) {
                     $query->where('account_id', $accountId);
-                }
+                },
             ];
         }
 

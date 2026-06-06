@@ -96,7 +96,10 @@ class DashboardService
             $participants = [];
             foreach ($bookingsBySession->get((int) $session->id, collect()) as $b) {
                 if ($b->customer) {
-                    $participants[] = ['customerId' => $b->customer->id, 'name' => $b->customer->full_name];
+                    $participants[] = [
+                        'customerId' => $b->customer->id,
+                        'name' => trim(($b->customer->first_name ?? '') . ' ' . ($b->customer->last_name ?? '')) ?: 'Unknown',
+                    ];
                 }
             }
 
@@ -157,7 +160,10 @@ class DashboardService
             $participants = [];
             foreach ($matched as $pb) {
                 if ($pb->customer) {
-                    $participants[] = ['customerId' => $pb->customer->id, 'name' => $pb->customer->full_name];
+                    $participants[] = [
+                        'customerId' => $pb->customer->id,
+                        'name' => trim(($pb->customer->first_name ?? '') . ' ' . ($pb->customer->last_name ?? '')) ?: 'Unknown',
+                    ];
                 }
             }
 

@@ -24,9 +24,10 @@ class CustomerScanRepository extends BaseRepository
         // Set default relations if not specified
         if (empty($genericData->relations)) {
             $genericData->relations = [
+                'uploadedByUser',
                 'files' => function ($query) use ($accountId) {
                     $query->where('account_id', $accountId);
-                }
+                },
             ];
         }
 
