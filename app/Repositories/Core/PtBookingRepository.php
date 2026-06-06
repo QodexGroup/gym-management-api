@@ -274,4 +274,25 @@ class PtBookingRepository extends BaseRepository
 
         return $this->paginateWithGenericData($query, $genericData);
     }
+
+    /**
+     * @param int $accountId
+     * @param array $scheduleIds
+     * @param string $dateFrom
+     * @param string $dateTo
+     *
+     * @return Collection
+     */
+    public function getActiveBookingsByScheduleAndDateRange(int $accountId, array $scheduleIds, string $dateFrom, string $dateTo): Collection
+    {
+        return PtBooking::where('account_id', $accountId)
+            ->whereIn('class_schedule_id', $scheduleIds)
+            ->whereBetween('booking_date', [$dateFrom, $dateTo])
+            ->whereNotIn('status', [
+                ClassSessionBookingStatusConstant::STATUS_CANCELLED,
+                ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED,
+            ])
+            ->with('customer')
+            ->get();
+    }
 }

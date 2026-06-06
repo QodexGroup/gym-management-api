@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Core;
 
 use App\Constant\UserStatusConstant;
+use App\Data\UpcomingSessions;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\GenericRequest;
@@ -48,7 +49,7 @@ class DashboardController extends Controller
             $user = $request->getUserData();
             $accountId = (int) $user->account_id;
 
-            $stats = ($user->role ?? '') === UserStatusConstant::COACH
+            $stats = $user->role === UserStatusConstant::COACH
                 ? $this->dashboardService->getCoachDashboardStats($accountId)
                 : $this->dashboardService->getStats($accountId);
 
@@ -68,16 +69,15 @@ class DashboardController extends Controller
         try {
             $user = $request->getUserData();
             $accountId = (int) $user->account_id;
-            $limit = min(50, max(1, (int) $request->query('limit', 10)));
-            $isCoach = ($user->role ?? '') === UserStatusConstant::COACH;
+            $isCoach = $user->role === UserStatusConstant::COACH;
             $coachId = $isCoach ? (int) $user->id : null;
 
-            $payload = $this->dashboardService->getUpcomingSessionsWithParticipants(
-                $accountId,
-                $coachId,
-                $isCoach,
-                $limit
-            );
+            $groupSessions = $this->dashboardService->getUpcomingGroupSessions($accountId, $coachId, $isCoach);
+            $ptSessions = $this->dashboardService->getUpcomingPtSessions($accountId, $coachId, $isCoach);
+
+            $payload = new UpcomingSessions();
+            $payload->groupSessions = $groupSessions;
+            $payload->ptSessions = $ptSessions;
 
             return ApiResponse::success($payload);
         } catch (\Throwable $e) {
@@ -99,12 +99,7 @@ class DashboardController extends Controller
                 return ApiResponse::error('Forbidden', 403);
             }
 
-            $limit = min(50, max(1, (int) $request->query('limit', 10)));
-            $payload = $this->dashboardService->getCoachAssignedPtClients(
-                (int) $user->account_id,
-                (int) $user->id,
-                $limit
-            );
+            $payload = $this->dashboardService->getCoachAssignedPtClients((int) $user->account_id, (int) $user->id);
 
             return ApiResponse::success($payload);
         } catch (\Throwable $e) {

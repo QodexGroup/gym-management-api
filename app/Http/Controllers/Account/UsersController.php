@@ -39,16 +39,9 @@ class UsersController
      */
     public function createUser(UserRequest $request): JsonResponse
     {
-        try {
-            $genericData = $request->getGenericDataWithValidated();
-            $user = $this->usersService->createUser($genericData);
-            return ApiResponse::success(new UserResource($user), 'User created successfully');
-        } catch (\Exception $e) {
-            if (str_contains($e->getMessage(), 'limit') || str_contains($e->getMessage(), 'trial')) {
-                return ApiResponse::error($e->getMessage(), 403);
-            }
-            throw $e;
-        }
+        $genericData = $request->getGenericDataWithValidated();
+        $user = $this->usersService->createUser($genericData);
+        return ApiResponse::success(new UserResource($user), 'User created successfully');
     }
 
     /**
@@ -126,6 +119,6 @@ class UsersController
     {
         $data = $request->getGenericData();
         $coaches = $this->usersRepository->getAllCoaches($data);
-        return ApiResponse::success(UserResource::collection($coaches)->response()->getData(true)['data'] ?? []);
+        return ApiResponse::success(UserResource::collection($coaches));
     }
 }

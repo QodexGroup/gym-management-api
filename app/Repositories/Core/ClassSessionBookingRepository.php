@@ -254,4 +254,22 @@ class ClassSessionBookingRepository extends BaseRepository
 
         return $this->paginateWithGenericData($query, $genericData);
     }
+
+    /**
+     * @param int $accountId
+     * @param array $sessionIds
+     *
+     * @return Collection
+     */
+    public function getActiveBookingsBySessionIds(int $accountId, array $sessionIds): Collection
+    {
+        return ClassSessionBooking::where('account_id', $accountId)
+            ->whereIn('class_schedule_session_id', $sessionIds)
+            ->whereNotIn('status', [
+                ClassSessionBookingStatusConstant::STATUS_CANCELLED,
+                ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED,
+            ])
+            ->with('customer')
+            ->get();
+    }
 }

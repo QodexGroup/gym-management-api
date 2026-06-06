@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Core;
 
+use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use Aws\S3\S3Client;
 use Illuminate\Http\Request;
@@ -39,7 +40,7 @@ class StorageController extends Controller
 
         $presignedRequest = $s3Client->createPresignedRequest($cmd, '+15 minutes');
 
-        return response()->json([
+        return ApiResponse::success([
             'url' => (string) $presignedRequest->getUri(),
             'path' => $request->path,
         ]);

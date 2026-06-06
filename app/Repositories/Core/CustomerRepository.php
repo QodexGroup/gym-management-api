@@ -284,5 +284,89 @@ class CustomerRepository extends BaseRepository
             ->first();
     }
 
+    /**
+     * @param int $accountId
+     *
+     * @return int
+     */
+    public function countByAccountId(int $accountId): int
+    {
+        return Customer::where('account_id', $accountId)->count();
+    }
+
+    /**
+     * @param int $accountId
+     *
+     * @return int
+     */
+    public function countWithActiveMembership(int $accountId): int
+    {
+        return Customer::where('account_id', $accountId)
+            ->whereHas('memberships', function ($q) use ($accountId) {
+                $q->where('status', CustomerMembershipConstant::STATUS_ACTIVE)
+                  ->where('account_id', $accountId)
+                  ->whereDate('membership_end_date', '>=', today());
+            })
+            ->count();
+    }
+
+    /**
+     * @param int $accountId
+     * @param Carbon $from
+     * @param Carbon $to
+     *
+     * @return int
+     */
+    public function countRegisteredBetween(int $accountId): int
+    {
+        return Customer::where('account_id', $accountId)
+            ->whereBetween('created_at', [Carbon::now()->startOfDay(), Carbon::now()->endOfDay()])
+            ->count();
+    }
+
+    /**
+     * @param int $accountId
+     * @param int $coachId
+     *
+     * @return int
+     */
+    public function countCoachPtClients(int $accountId, int $coachId): int
+    {
+        return Customer::where('account_id', $accountId)
+            ->whereIn('id', function ($sub) use ($accountId, $coachId) {
+                $sub->select('customer_id')
+                    ->from((new CustomerPtPackage())->getTable())
+                    ->where('account_id', $accountId)
+                    ->where('coach_id', $coachId)
+                    ->where('status', CustomerPtPackageConstant::STATUS_ACTIVE)
+                    ->whereNull('deleted_at');
+            })
+            ->count();
+    }
+
+    /**
+     * @param int $accountId
+     * @param int $coachId
+     *
+     * @return Collection
+     */
+    public function getCoachPtClients(int $accountId, int $coachId): Collection
+    {
+        return Customer::where('account_id', $accountId)
+            ->whereIn('id', function ($sub) use ($accountId, $coachId) {
+                $sub->select('customer_id')
+                    ->from((new CustomerPtPackage())->getTable())
+                    ->where('account_id', $accountId)
+                    ->where('coach_id', $coachId)
+                    ->where('status', CustomerPtPackageConstant::STATUS_ACTIVE)
+                    ->whereNull('deleted_at');
+            })
+            ->with(['currentMembership.membershipPlan'])
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->limit(10)
+            ->get();
+    }
+
 }
 

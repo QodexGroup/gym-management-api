@@ -47,21 +47,8 @@ class CustomerPaymentService
                 /** @var CustomerBill $bill */
                 $bill = $this->billRepository->findBillById($billId, $accountId);
 
-                if ($bill->customer_id !== $customerId) {
-                    throw new \RuntimeException('Bill does not belong to the specified customer.');
-                }
+                $this->validatePaymentRequest($bill, $customerId, $amount, $accountId);
 
-                $this->ensureBillIsPayableForCurrentCycle($bill, $accountId);
-
-                $netAmount = (float) $bill->net_amount;
-                $paidAmount = (float) $bill->paid_amount;
-                $remaining = $netAmount - $paidAmount;
-
-                if ($amount <= 0 || $amount > $remaining) {
-                    throw new \RuntimeException('Invalid payment amount.');
-                }
-
-                // Ensure paymentMethod has a default value
                 if (!isset($genericData->getData()->paymentMethod)) {
                     $genericData->getData()->paymentMethod = 'cash';
                     $genericData->syncDataArray();
@@ -70,15 +57,11 @@ class CustomerPaymentService
                 /** @var CustomerPayment $payment */
                 $payment = $this->paymentRepository->create($genericData);
 
-                // Update bill paid amount and status via dedicated repository method
-                $newPaidAmount = $paidAmount + $amount;
+                $newPaidAmount = (float) $bill->paid_amount + $amount;
                 $newStatus = $this->determineBillStatus($bill->net_amount, $newPaidAmount);
-
                 $this->billRepository->updatePaidAmount($billId, $accountId, $newPaidAmount, $newStatus, $updatedBy);
 
-                // Recalculate customer balance using existing model method
-                $customer = $this->customerRepository->findCustomerById($customerId, $accountId);
-                $customer->recalculateBalance();
+                $this->customerRepository->findCustomerById($customerId, $accountId)->recalculateBalance();
 
                 // Handle reactivation fee payment - create membership with free month
                 if ($bill->bill_type === CustomerBillConstant::BILL_TYPE_REACTIVATION_FEE) {
@@ -160,6 +143,23 @@ class CustomerPaymentService
     public function getPaymentsForBill(int $billId, int $accountId)
     {
         return $this->paymentRepository->getByBillId($billId, $accountId);
+    }
+
+    /**
+     * Validate that a payment can be applied to a bill.
+     */
+    private function validatePaymentRequest(CustomerBill $bill, int $customerId, float $amount, int $accountId): void
+    {
+        if ($bill->customer_id !== $customerId) {
+            throw new \RuntimeException('Bill does not belong to the specified customer.');
+        }
+
+        $this->ensureBillIsPayableForCurrentCycle($bill, $accountId);
+
+        $remaining = (float) $bill->net_amount - (float) $bill->paid_amount;
+        if ($amount <= 0 || $amount > $remaining) {
+            throw new \RuntimeException('Invalid payment amount.');
+        }
     }
 
     /**

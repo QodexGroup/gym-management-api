@@ -2,13 +2,13 @@
 
 namespace App\Repositories\Core;
 
-use App\Constant\CustomerBillConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\CustomerPayment;
+use App\Repositories\BaseRepository;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 
-class CustomerPaymentRepository
+class CustomerPaymentRepository extends BaseRepository
 {
     /**
      * Create a new customer payment.
@@ -92,13 +92,7 @@ class CustomerPaymentRepository
         $sum = CustomerPayment::where('account_id', $accountId)
             ->where('payment_date', '>=', $dateFrom)
             ->where('payment_date', '<=', $dateTo)
-            ->whereHas('bill', function ($q) use ($coachId) {
-                $q->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
-                  ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
-                  ->whereHas('customerPtPackage', function ($ptQ) use ($coachId) {
-                      $ptQ->where('coach_id', $coachId);
-                  });
-            })
+            ->forCoachPtPackage($coachId)
             ->sum('amount');
 
         return (float) $sum;
@@ -118,13 +112,7 @@ class CustomerPaymentRepository
         return CustomerPayment::where('account_id', $accountId)
             ->where('payment_date', '>=', $dateFrom)
             ->where('payment_date', '<=', $dateTo)
-            ->whereHas('bill', function ($q) use ($coachId) {
-                $q->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
-                  ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
-                  ->whereHas('customerPtPackage', function ($ptQ) use ($coachId) {
-                      $ptQ->where('coach_id', $coachId);
-                  });
-            })
+            ->forCoachPtPackage($coachId)
             ->count();
     }
 
@@ -139,13 +127,7 @@ class CustomerPaymentRepository
     public function getCoachPtEarningsByMonth(int $accountId, int $coachId, int $months = 6): array
     {
         $rows = CustomerPayment::where('account_id', $accountId)
-            ->whereHas('bill', function ($q) use ($coachId) {
-                $q->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
-                  ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
-                  ->whereHas('customerPtPackage', function ($ptQ) use ($coachId) {
-                      $ptQ->where('coach_id', $coachId);
-                  });
-            })
+            ->forCoachPtPackage($coachId)
             ->selectRaw("DATE_FORMAT(payment_date, '%Y-%m') as month_key, SUM(amount) as earnings")
             ->groupBy('month_key')
             ->orderByDesc('month_key')
@@ -176,13 +158,7 @@ class CustomerPaymentRepository
         $rows = CustomerPayment::where('account_id', $accountId)
             ->where('payment_date', '>=', $dateFrom)
             ->where('payment_date', '<=', $dateTo)
-            ->whereHas('bill', function ($q) use ($coachId) {
-                $q->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
-                  ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
-                  ->whereHas('customerPtPackage', function ($ptQ) use ($coachId) {
-                      $ptQ->where('coach_id', $coachId);
-                  });
-            })
+            ->forCoachPtPackage($coachId)
             ->selectRaw("YEARWEEK(payment_date, 3) as week_key, SUM(amount) as earnings, COUNT(*) as payments")
             ->groupBy('week_key')
             ->orderBy('week_key')
@@ -212,13 +188,7 @@ class CustomerPaymentRepository
     public function getRecentPtPaymentsForCoach(int $accountId, int $coachId, int $limit = 10): Collection
     {
         return CustomerPayment::where('account_id', $accountId)
-            ->whereHas('bill', function ($q) use ($coachId) {
-                $q->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
-                  ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
-                  ->whereHas('customerPtPackage', function ($ptQ) use ($coachId) {
-                      $ptQ->where('coach_id', $coachId);
-                  });
-            })
+            ->forCoachPtPackage($coachId)
             ->with(['customer'])
             ->orderByDesc('payment_date')
             ->orderByDesc('created_at')

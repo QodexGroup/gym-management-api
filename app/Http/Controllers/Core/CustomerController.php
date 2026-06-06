@@ -12,10 +12,8 @@ use App\Http\Resources\Core\CustomerResource;
 use App\Http\Resources\Core\CustomerMembershipResource;
 use App\Http\Resources\Core\CustomerPtPackageResource;
 use App\Repositories\Core\CustomerRepository;
-use App\Repositories\Account\MembershipPlanRepository;
 use App\Services\Core\CustomerService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -62,16 +60,9 @@ class CustomerController extends Controller
      */
     public function store(CustomerRequest $request): JsonResponse
     {
-        try {
-            $genericData = $request->getGenericDataWithValidated();
-            $customer = $this->customerService->create($genericData);
-            return ApiResponse::success(new CustomerResource($customer), 'Customer created successfully', 201);
-        } catch (\Exception $e) {
-            if (str_contains($e->getMessage(), 'limit') || str_contains($e->getMessage(), 'trial')) {
-                return ApiResponse::error($e->getMessage(), 403);
-            }
-            throw $e;
-        }
+        $genericData = $request->getGenericDataWithValidated();
+        $customer = $this->customerService->create($genericData);
+        return ApiResponse::success(new CustomerResource($customer), 'Customer created successfully', 201);
     }
 
     /**
