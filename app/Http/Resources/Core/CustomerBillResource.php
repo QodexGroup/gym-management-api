@@ -39,7 +39,7 @@ class CustomerBillResource extends JsonResource
             'createdBy' => $this->whenLoaded('creator', function () {
                 return [
                     'id' => $this->creator->id,
-                    'name' => $this->creator->name,
+                    'name' => trim(($this->creator->firstname ?? '') . ' ' . ($this->creator->lastname ?? '')) ?: null,
                     'email' => $this->creator->email,
                 ];
             }),

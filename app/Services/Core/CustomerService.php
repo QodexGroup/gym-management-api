@@ -141,15 +141,7 @@ class CustomerService
 
                 // If there was an old membership, void its bills with outstanding balance
                 if ($oldMembership) {
-                    $oldBills = $this->customerBillRepository->findMembershipBillsWithOutstandingBalance(
-                        $customerId,
-                        $accountId,
-                        $oldMembership->membership_plan_id
-                    );
-
-                    foreach ($oldBills as $oldBill) {
-                        $this->customerBillRepository->voidBill($oldBill->id, $accountId);
-                    }
+                    $this->voidOutstandingMembershipBills($oldMembership, $customerId, $accountId);
                 }
 
                 // Create automated bill for the new membership period (bill date = membership start date)
@@ -225,6 +217,22 @@ class CustomerService
                 'trace' => $th->getTraceAsString(),
             ]);
             throw $th;
+        }
+    }
+
+    /**
+     * Void all outstanding bills tied to a membership plan before assigning a new one.
+     */
+    private function voidOutstandingMembershipBills(CustomerMembership $oldMembership, int $customerId, int $accountId): void
+    {
+        $oldBills = $this->customerBillRepository->findMembershipBillsWithOutstandingBalance(
+            $customerId,
+            $accountId,
+            $oldMembership->membership_plan_id
+        );
+
+        foreach ($oldBills as $oldBill) {
+            $this->customerBillRepository->voidBill($oldBill->id, $accountId);
         }
     }
 

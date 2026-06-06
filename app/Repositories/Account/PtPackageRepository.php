@@ -2,12 +2,14 @@
 
 namespace App\Repositories\Account;
 
+use App\Repositories\BaseRepository;
+
 use App\Helpers\GenericData;
 use App\Models\Account\PtPackage;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
-class PtPackageRepository
+class PtPackageRepository extends BaseRepository
 {
     /**
      * Get all PT packages
@@ -19,17 +21,7 @@ class PtPackageRepository
     {
         $query = PtPackage::where('account_id', $genericData->userData->account_id);
 
-        // Apply relations, filters, and sorts using GenericData methods
-        $query = $genericData->applyRelations($query);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
-
-        // Check if pagination is requested
-        if ($genericData->pageSize > 0) {
-            return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
-        }
-
-        return $query->get();
+        return $this->paginateWithGenericData($query, $genericData);
     }
 
     /**

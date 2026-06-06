@@ -2,11 +2,13 @@
 
 namespace App\Repositories\Common;
 
+use App\Repositories\BaseRepository;
+
 use App\Helpers\GenericData;
 use App\Models\Common\ExpenseCategory;
 use Illuminate\Pagination\LengthAwarePaginator;
 
-class ExpenseCategoryRepository
+class ExpenseCategoryRepository extends BaseRepository
 {
     /**
      * Get all expense categories for account_id
@@ -19,11 +21,7 @@ class ExpenseCategoryRepository
         $accountId = $genericData->userData->account_id;
         $query = ExpenseCategory::where('account_id', $accountId);
 
-        $genericData->applyRelations($query);
-        $genericData->applyFilters($query);
-        $genericData->applySorts($query);
-
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData);
     }
 
     /**

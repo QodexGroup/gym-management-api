@@ -2,11 +2,13 @@
 
 namespace App\Repositories\Core;
 
+use App\Repositories\BaseRepository;
+
 use App\Helpers\GenericData;
 use App\Models\Core\CustomerProgress;
 use Illuminate\Pagination\LengthAwarePaginator;
 
-class CustomerProgressRepository
+class CustomerProgressRepository extends BaseRepository
 {
     public function getAllProgress(GenericData $genericData): LengthAwarePaginator
     {
@@ -17,20 +19,17 @@ class CustomerProgressRepository
         // Set default relations if not specified
         if (empty($genericData->relations)) {
             $genericData->relations = [
+                'recordedByUser',
                 'files' => function ($query) use ($accountId) {
                     $query->where('account_id', $accountId);
                 },
                 'scan.files' => function ($query) use ($accountId) {
                     $query->where('account_id', $accountId);
-                }
+                },
             ];
         }
 
-        $genericData->applyRelations($query);
-        $genericData->applyFilters($query);
-        $genericData->applySorts($query);
-
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData);
     }
 
     /**

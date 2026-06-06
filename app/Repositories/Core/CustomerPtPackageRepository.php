@@ -2,12 +2,14 @@
 
 namespace App\Repositories\Core;
 
+use App\Repositories\BaseRepository;
+
 use App\Constant\CustomerPtPackageConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\CustomerPtPackage;
 use Illuminate\Database\Eloquent\Collection;
 
-class CustomerPtPackageRepository
+class CustomerPtPackageRepository extends BaseRepository
 {
 
     /**

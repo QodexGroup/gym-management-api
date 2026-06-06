@@ -2,6 +2,8 @@
 
 namespace App\Repositories\Account;
 
+use App\Repositories\BaseRepository;
+
 use App\Constant\UserStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\User;
@@ -9,7 +11,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 
-class UsersRepository
+class UsersRepository extends BaseRepository
 {
     /**
      * @param GenericData $genericData
@@ -19,12 +21,7 @@ class UsersRepository
     {
         $query = User::where('account_id', $genericData->userData->account_id);
 
-        // Apply relations, filters, and sorts using GenericData methods
-        $query = $genericData->applyRelations($query, ['permissions']);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
-
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData, ['permissions']);
     }
 
     /**

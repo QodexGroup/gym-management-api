@@ -2,8 +2,10 @@
 
 namespace App\Models\Core;
 
+use App\Constant\CustomerBillConstant;
 use App\Models\User;
 use App\Traits\HasCamelCaseAttributes;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -81,6 +83,20 @@ class CustomerPayment extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * Scope to PT package payments belonging to a specific coach (non-voided bills only).
+     */
+    public function scopeForCoachPtPackage(Builder $query, int $coachId): Builder
+    {
+        return $query->whereHas('bill', function (Builder $q) use ($coachId): void {
+            $q->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
+              ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+              ->whereHas('customerPtPackage', function (Builder $ptQ) use ($coachId): void {
+                  $ptQ->where('coach_id', $coachId);
+              });
+        });
     }
 }
 

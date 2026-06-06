@@ -7,6 +7,7 @@ use App\Constant\CustomerMembershipConstant;
 use App\Helpers\GenericData;
 use App\Repositories\Account\MembershipPlanRepository;
 use App\Repositories\Core\CustomerBillRepository;
+use App\Repositories\Core\CustomerMembershipRepository;
 use App\Repositories\Core\CustomerRepository;
 use App\Models\Core\CustomerBill;
 use App\Models\Core\CustomerMembership;
@@ -19,6 +20,7 @@ class CustomerBillService
     public function __construct(
         private CustomerBillRepository $customerBillRepository,
         private CustomerRepository $customerRepository,
+        private CustomerMembershipRepository $membershipRepository,
         private MembershipPlanRepository $membershipPlanRepository
     ) {
     }
@@ -130,10 +132,7 @@ class CustomerBillService
                     if ($newMembershipPlanId && $oldMembershipPlanId != $newMembershipPlanId) {
                         // Remove old membership if it exists
                         if ($oldMembershipPlanId) {
-                            CustomerMembership::where('customer_id', $customerId)
-                                ->where('membership_plan_id', $oldMembershipPlanId)
-                                ->where('status', CustomerMembershipConstant::STATUS_ACTIVE)
-                                ->update(['status' => CustomerMembershipConstant::STATUS_DEACTIVATED]);
+                            $this->membershipRepository->deactivateMembershipByPlan($customerId, $oldMembershipPlanId);
                         }
 
                         // Create new membership only if bill is for current period

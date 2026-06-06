@@ -55,7 +55,7 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => env('APP_ENV') === 'staging' ? ['stderr'] : ['daily'],
+            'channels' => env('APP_ENV') === 'local' ? ['daily'] : ['stderr'],
             'ignore_exceptions' => false,
         ],
 
