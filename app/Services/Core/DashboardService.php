@@ -201,7 +201,7 @@ class DashboardService
 
             return [
                 'id' => $c->id,
-                'name' => $c->full_name,
+                'name' => trim(($c->first_name ?? '') . ' ' . ($c->last_name ?? '')) ?: 'Unknown',
                 'firstName' => $c->first_name,
                 'lastName' => $c->last_name,
                 'email' => $c->email,
@@ -244,7 +244,7 @@ class DashboardService
 
                 return [
                     'id' => $membership->customer->id,
-                    'name' => $membership->customer->full_name,
+                    'name' => trim(($membership->customer->first_name ?? '') . ' ' . ($membership->customer->last_name ?? '')) ?: 'Unknown',
                     'email' => $membership->customer->email,
                     'membership' => $membership->membershipPlan->plan_name ?? 'N/A',
                     'membershipExpiry' => $membership->membership_end_date->format('Y-m-d'),
