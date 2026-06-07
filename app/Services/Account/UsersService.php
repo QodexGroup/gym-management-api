@@ -132,12 +132,14 @@ class UsersService
      */
     private function ensureFirebaseUser(GenericData $genericData): void
     {
+        // Guard first — before touching Firebase — so the check covers both
+        // the "existing Firebase user" and the "new Firebase user" paths.
+        if (User::where('email', $genericData->getData()->email)->whereNull('deleted_at')->exists()) {
+            throw new \InvalidArgumentException('This email address is already in use.');
+        }
+
         try {
             $existingFirebaseUser = FirebaseService::auth()->getUserByEmail($genericData->getData()->email);
-
-            if (User::where('email', $genericData->getData()->email)->whereNull('deleted_at')->exists()) {
-                throw new \InvalidArgumentException('This email address is already in use.');
-            }
 
             $genericData->getData()->firebaseUid = $existingFirebaseUser->uid;
             $genericData->syncDataArray();
