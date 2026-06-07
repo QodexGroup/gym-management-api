@@ -9,6 +9,8 @@ use App\Models\Core\CustomerScans;
 use App\Repositories\Core\CustomerFileRepository;
 use App\Repositories\Core\CustomerProgressRepository;
 use App\Repositories\Core\CustomerScanRepository;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 
 class FileService
@@ -61,6 +63,16 @@ class FileService
 
         $fileUrl = $file->file_url;
         $this->customerFileRepository->deleteFile($id, $accountId);
+
+        // Delete from R2 storage
+        try {
+            Storage::disk('r2')->delete($fileUrl);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to delete file from R2', [
+                'path' => $fileUrl,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return ['fileUrl' => $fileUrl];
     }

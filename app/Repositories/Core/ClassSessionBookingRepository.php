@@ -2,6 +2,8 @@
 
 namespace App\Repositories\Core;
 
+use App\Repositories\BaseRepository;
+
 use App\Constant\ClassSessionBookingStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\ClassSessionBooking;
@@ -10,7 +12,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 
-class ClassSessionBookingRepository
+class ClassSessionBookingRepository extends BaseRepository
 {
     /**
      * Get all bookings for a specific class session
@@ -250,11 +252,24 @@ class ClassSessionBookingRepository
                 });
             });
 
-        // Apply relations, filters, and sorts using GenericData methods
-        $query = $genericData->applyRelations($query);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
+        return $this->paginateWithGenericData($query, $genericData);
+    }
 
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+    /**
+     * @param int $accountId
+     * @param array $sessionIds
+     *
+     * @return Collection
+     */
+    public function getActiveBookingsBySessionIds(int $accountId, array $sessionIds): Collection
+    {
+        return ClassSessionBooking::where('account_id', $accountId)
+            ->whereIn('class_schedule_session_id', $sessionIds)
+            ->whereNotIn('status', [
+                ClassSessionBookingStatusConstant::STATUS_CANCELLED,
+                ClassSessionBookingStatusConstant::STATUS_COACH_CANCELLED,
+            ])
+            ->with('customer')
+            ->get();
     }
 }

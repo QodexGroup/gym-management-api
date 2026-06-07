@@ -2,6 +2,8 @@
 
 namespace App\Repositories\Common;
 
+use App\Repositories\BaseRepository;
+
 use App\Constants\WalkinCustomerConstant;
 use App\Helpers\GenericData;
 use Illuminate\Support\Carbon;
@@ -11,7 +13,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 
-class WalkinRepository
+class WalkinRepository extends BaseRepository
 {
 
     /**
@@ -38,11 +40,7 @@ class WalkinRepository
     {
         $query = WalkinCustomer::where('walkin_id', $walkinId);
 
-        $genericData->applyRelations($query);
-        $genericData->applyFilters($query);
-        $genericData->applySorts($query);
-
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData);
     }
 
     /**
@@ -55,11 +53,7 @@ class WalkinRepository
     {
         $query = WalkinCustomer::where('customer_id', $customerId);
 
-        $genericData->applyRelations($query);
-        $genericData->applyFilters($query);
-        $genericData->applySorts($query);
-
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData);
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Models\Core;
 
 use App\Constant\CustomerBillConstant;
+use App\Constant\CustomerMembershipConstant;
 use App\Models\User;
 use App\Traits\BelongsToManyWithNullCheck;
 use App\Traits\HasBelongsToManyWithNullCheck;
@@ -95,9 +96,18 @@ class Customer extends Model
     public function activeMembership()
     {
         return $this->hasOne(CustomerMembership::class, 'customer_id')
-            ->where('status', 'active')
+            ->where('status', CustomerMembershipConstant::STATUS_ACTIVE)
             ->whereDate('membership_end_date', '>=', today())
             ->latest('membership_start_date');
+    }
+
+    /**
+     * Get the full name of the customer.
+     */
+    public function getFullNameAttribute(): string
+    {
+        $name = trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+        return $name !== '' ? $name : 'Unknown';
     }
 
     /**

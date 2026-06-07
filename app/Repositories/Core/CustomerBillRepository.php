@@ -2,6 +2,8 @@
 
 namespace App\Repositories\Core;
 
+use App\Repositories\BaseRepository;
+
 use App\Constant\CustomerBillConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\CustomerBill;
@@ -10,7 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
-class CustomerBillRepository
+class CustomerBillRepository extends BaseRepository
 {
     /**
      * Create a new bill
@@ -195,13 +197,7 @@ class CustomerBillRepository
         $query = CustomerBill::where('customer_id', $genericData->customerId)
             ->where('account_id', $genericData->userData->account_id);
 
-        // Apply relations, filters, and sorts using GenericData methods
-        $query = $genericData->applyRelations($query, ['creator', 'updater', 'membershipPlan']);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
-
-        // Always return paginated results
-        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData, ['creator', 'updater', 'membershipPlan']);
     }
 
     /**
@@ -226,11 +222,9 @@ class CustomerBillRepository
         }
         $genericData->filters = array_diff_key($filters, array_flip(['dateFrom', 'dateTo', 'date_from', 'date_to']));
 
-        $query = $genericData->applyRelations($query, ['customer', 'membershipPlan']);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
+        $query->orderByDesc('bill_date');
 
-        return $query->orderByDesc('bill_date')->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+        return $this->paginateWithGenericData($query, $genericData, ['customer', 'membershipPlan']);
     }
 
     /**

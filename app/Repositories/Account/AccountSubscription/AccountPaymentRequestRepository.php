@@ -2,6 +2,8 @@
 
 namespace App\Repositories\Account\AccountSubscription;
 
+use App\Repositories\BaseRepository;
+
 use App\Constant\AccountPaymentTypeConstant;
 use App\Constant\AccountPaymentRequestStatusConstant;
 use App\Helpers\GenericData;
@@ -12,7 +14,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Builder;
 
-class AccountPaymentRequestRepository
+class AccountPaymentRequestRepository extends BaseRepository
 {
     /**
      * @param int $accountId

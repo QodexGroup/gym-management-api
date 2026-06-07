@@ -20,6 +20,7 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
+        'https://staging.gymhubph.com',
         'https://gymhubtech-67e6f.web.app',
         'https://gymhubtech-67e6f.firebaseapp.com',
         'http://localhost:5173',

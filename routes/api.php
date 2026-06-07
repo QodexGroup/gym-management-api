@@ -27,6 +27,7 @@ use App\Http\Controllers\Common\NotificationController;
 use App\Http\Controllers\Common\WalkinController;
 use App\Http\Controllers\Core\CustomerPtPackageController;
 use App\Http\Controllers\Core\PtBookingController;
+use App\Http\Controllers\Core\StorageController;
 use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\FirebaseAuthMiddleware;
@@ -57,6 +58,10 @@ Route::middleware([FirebaseAuthMiddleware::class])->prefix('auth')->group(functi
 
 
 Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
+
+    Route::prefix('storage')->group(function () {
+        Route::post('/presigned-url', [StorageController::class, 'getPresignedUrl']);
+    });
 
     Route::prefix('accounts')->middleware(['idempotent'])->group(function () {
         Route::get('/', [AccountController::class, 'getAccount']);

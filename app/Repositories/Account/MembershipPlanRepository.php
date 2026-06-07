@@ -2,12 +2,14 @@
 
 namespace App\Repositories\Account;
 
+use App\Repositories\BaseRepository;
+
 use App\Helpers\GenericData;
 use App\Models\Account\MembershipPlan;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
-class MembershipPlanRepository
+class MembershipPlanRepository extends BaseRepository
 {
     /**
      * Get all membership plans with active members count
@@ -20,17 +22,7 @@ class MembershipPlanRepository
         $query = MembershipPlan::where('account_id', $genericData->userData->account_id)
             ->withCount('activeCustomerMemberships as active_members_count');
 
-        // Apply relations, filters, and sorts using GenericData methods
-        $query = $genericData->applyRelations($query);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
-
-        // Check if pagination is requested
-        if ($genericData->pageSize > 0) {
-            return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
-        }
-
-        return $query->get();
+        return $this->paginateWithGenericData($query, $genericData);
     }
 
     /**

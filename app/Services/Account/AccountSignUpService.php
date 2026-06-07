@@ -2,6 +2,7 @@
 
 namespace App\Services\Account;
 
+use App\Constant\AccountSubscriptionStatusConstant;
 use App\Constants\DefaultSignupCategories;
 use App\Models\Account\Account;
 use App\Models\Account\AccountSubscriptionPlan;
@@ -48,7 +49,7 @@ class AccountSignUpService
             throw new \Exception('Trial subscription plan not found. Please contact support.');
         }
 
-        $trialEndsAt = now()->addDays($trialPlan->trial_days ?? 7);
+        $trialEndsAt = now()->addDays(AccountSubscriptionStatusConstant::TRIAL_DAYS);
 
         return DB::transaction(function () use ($firebaseUid, $data, $trialPlan, $trialEndsAt) {
             // Create account

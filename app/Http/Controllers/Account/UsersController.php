@@ -128,6 +128,6 @@ class UsersController
     {
         $data = $request->getGenericData();
         $coaches = $this->usersRepository->getAllCoaches($data);
-        return ApiResponse::success(UserResource::collection($coaches)->response()->getData(true)['data'] ?? []);
+        return ApiResponse::success(UserResource::collection($coaches));
     }
 }

@@ -2,14 +2,17 @@
 
 namespace App\Repositories\Account;
 
+use App\Repositories\BaseRepository;
+
 use App\Constant\ClassSessionBookingStatusConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\ClassScheduleSession;
 use App\Models\Core\PtBooking;
+use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
-class ClassScheduleSessionRepository
+class ClassScheduleSessionRepository extends BaseRepository
 {
     /**
      * Get all class schedule sessions
@@ -58,13 +61,7 @@ class ClassScheduleSessionRepository
             $query->whereDate('start_time', '<=', $endDate);
         }
 
-        $query = $genericData->applyRelations($query);
-        $query = $genericData->applyFilters($query);
-        $query = $genericData->applySorts($query);
-
-        return $genericData->pageSize > 0
-            ? $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page)
-            : $query->get();
+        return $this->paginateWithGenericData($query, $genericData);
     }
 
 
@@ -218,5 +215,30 @@ class ClassScheduleSessionRepository
         ]);
 
         $session->delete();
+    }
+
+    /**
+     * @param int $accountId
+     * @param int|null $coachUserId
+     * @param bool $scopeToCoach
+     * @param int $limit
+     *
+     * @return Collection
+     */
+    public function getUpcomingSessionsFromToday(int $accountId, ?int $coachUserId, bool $scopeToCoach, string $classType): Collection
+    {
+        return ClassScheduleSession::query()
+            ->where('account_id', $accountId)
+            ->where('start_time', '>=', Carbon::now()->startOfDay())
+            ->with(['classSchedule.coach'])
+            ->whereHas('classSchedule', function ($q) use ($coachUserId, $scopeToCoach, $classType) {
+                $q->where('class_type', $classType);
+                if ($scopeToCoach && $coachUserId !== null) {
+                    $q->where('coach_id', $coachUserId);
+                }
+            })
+            ->orderBy('start_time')
+            ->limit(10)
+            ->get();
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\ApiResponse;
 use App\Repositories\Core\NotificationPreferenceRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,18 +25,13 @@ class NotificationPreferenceController extends Controller
         $preferences = $this->repository->getByAccountId($accountId);
 
         if (!$preferences) {
-            // Return defaults if no preferences exist
-            return response()->json([
-                'data' => $this->repository->getDefaults()
-            ]);
+            return ApiResponse::success($this->repository->getDefaults());
         }
 
-        return response()->json([
-            'data' => [
-                'membership_expiry_enabled' => $preferences->membership_expiry_enabled,
-                'payment_alerts_enabled' => $preferences->payment_alerts_enabled,
-                'new_registrations_enabled' => $preferences->new_registrations_enabled,
-            ]
+        return ApiResponse::success([
+            'membership_expiry_enabled' => $preferences->membership_expiry_enabled,
+            'payment_alerts_enabled' => $preferences->payment_alerts_enabled,
+            'new_registrations_enabled' => $preferences->new_registrations_enabled,
         ]);
     }
 
@@ -57,14 +53,11 @@ class NotificationPreferenceController extends Controller
 
         $preferences = $this->repository->updateOrCreate($accountId, $data);
 
-        return response()->json([
-            'message' => 'Preferences updated successfully',
-            'data' => [
-                'membership_expiry_enabled' => $preferences->membership_expiry_enabled,
-                'payment_alerts_enabled' => $preferences->payment_alerts_enabled,
-                'new_registrations_enabled' => $preferences->new_registrations_enabled,
-            ]
-        ]);
+        return ApiResponse::success([
+            'membership_expiry_enabled' => $preferences->membership_expiry_enabled,
+            'payment_alerts_enabled' => $preferences->payment_alerts_enabled,
+            'new_registrations_enabled' => $preferences->new_registrations_enabled,
+        ], 'Preferences updated successfully');
     }
 
     /**
