@@ -45,11 +45,6 @@ class UsersController
             return ApiResponse::success(new UserResource($user), 'User created successfully');
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error($e->getMessage(), 422);
-        } catch (\Exception $e) {
-            if (str_contains($e->getMessage(), 'limit') || str_contains($e->getMessage(), 'trial')) {
-                return ApiResponse::error($e->getMessage(), 403);
-            }
-            throw $e;
         }
     }
 

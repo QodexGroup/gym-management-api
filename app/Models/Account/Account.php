@@ -83,15 +83,4 @@ class Account extends Model
         return $plan->trial_ends_at->isPast();
     }
 
-    /**
-     * @return SubscriptionPlan|null
-     */
-    public function getEffectivePlan(): ?SubscriptionPlan
-    {
-        $asp = $this->activeAccountSubscriptionPlan;
-        if ($asp && $asp->subscriptionPlan) {
-            return $asp->subscriptionPlan;
-        }
-        return SubscriptionPlan::where('slug', 'trial-subscription')->first();
-    }
 }
