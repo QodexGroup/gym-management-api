@@ -30,11 +30,22 @@ class FirebaseAuthMiddleware
             $firebaseUid = $verifiedToken->claims()->get('sub');
             $emailVerified = $verifiedToken->claims()->get('email_verified') ?? false;
 
-            $user = User::with('permissions')->where('firebase_uid', $firebaseUid)->first();
+            $users = User::with('permissions')
+                ->where('firebase_uid', $firebaseUid)
+                ->whereNull('deleted_at')
+                ->get();
 
-            if (!$user) {
+            if ($users->isEmpty()) {
                 return response()->json(['message' => 'User not found'], 401);
             }
+
+            if ($users->count() > 1) {
+                return response()->json([
+                    'message' => 'Multiple accounts are linked to this login. Please contact support.',
+                ], 409);
+            }
+
+            $user = $users->first();
 
             if ($user->status === UserStatusConstant::DEACTIVATED) {
                 return response()->json([

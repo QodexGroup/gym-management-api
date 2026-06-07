@@ -39,6 +39,10 @@ class AccountSignUpService
             throw new \Exception('An account with this email has already started a trial. Please log in or choose a different email.');
         }
 
+        if ($email && User::where('email', $email)->whereNull('deleted_at')->exists()) {
+            throw new \Exception('This email address is already in use.');
+        }
+
         // Find trial plan
         $trialPlan = $this->accountRepository->findTrialPlan();
         if (!$trialPlan) {

@@ -39,9 +39,13 @@ class UsersController
      */
     public function createUser(UserRequest $request): JsonResponse
     {
-        $genericData = $request->getGenericDataWithValidated();
-        $user = $this->usersService->createUser($genericData);
-        return ApiResponse::success(new UserResource($user), 'User created successfully');
+        try {
+            $genericData = $request->getGenericDataWithValidated();
+            $user = $this->usersService->createUser($genericData);
+            return ApiResponse::success(new UserResource($user), 'User created successfully');
+        } catch (\InvalidArgumentException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
     }
 
     /**

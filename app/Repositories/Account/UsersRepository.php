@@ -123,6 +123,9 @@ class UsersRepository extends BaseRepository
      * Delete a user (soft delete)
      * Note: Once deleted, users cannot be restored
      *
+     * Prefer UsersService::deleteUser — it nulls email/firebase_uid before soft delete.
+     * This repository method is not used by the API; kept for potential direct calls only.
+     *
      * @param int $id
      * @param int $accountId
      *

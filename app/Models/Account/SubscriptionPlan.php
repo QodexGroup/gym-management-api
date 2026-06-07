@@ -2,7 +2,6 @@
 
 namespace App\Models\Account;
 
-use App\Constant\SubscriptionPlanResourceConstant;
 use App\Models\Account;
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -49,22 +48,4 @@ class SubscriptionPlan extends Model
         return $this->hasMany(AccountSubscriptionPlan::class, 'subscription_plan_id');
     }
 
-    /**
-     * @param string $resource
-     * @return int
-     */
-    public function getLimit(string $resource): int
-    {
-        $column = SubscriptionPlanResourceConstant::getColumnForResource($resource);
-        return $column ? (int) $this->{$column} : 0;
-    }
-
-    /**
-     * @param string $resource
-     * @return bool
-     */
-    public function isUnlimited(string $resource): bool
-    {
-        return $this->getLimit($resource) === 0;
-    }
 }
