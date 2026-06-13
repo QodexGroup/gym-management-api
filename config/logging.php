@@ -55,7 +55,9 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => env('APP_ENV') === 'local' ? ['daily'] : ['stderr'],
+            'channels' => env('APP_ENV') === 'local'
+                ? ['daily']
+                : (env('NEW_RELIC_LICENSE_KEY') ? ['stderr', 'newrelic'] : ['stderr']),
             'ignore_exceptions' => false,
         ],
 
@@ -121,6 +123,12 @@ return [
             'driver' => 'errorlog',
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+        ],
+
+        'newrelic' => [
+            'driver' => 'custom',
+            'via' => \App\Logging\NewRelicLoggerFactory::class,
+            'level' => env('LOG_LEVEL', 'debug'),
         ],
 
         'null' => [
