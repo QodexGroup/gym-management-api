@@ -38,6 +38,29 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         zip \
     && docker-php-ext-enable opcache
 
+# Install New Relic PHP agent (Alpine/musl build) for APM + trace-linked logs.
+# Best-effort: if the download/install fails (version removed, network hiccup,
+# New Relic deprecates the release, etc.) the build continues WITHOUT the
+# agent rather than failing. Log shipping itself (App\Logging\NewRelicLogHandler)
+# is plain HTTP and does not depend on this extension.
+ARG NEWRELIC_VERSION=11.7.0.9
+RUN ( \
+        curl -fsSL "https://download.newrelic.com/php_agent/release/newrelic-php5-${NEWRELIC_VERSION}-linux-musl.tar.gz" -o /tmp/newrelic.tar.gz \
+        && mkdir -p /tmp/newrelic && tar -C /tmp/newrelic -zxf /tmp/newrelic.tar.gz --strip-components=1 \
+        && cd /tmp/newrelic \
+        && NR_INSTALL_USE_CP_NOT_LN=1 NR_INSTALL_SILENT=1 ./newrelic-install install \
+        && cat > /usr/local/etc/php/conf.d/newrelic-custom.ini <<'EOF'
+newrelic.license="%env[NEW_RELIC_LICENSE_KEY]%"
+newrelic.appname="%env[NEW_RELIC_APP_NAME]%"
+newrelic.logfile="php://stderr"
+newrelic.daemon.logfile="php://stderr"
+newrelic.daemon.address=/tmp/.newrelic.sock
+newrelic.distributed_tracing_enabled=true
+newrelic.enabled="%env[NEW_RELIC_ENABLED]%"
+EOF
+    ) || echo "WARNING: New Relic agent install failed - continuing build without APM agent"; \
+    rm -rf /tmp/newrelic /tmp/newrelic.tar.gz
+
 # Clean up build dependencies
 RUN apk del --no-cache $PHPIZE_DEPS autoconf g++ make linux-headers \
     && rm -rf /var/cache/apk/* /tmp/*
