@@ -49,15 +49,15 @@ RUN ( \
         && mkdir -p /tmp/newrelic && tar -C /tmp/newrelic -zxf /tmp/newrelic.tar.gz --strip-components=1 \
         && cd /tmp/newrelic \
         && NR_INSTALL_USE_CP_NOT_LN=1 NR_INSTALL_SILENT=1 ./newrelic-install install \
-        && cat > /usr/local/etc/php/conf.d/newrelic-custom.ini <<'EOF'
-newrelic.license="%env[NEW_RELIC_LICENSE_KEY]%"
-newrelic.appname="%env[NEW_RELIC_APP_NAME]%"
-newrelic.logfile="php://stderr"
-newrelic.daemon.logfile="php://stderr"
-newrelic.daemon.address=/tmp/.newrelic.sock
-newrelic.distributed_tracing_enabled=true
-newrelic.enabled="%env[NEW_RELIC_ENABLED]%"
-EOF
+        && printf '%s\n' \
+        'newrelic.license="%env[NEW_RELIC_LICENSE_KEY]%"' \
+        'newrelic.appname="%env[NEW_RELIC_APP_NAME]%"' \
+        'newrelic.logfile="php://stderr"' \
+        'newrelic.daemon.logfile="php://stderr"' \
+        'newrelic.daemon.address=/tmp/.newrelic.sock' \
+        'newrelic.distributed_tracing_enabled=true' \
+        'newrelic.enabled="%env[NEW_RELIC_ENABLED]%"' \
+        > /usr/local/etc/php/conf.d/newrelic-custom.ini \
     ) || echo "WARNING: New Relic agent install failed - continuing build without APM agent"; \
     rm -rf /tmp/newrelic /tmp/newrelic.tar.gz
 
