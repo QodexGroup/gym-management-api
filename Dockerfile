@@ -38,26 +38,40 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         zip \
     && docker-php-ext-enable opcache
 
-# Install New Relic PHP agent (Alpine/musl build) for APM + trace-linked logs.
-# Best-effort: if the download/install fails (version removed, network hiccup,
-# New Relic deprecates the release, etc.) the build continues WITHOUT the
-# agent rather than failing. Log shipping itself (App\Logging\NewRelicLogHandler)
-# is plain HTTP and does not depend on this extension.
+# Install New Relic PHP agent (Alpine/musl build) for APM + Errors Inbox + trace-linked logs.
+#
+# Notes baked into the steps below (kept out of the RUN body because a '#' inside a
+# backslash-continued shell command would comment out the rest of the command):
+#   * Alpine 3.20+ (which php:8.2-fpm-alpine now uses) has no /etc/init.d, so
+#     newrelic-install aborts FATAL before copying newrelic.so. We create it first.
+#   * Config lives in a "zz-" ini so it loads AFTER the installer's newrelic.ini and wins.
+#   * The agent natively expands ${ENV_VAR} in the ini (NOT %env[]%, which is PHP-FPM
+#     pool syntax and would be stored literally), so values resolve from Railway env at runtime.
+#   * Agent log forwarding is disabled because App\Logging\NewRelicLogHandler already
+#     ships logs over HTTP — leaving it on would duplicate every log line.
+# Best-effort: if anything fails the build still succeeds without the agent, so a New
+# Relic outage or a removed release can never take the web app down.
 ARG NEWRELIC_VERSION=11.7.0.9
 RUN ( \
         curl -fsSL "https://download.newrelic.com/php_agent/release/newrelic-php5-${NEWRELIC_VERSION}-linux-musl.tar.gz" -o /tmp/newrelic.tar.gz \
         && mkdir -p /tmp/newrelic && tar -C /tmp/newrelic -zxf /tmp/newrelic.tar.gz --strip-components=1 \
         && cd /tmp/newrelic \
+        && mkdir -p /etc/init.d \
         && NR_INSTALL_USE_CP_NOT_LN=1 NR_INSTALL_SILENT=1 ./newrelic-install install \
         && printf '%s\n' \
-        'newrelic.license="%env[NEW_RELIC_LICENSE_KEY]%"' \
-        'newrelic.appname="%env[NEW_RELIC_APP_NAME]%"' \
+        'newrelic.license="${NEW_RELIC_LICENSE_KEY}"' \
+        'newrelic.appname="${NEW_RELIC_APP_NAME}"' \
+        'newrelic.enabled=${NEW_RELIC_ENABLED}' \
         'newrelic.logfile="php://stderr"' \
         'newrelic.daemon.logfile="php://stderr"' \
-        'newrelic.daemon.address=/tmp/.newrelic.sock' \
+        'newrelic.daemon.address="/tmp/.newrelic.sock"' \
         'newrelic.distributed_tracing_enabled=true' \
-        'newrelic.enabled="%env[NEW_RELIC_ENABLED]%"' \
-        > /usr/local/etc/php/conf.d/newrelic-custom.ini \
+        'newrelic.error_collector.enabled=true' \
+        'newrelic.error_collector.record_database_errors=true' \
+        'newrelic.application_logging.forwarding.enabled=false' \
+        > /usr/local/etc/php/conf.d/zz-newrelic-custom.ini \
+        && php -m | grep -qi newrelic \
+        && echo "New Relic PHP agent installed and enabled" \
     ) || echo "WARNING: New Relic agent install failed - continuing build without APM agent"; \
     rm -rf /tmp/newrelic /tmp/newrelic.tar.gz
 
