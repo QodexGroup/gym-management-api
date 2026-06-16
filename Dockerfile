@@ -38,25 +38,10 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         zip \
     && docker-php-ext-enable opcache
 
-# Install New Relic PHP agent (Alpine/musl build) for APM + Errors Inbox + trace-linked logs.
-#
-# Notes baked into the steps below (kept out of the RUN body because a '#' inside a
-# backslash-continued shell command would comment out the rest of the command):
-#   * Alpine 3.20+ (which php:8.2-fpm-alpine now uses) has no /etc/init.d, so
-#     newrelic-install aborts FATAL before copying newrelic.so. We create it first.
-#   * After install we DELETE the installer's own ini and enable the extension ourselves
-#     in one file, so loading never depends on the installer guessing the right ini path
-#     (a known Alpine docker-php failure mode) and there is no double-load warning.
-#   * The agent natively expands ${ENV_VAR} in the ini (NOT %env[]%, which is PHP-FPM
-#     pool syntax and would be stored literally), so values resolve from Railway env at runtime.
-#   * Agent log forwarding is disabled because App\Logging\NewRelicLogHandler already
-#     ships logs over HTTP — leaving it on would duplicate every log line.
-# The agent version is auto-detected from New Relic's release listing so a pinned
-# version that gets removed can never 404 the download (the original bug here).
-# curl uses --http1.1 + --retry because download.newrelic.com intermittently resets
-# HTTP/2 streams (curl error 92), which would otherwise trip the failsafe at random.
-# Best-effort: if anything fails the build still succeeds without the agent, so a New
-# Relic outage or a removed release can never take the web app down.
+# Install New Relic PHP agent (APM + Errors Inbox). Best-effort: failures never break the build.
+# Version is auto-detected; curl uses --http1.1 + --retry to survive HTTP/2 resets (curl error 92).
+# mkdir /etc/init.d avoids the Alpine 3.20+ install abort; agent log forwarding is off because
+# App\Logging\NewRelicLogHandler already ships logs over HTTP.
 RUN ( \
         NRFILE=$(curl -fsSL --http1.1 --retry 5 --retry-delay 2 --retry-all-errors "https://download.newrelic.com/php_agent/release/" | grep -oE 'newrelic-php5-[0-9.]+-linux-musl\.tar\.gz' | sort -V | tail -1) \
         && echo "Latest New Relic musl agent: ${NRFILE}" \
