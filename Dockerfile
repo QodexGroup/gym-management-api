@@ -53,12 +53,14 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 #     ships logs over HTTP — leaving it on would duplicate every log line.
 # The agent version is auto-detected from New Relic's release listing so a pinned
 # version that gets removed can never 404 the download (the original bug here).
+# curl uses --http1.1 + --retry because download.newrelic.com intermittently resets
+# HTTP/2 streams (curl error 92), which would otherwise trip the failsafe at random.
 # Best-effort: if anything fails the build still succeeds without the agent, so a New
 # Relic outage or a removed release can never take the web app down.
 RUN ( \
-        NRFILE=$(curl -fsSL "https://download.newrelic.com/php_agent/release/" | grep -oE 'newrelic-php5-[0-9.]+-linux-musl\.tar\.gz' | sort -V | tail -1) \
+        NRFILE=$(curl -fsSL --http1.1 --retry 5 --retry-delay 2 --retry-all-errors "https://download.newrelic.com/php_agent/release/" | grep -oE 'newrelic-php5-[0-9.]+-linux-musl\.tar\.gz' | sort -V | tail -1) \
         && echo "Latest New Relic musl agent: ${NRFILE}" \
-        && curl -fsSL "https://download.newrelic.com/php_agent/release/${NRFILE}" -o /tmp/newrelic.tar.gz \
+        && curl -fsSL --http1.1 --retry 5 --retry-delay 2 --retry-all-errors "https://download.newrelic.com/php_agent/release/${NRFILE}" -o /tmp/newrelic.tar.gz \
         && mkdir -p /tmp/newrelic && tar -C /tmp/newrelic -zxf /tmp/newrelic.tar.gz --strip-components=1 \
         && cd /tmp/newrelic \
         && mkdir -p /etc/init.d \
