@@ -44,21 +44,28 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 # backslash-continued shell command would comment out the rest of the command):
 #   * Alpine 3.20+ (which php:8.2-fpm-alpine now uses) has no /etc/init.d, so
 #     newrelic-install aborts FATAL before copying newrelic.so. We create it first.
-#   * Config lives in a "zz-" ini so it loads AFTER the installer's newrelic.ini and wins.
+#   * After install we DELETE the installer's own ini and enable the extension ourselves
+#     in one file, so loading never depends on the installer guessing the right ini path
+#     (a known Alpine docker-php failure mode) and there is no double-load warning.
 #   * The agent natively expands ${ENV_VAR} in the ini (NOT %env[]%, which is PHP-FPM
 #     pool syntax and would be stored literally), so values resolve from Railway env at runtime.
 #   * Agent log forwarding is disabled because App\Logging\NewRelicLogHandler already
 #     ships logs over HTTP — leaving it on would duplicate every log line.
+# The agent version is auto-detected from New Relic's release listing so a pinned
+# version that gets removed can never 404 the download (the original bug here).
 # Best-effort: if anything fails the build still succeeds without the agent, so a New
 # Relic outage or a removed release can never take the web app down.
-ARG NEWRELIC_VERSION=11.7.0.9
 RUN ( \
-        curl -fsSL "https://download.newrelic.com/php_agent/release/newrelic-php5-${NEWRELIC_VERSION}-linux-musl.tar.gz" -o /tmp/newrelic.tar.gz \
+        NRFILE=$(curl -fsSL "https://download.newrelic.com/php_agent/release/" | grep -oE 'newrelic-php5-[0-9.]+-linux-musl\.tar\.gz' | sort -V | tail -1) \
+        && echo "Latest New Relic musl agent: ${NRFILE}" \
+        && curl -fsSL "https://download.newrelic.com/php_agent/release/${NRFILE}" -o /tmp/newrelic.tar.gz \
         && mkdir -p /tmp/newrelic && tar -C /tmp/newrelic -zxf /tmp/newrelic.tar.gz --strip-components=1 \
         && cd /tmp/newrelic \
         && mkdir -p /etc/init.d \
         && NR_INSTALL_USE_CP_NOT_LN=1 NR_INSTALL_SILENT=1 ./newrelic-install install \
+        && rm -f /usr/local/etc/php/conf.d/*newrelic*.ini \
         && printf '%s\n' \
+        'extension=newrelic.so' \
         'newrelic.license="${NEW_RELIC_LICENSE_KEY}"' \
         'newrelic.appname="${NEW_RELIC_APP_NAME}"' \
         'newrelic.enabled=${NEW_RELIC_ENABLED}' \

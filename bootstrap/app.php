@@ -3,7 +3,6 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Throwable;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -26,7 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Laravel catches exceptions itself, so the agent never sees them as
         // "uncaught" — we must notify it explicitly. No-op when the agent
         // extension isn't loaded (e.g. local dev), so this is always safe.
-        $exceptions->report(function (Throwable $e): void {
+        $exceptions->report(function (\Throwable $e): void {
             if (extension_loaded('newrelic') && function_exists('newrelic_notice_error')) {
                 newrelic_notice_error($e->getMessage(), $e);
             }
