@@ -69,8 +69,8 @@ RUN ( \
         'newrelic.license="${NEW_RELIC_LICENSE_KEY}"' \
         'newrelic.appname="${NEW_RELIC_APP_NAME}"' \
         'newrelic.enabled=${NEW_RELIC_ENABLED}' \
-        'newrelic.logfile="php://stderr"' \
-        'newrelic.daemon.logfile="php://stderr"' \
+        'newrelic.logfile="/dev/stderr"' \
+        'newrelic.daemon.logfile="/dev/stderr"' \
         'newrelic.daemon.address="/tmp/.newrelic.sock"' \
         'newrelic.distributed_tracing_enabled=true' \
         'newrelic.error_collector.enabled=true' \
