@@ -76,14 +76,24 @@ RUN apk del --no-cache $PHPIZE_DEPS autoconf g++ make linux-headers \
 # Set working directory inside the container
 WORKDIR /app
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Install Composer by copying the binary from the official image.
+# Avoids the getcomposer.org installer, whose PHP stream download intermittently
+# fails with "Network unreachable" (IPv6 ENETUNREACH) on the Railway build host.
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
 # Copy composer.json and composer.lock
 COPY composer.json composer.lock /app/
 
-# Install PHP dependencies from composer.json/lock
-RUN composer install --no-dev --optimize-autoloader --no-scripts
+# Install PHP dependencies from composer.json/lock.
+# Composer uses libcurl (happy-eyeballs IPv4/IPv6 fallback), so it won't get stuck
+# on an unroutable IPv6 address the way the old PHP-stream installer did. The retry
+# loop rides out transient build-network blips; the build fails only if all 5 fail.
+RUN for i in 1 2 3 4 5; do \
+        composer install --no-dev --optimize-autoloader --no-scripts && exit 0; \
+        echo "composer install failed (attempt $i/5), retrying in 5s..." >&2; \
+        sleep 5; \
+    done; \
+    echo "composer install failed after 5 attempts" >&2; exit 1
 
 # Copy the rest of the application code into the container
 COPY . /app
