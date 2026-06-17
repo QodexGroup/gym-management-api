@@ -16,10 +16,6 @@ Schedule::command('membership:update-expired-status')
 Schedule::command('membership:check-expiration')
     ->dailyAt('09:00');
 
-// Prune expired database cache entries - Run daily at 1:00 AM (Asia/Manila)
-Schedule::command('cache:prune-stale --driver=database')
-    ->dailyAt('01:00');
-
 // Account subscription billing: generate invoices on 5th, lock accounts on 10th
 Schedule::command('account-billing:generate-invoices')->monthlyOn(5, '06:00');
 Schedule::command('account-billing:lock-accounts')->monthlyOn(10, '06:00');
