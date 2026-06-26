@@ -32,9 +32,12 @@ class ReportEmailMail extends Mailable
 
     public function content(): Content
     {
+        $frontendUrl = rtrim(env('FRONTEND_URL', 'https://gymhubtech-67e6f.web.app'), '/');
+
         return new Content(
             markdown: 'emails.report-email',
             with: [
+                'logoUrl' => $frontendUrl . '/img/gymhubph.png',
                 'reportTitle' => $this->reportTitle,
                 'format' => $this->format,
             ],

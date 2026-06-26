@@ -1,4 +1,6 @@
 @component('mail::message')
+@include('emails.partials.logo-header')
+
 # Payment Confirmation
 
 Hello {{ $customerName }},
@@ -23,7 +25,7 @@ You still have a remaining balance of **₱{{ $remainingBalance }}**. Please set
 Your bill has been fully paid. Thank you!
 @endif
 
-@component('mail::button', ['url' => ''])
+@component('mail::button', ['url' => 'https://gymhubph.com'])
 View Receipt
 @endcomponent
 

@@ -1,4 +1,6 @@
 @component('mail::message')
+@include('emails.partials.logo-header')
+
 # Subscription invoice: {{ $invoice->invoice_number }}
 
 @if($type === 'issued')

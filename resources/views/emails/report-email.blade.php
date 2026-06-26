@@ -1,4 +1,6 @@
 @component('mail::message')
+@include('emails.partials.logo-header')
+
 # Report: {{ $reportTitle }}
 
 Your report ({{ $format }}) is attached. This report was sent by email because it exceeded the direct download limit.

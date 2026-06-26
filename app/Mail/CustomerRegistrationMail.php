@@ -39,10 +39,12 @@ class CustomerRegistrationMail extends Mailable
     public function content(): Content
     {
         $membership = $this->customer->memberships()->latest()->first();
-        
+        $frontendUrl = rtrim(env('FRONTEND_URL', 'https://gymhubtech-67e6f.web.app'), '/');
+
         return new Content(
             markdown: 'emails.customer-registration',
             with: [
+                'logoUrl' => $frontendUrl . '/img/gymhubph.png',
                 'customerName' => $this->customer->first_name . ' ' . $this->customer->last_name,
                 'membershipPlan' => $membership?->membershipPlan?->name ?? 'No active membership',
                 'membershipStartDate' => $membership?->membership_start_date?->format('F d, Y') ?? 'N/A',

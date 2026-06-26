@@ -41,9 +41,12 @@ class PaymentConfirmationMail extends Mailable
      */
     public function content(): Content
     {
+        $frontendUrl = rtrim(env('FRONTEND_URL', 'https://gymhubtech-67e6f.web.app'), '/');
+
         return new Content(
             markdown: 'emails.payment-confirmation',
             with: [
+                'logoUrl' => $frontendUrl . '/img/gymhubph.png',
                 'customerName' => $this->customer->first_name . ' ' . $this->customer->last_name,
                 'amount' => number_format($this->payment->amount, 2),
                 'paymentMethod' => ucfirst($this->payment->payment_method),
