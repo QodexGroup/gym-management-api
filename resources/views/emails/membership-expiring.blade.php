@@ -1,4 +1,6 @@
 @component('mail::message')
+@include('emails.partials.logo-header')
+
 # Membership Expiring Soon
 
 Hello {{ $customerName }},
@@ -12,7 +14,7 @@ Your **{{ $membershipPlan }}** membership is expiring soon!
 
 Don't let your fitness journey stop! Renew your membership today to continue enjoying all the benefits of our gym.
 
-@component('mail::button', ['url' => ''])
+@component('mail::button', ['url' => 'https://gymhubph.com'])
 Contact Us to Renew
 @endcomponent
 

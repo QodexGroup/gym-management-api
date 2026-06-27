@@ -39,9 +39,12 @@ class AccountInvoiceNotificationMail extends Mailable
 
     public function content(): Content
     {
+        $frontendUrl = rtrim(env('APP_URL', 'https://gymhubtech-67e6f.web.app'), '/');
+
         return new Content(
             markdown: 'emails.account-invoice-notification',
             with: [
+                'logoUrl' => $frontendUrl . '/img/gymhubph.png',
                 'invoice' => $this->invoice,
                 'type' => $this->type,
                 'accountName' => $this->invoice->account->name ?? 'Account',

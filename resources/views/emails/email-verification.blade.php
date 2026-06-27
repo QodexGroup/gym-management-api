@@ -1,7 +1,5 @@
 @component('mail::message')
-<div style="text-align: center; margin-bottom: 24px;">
-<img src="{{ $logoUrl }}" alt="GymHubPH" width="160" style="max-width: 160px; height: auto;" />
-</div>
+@include('emails.partials.logo-header')
 
 # Verify Your Email Address
 

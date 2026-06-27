@@ -41,9 +41,12 @@ class MembershipExpiringMail extends Mailable
      */
     public function content(): Content
     {
+        $frontendUrl = rtrim(env('APP_URL', 'https://gymhubtech-67e6f.web.app'), '/');
+
         return new Content(
             markdown: 'emails.membership-expiring',
             with: [
+                'logoUrl' => $frontendUrl . '/img/gymhubph.png',
                 'customerName' => $this->customer->first_name . ' ' . $this->customer->last_name,
                 'membershipPlan' => $this->membership->membershipPlan->name ?? 'N/A',
                 'expirationDate' => $this->membership->membership_end_date->format('F d, Y'),

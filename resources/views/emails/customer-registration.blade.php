@@ -1,4 +1,6 @@
 @component('mail::message')
+@include('emails.partials.logo-header')
+
 # Welcome to Our Gym!
 
 Hello {{ $customerName }},
@@ -24,7 +26,7 @@ We're excited to have you registered with us. Please contact us to set up your m
 - Explore all our facilities and equipment
 - Join our group classes and community events
 
-@component('mail::button', ['url' => ''])
+@component('mail::button', ['url' => 'https://gymhubph.com'])
 Visit Our Website
 @endcomponent
 

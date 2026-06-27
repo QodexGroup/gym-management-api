@@ -95,7 +95,7 @@ class AuthController extends Controller
                 return ApiResponse::error('Failed to generate verification link.', 500);
             }
 
-            $frontendUrl = rtrim(env('FRONTEND_URL', 'https://gymhubtech-67e6f.web.app'), '/');
+            $frontendUrl = rtrim(env('APP_URL', 'https://gymhubtech-67e6f.web.app'), '/');
             $verificationUrl = $frontendUrl . '/auth/action?mode=verifyEmail&oobCode=' . urlencode($oobCode);
 
             Mail::to($email)->send(new EmailVerificationMail($verificationUrl));
@@ -128,7 +128,7 @@ class AuthController extends Controller
                 return ApiResponse::error('Failed to prepare password reset link. Please try again.', 500);
             }
 
-            $frontendUrl = rtrim(env('FRONTEND_URL', 'https://gymhubtech-67e6f.web.app'), '/');
+            $frontendUrl = rtrim(env('APP_URL', 'https://gymhubtech-67e6f.web.app'), '/');
             $resetUrl = $frontendUrl . '/reset-password?oobCode=' . urlencode($oobCode);
 
             Mail::to($email)->send(new ForgotPasswordMail($resetUrl));
