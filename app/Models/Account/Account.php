@@ -30,6 +30,7 @@ class Account extends Model
         'billing_province',
         'billing_zip',
         'billing_country',
+        'referral_code',
     ];
 
     protected function casts(): array
@@ -51,6 +52,26 @@ class Account extends Model
     public function accountSubscriptionPlans(): HasMany
     {
         return $this->hasMany(AccountSubscriptionPlan::class);
+    }
+
+    /**
+     * Referrals this account has made (as the code owner).
+     *
+     * @return HasMany
+     */
+    public function referralsMade(): HasMany
+    {
+        return $this->hasMany(AccountReferral::class, 'referrer_account_id');
+    }
+
+    /**
+     * The referral record for how this account was invited (if any).
+     *
+     * @return HasOne
+     */
+    public function referralReceived(): HasOne
+    {
+        return $this->hasOne(AccountReferral::class, 'invited_account_id');
     }
 
     /**

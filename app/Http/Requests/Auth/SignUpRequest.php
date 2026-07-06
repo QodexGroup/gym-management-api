@@ -43,6 +43,7 @@ class SignUpRequest extends FormRequest
             'billingProvince' => ['required', 'string', 'max:100'],
             'billingZip' => ['required', 'string', 'max:20'],
             'billingCountry' => ['required', 'string', 'size:2'],
+            'referralCode' => ['nullable', 'string', 'max:16'],
         ];
     }
 

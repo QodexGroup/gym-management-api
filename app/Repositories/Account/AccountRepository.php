@@ -36,6 +36,47 @@ class AccountRepository
     }
 
     /**
+     * @param int $accountId
+     *
+     * @return Account|null
+     */
+    public function findById(int $accountId): ?Account
+    {
+        return Account::find($accountId);
+    }
+
+    /**
+     * @param string $referralCode
+     *
+     * @return Account|null
+     */
+    public function findByReferralCode(string $referralCode): ?Account
+    {
+        return Account::where('referral_code', $referralCode)->first();
+    }
+
+    /**
+     * @param string $referralCode
+     *
+     * @return bool
+     */
+    public function referralCodeExists(string $referralCode): bool
+    {
+        return Account::where('referral_code', $referralCode)->exists();
+    }
+
+    /**
+     * @param Account $account
+     * @param string $referralCode
+     *
+     * @return void
+     */
+    public function saveReferralCode(Account $account, string $referralCode): void
+    {
+        $account->update(['referral_code' => $referralCode]);
+    }
+
+    /**
      * Find trial subscription plan.
      *
      * @return SubscriptionPlan|null
