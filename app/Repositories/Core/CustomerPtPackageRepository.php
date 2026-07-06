@@ -112,19 +112,18 @@ class CustomerPtPackageRepository extends BaseRepository
     }
 
     /**
-     * Count PT packages sold by a coach within date range (for My Collection).
+     * Count PT packages sold by a coach within date range (for My Collection / My Revenue).
      *
-     * @param int $accountId
-     * @param int $coachId
-     * @param string $dateFrom Y-m-d
-     * @param string $dateTo Y-m-d
+     * @param GenericData $genericData Carries userData (coach) + startDate/endDate
      * @return int
      */
-    public function countPtPackagesSoldByCoach(int $accountId, int $coachId, string $dateFrom, string $dateTo): int
+    public function countPtPackagesSoldByCoach(GenericData $genericData): int
     {
-        return CustomerPtPackage::where('account_id', $accountId)
-            ->where('coach_id', $coachId)
-            ->whereBetween('start_date', [$dateFrom, $dateTo])
+        $data = $genericData->getData();
+
+        return CustomerPtPackage::where('account_id', $genericData->userData->account_id)
+            ->where('coach_id', $genericData->userData->id)
+            ->whereBetween('start_date', [$data->startDate, $data->endDate])
             ->count();
     }
 }

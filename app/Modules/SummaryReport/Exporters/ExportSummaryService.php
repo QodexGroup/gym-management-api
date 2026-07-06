@@ -37,12 +37,13 @@ class ExportSummaryService
      */
     public function getSummaryHeaderData(Collection $paymentData, Collection $expenseData): array
     {
-        $totalRevenue = (float) $paymentData->sum('amount');
+        // Cash-basis summary export: all figures are derived from payments collected.
+        $totalCollected = (float) $paymentData->sum('amount');
         $totalExpenses = (float) $expenseData->sum('amount');
-        $netProfit = $totalRevenue - $totalExpenses;
-        $profitMargin = $totalRevenue > 0 ? round(($netProfit / $totalRevenue) * 100, 1) : 0.0;
+        $netProfit = $totalCollected - $totalExpenses;
+        $profitMargin = $totalCollected > 0 ? round(($netProfit / $totalCollected) * 100, 1) : 0.0;
         $today = Carbon::today()->toDateString();
-        $todayRevenue = (float) $paymentData->filter(function ($p) use ($today) {
+        $todayCollection = (float) $paymentData->filter(function ($p) use ($today) {
             return Carbon::parse($p->payment_date)->toDateString() === $today;
         })->sum('amount');
 
@@ -50,11 +51,11 @@ class ExportSummaryService
             'businessName' => $this->getBusinessName(),
             'title' => 'Summary Report',
             'summaryRows' => [
-                ['Total Revenue', $this->formatCurrency($totalRevenue)],
+                ['Total Collected (Payments)', $this->formatCurrency($totalCollected)],
                 ['Total Expenses', $this->formatCurrency($totalExpenses)],
-                ['Net Profit', $this->formatCurrency($netProfit)],
+                ['Net Profit (Cash Basis)', $this->formatCurrency($netProfit)],
                 ['Profit Margin', "{$profitMargin}%"],
-                ["Today's Revenue", $this->formatCurrency($todayRevenue)],
+                ["Today's Collection", $this->formatCurrency($todayCollection)],
             ],
         ];
     }

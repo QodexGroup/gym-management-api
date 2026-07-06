@@ -5,18 +5,18 @@ namespace App\Http\Controllers\Core;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\MyReportRequest;
-use App\Services\Core\MyCollectionService;
+use App\Services\Core\MyRevenueService;
 use Illuminate\Http\JsonResponse;
 
-class MyCollectionController extends Controller
+class MyRevenueController extends Controller
 {
     public function __construct(
-        private MyCollectionService $myCollectionService
+        private MyRevenueService $myRevenueService
     ) {
     }
 
     /**
-     * Get My Collection report data for a coach (date-range filtered).
+     * Get My Revenue report data for a coach (date-range filtered).
      *
      * @param MyReportRequest $request
      * @return JsonResponse
@@ -24,11 +24,11 @@ class MyCollectionController extends Controller
     public function getStats(MyReportRequest $request): JsonResponse
     {
         try {
-            $data = $this->myCollectionService->getStats($request->getGenericDataWithValidated());
+            $data = $this->myRevenueService->getStats($request->getGenericDataWithValidated());
 
             return ApiResponse::success($data);
         } catch (\Exception $e) {
-            return ApiResponse::error('Failed to fetch My Collection stats: ' . $e->getMessage(), 500);
+            return ApiResponse::error('Failed to fetch My Revenue stats: ' . $e->getMessage(), 500);
         }
     }
 }

@@ -85,4 +85,24 @@ class ReportController extends Controller
         );
         return ApiResponse::success($data);
     }
+
+    /**
+     * Get revenue report data (bill-based) for the frontend Revenue report page.
+     *
+     * @param CollectionReportRequest $request query: startDate (Y-m-d), endDate (Y-m-d) — validated via FilterDateRequest
+     * @return JsonResponse
+     */
+    public function getRevenueData(CollectionReportRequest $request): JsonResponse
+    {
+        $user = $request->attributes->get('user');
+        if (! $user || ! $user->account_id) {
+            return ApiResponse::error('Unauthorized.', 401);
+        }
+        $data = $this->reportService->getRevenueDataForApi(
+            (int) $user->account_id,
+            $request->input('startDate'),
+            $request->input('endDate')
+        );
+        return ApiResponse::success($data);
+    }
 }

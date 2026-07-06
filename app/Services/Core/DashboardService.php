@@ -13,6 +13,7 @@ use App\Models\Core\Customer;
 use App\Models\Core\CustomerMembership;
 use App\Repositories\Account\ClassScheduleSessionRepository;
 use App\Repositories\Core\ClassSessionBookingRepository;
+use App\Repositories\Core\CustomerBillRepository;
 use App\Repositories\Core\CustomerMembershipRepository;
 use App\Repositories\Core\CustomerPaymentRepository;
 use App\Repositories\Core\CustomerRepository;
@@ -25,6 +26,7 @@ class DashboardService
         private CustomerRepository $customerRepository,
         private CustomerMembershipRepository $membershipRepository,
         private CustomerPaymentRepository $customerPaymentRepository,
+        private CustomerBillRepository $customerBillRepository,
         private ClassScheduleSessionRepository $sessionRepository,
         private ClassSessionBookingRepository $bookingRepository,
         private PtBookingRepository $ptBookingRepository,
@@ -42,7 +44,8 @@ class DashboardService
         $stats->totalMembers = $this->customerRepository->countByAccountId($accountId);
         $stats->activeMembers = $this->customerRepository->countWithActiveMembership($accountId);
         $stats->newRegistrations = $this->customerRepository->countRegisteredBetween($accountId);
-        $stats->todayRevenue = $this->customerPaymentRepository->getTodayRevenueByAccount($accountId);
+        $stats->todayCollection = $this->customerPaymentRepository->getTodayRevenueByAccount($accountId);
+        $stats->todayRevenue = $this->customerBillRepository->sumBilledRevenueForToday($accountId);
         $stats->expiringMemberships = $this->membershipRepository->countExpiringMemberships($accountId);
         $stats->expiringMembersList = $this->buildExpiringMembersList($accountId);
         $stats->membershipDistribution = $this->membershipRepository->getMembershipDistributionByPlan($accountId);

@@ -81,18 +81,17 @@ class CustomerPaymentRepository extends BaseRepository
      * Uses actual payments made, so partial payments are included.
      * Uses the assigned coach_id from CustomerPtPackage.
      *
-     * @param int $accountId
-     * @param int $coachId
-     * @param string $dateFrom Y-m-d
-     * @param string $dateTo Y-m-d
+     * @param GenericData $genericData Carries userData (coach) + startDate/endDate
      * @return float
      */
-    public function getCoachPtEarningsForDateRange(int $accountId, int $coachId, string $dateFrom, string $dateTo): float
+    public function getCoachPtEarningsForDateRange(GenericData $genericData): float
     {
-        $sum = CustomerPayment::where('account_id', $accountId)
-            ->where('payment_date', '>=', $dateFrom)
-            ->where('payment_date', '<=', $dateTo)
-            ->forCoachPtPackage($coachId)
+        $data = $genericData->getData();
+
+        $sum = CustomerPayment::where('account_id', $genericData->userData->account_id)
+            ->where('payment_date', '>=', $data->startDate)
+            ->where('payment_date', '<=', $data->endDate)
+            ->forCoachPtPackage($genericData->userData->id)
             ->sum('amount');
 
         return (float) $sum;
@@ -101,18 +100,17 @@ class CustomerPaymentRepository extends BaseRepository
     /**
      * Count PT package payments for a coach in date range.
      *
-     * @param int $accountId
-     * @param int $coachId
-     * @param string $dateFrom Y-m-d
-     * @param string $dateTo Y-m-d
+     * @param GenericData $genericData Carries userData (coach) + startDate/endDate
      * @return int
      */
-    public function countCoachPtPaymentsForDateRange(int $accountId, int $coachId, string $dateFrom, string $dateTo): int
+    public function countCoachPtPaymentsForDateRange(GenericData $genericData): int
     {
-        return CustomerPayment::where('account_id', $accountId)
-            ->where('payment_date', '>=', $dateFrom)
-            ->where('payment_date', '<=', $dateTo)
-            ->forCoachPtPackage($coachId)
+        $data = $genericData->getData();
+
+        return CustomerPayment::where('account_id', $genericData->userData->account_id)
+            ->where('payment_date', '>=', $data->startDate)
+            ->where('payment_date', '<=', $data->endDate)
+            ->forCoachPtPackage($genericData->userData->id)
             ->count();
     }
 
@@ -194,6 +192,33 @@ class CustomerPaymentRepository extends BaseRepository
             ->orderByDesc('created_at')
             ->limit($limit)
             ->get();
+    }
+
+    /**
+     * Coach PT payments within a date range (customer + bill loaded), optional limit.
+     * Used by the coach My Collection report list and export.
+     *
+     * @param GenericData $genericData Carries userData (coach) + startDate/endDate
+     * @param int|null $limit
+     * @return Collection<int, CustomerPayment>
+     */
+    public function getCoachPtPaymentsForDateRange(GenericData $genericData, ?int $limit = null): Collection
+    {
+        $data = $genericData->getData();
+
+        $query = CustomerPayment::where('account_id', $genericData->userData->account_id)
+            ->where('payment_date', '>=', $data->startDate)
+            ->where('payment_date', '<=', $data->endDate)
+            ->forCoachPtPackage($genericData->userData->id)
+            ->with(['customer', 'bill'])
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id');
+
+        if ($limit !== null) {
+            $query->limit($limit);
+        }
+
+        return $query->get();
     }
 
     /**

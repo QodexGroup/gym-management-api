@@ -2,9 +2,11 @@
 
 namespace App\Models\Core;
 
+use App\Constant\CustomerBillConstant;
 use App\Models\User;
 use App\Models\Account\MembershipPlan;
 use App\Traits\HasCamelCaseAttributes;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -101,5 +103,18 @@ class CustomerBill extends Model
     {
         return $this->hasOne(CustomerPtPackage::class, 'customer_id', 'customer_id')
             ->whereColumn('tb_customer_pt_package.pt_package_id', $this->getTable() . '.billable_id');
+    }
+
+    /**
+     * Scope: non-voided PT package bills belonging to a given coach.
+     * Mirrors CustomerPayment::scopeForCoachPtPackage for bill-based revenue.
+     */
+    public function scopeForCoachPtPackage(Builder $query, int $coachId): Builder
+    {
+        return $query->where('bill_type', CustomerBillConstant::BILL_TYPE_PT_PACKAGE_SUBSCRIPTION)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+            ->whereHas('customerPtPackage', function (Builder $ptQ) use ($coachId): void {
+                $ptQ->where('coach_id', $coachId);
+            });
     }
 }

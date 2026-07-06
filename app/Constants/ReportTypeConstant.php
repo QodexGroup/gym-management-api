@@ -7,6 +7,9 @@ class ReportTypeConstant
     const COLLECTION = 'collection';
     const EXPENSE = 'expense';
     const SUMMARY = 'summary';
+    const REVENUE = 'revenue';
+    const MY_COLLECTION = 'my_collection';
+    const MY_REVENUE = 'my_revenue';
 
     /**
      * Get all valid report types as array
@@ -19,6 +22,9 @@ class ReportTypeConstant
             self::COLLECTION,
             self::EXPENSE,
             self::SUMMARY,
+            self::REVENUE,
+            self::MY_COLLECTION,
+            self::MY_REVENUE,
         ];
     }
 

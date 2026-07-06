@@ -244,6 +244,40 @@ class CustomerBillRepository extends BaseRepository
     }
 
     /**
+     * Sum billed revenue (net amount of non-voided bills) for account within a date range.
+     * Revenue is recognized when a client is billed, regardless of whether it has been paid yet.
+     *
+     * @param int $accountId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return float
+     */
+    public function sumBilledRevenueByDateRange(int $accountId, string $dateFrom, string $dateTo): float
+    {
+        return (float) CustomerBill::where('account_id', $accountId)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+            ->where('bill_date', '>=', $dateFrom)
+            ->where('bill_date', '<=', $dateTo)
+            ->sum('net_amount');
+    }
+
+    /**
+     * Sum billed revenue (net amount of non-voided bills) for account for today.
+     *
+     * @param int $accountId
+     * @return float
+     */
+    public function sumBilledRevenueForToday(int $accountId): float
+    {
+        $today = Carbon::today()->toDateString();
+
+        return (float) CustomerBill::where('account_id', $accountId)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+            ->whereDate('bill_date', $today)
+            ->sum('net_amount');
+    }
+
+    /**
      * Get all bills for account within date range for export (no pagination).
      *
      * @param int $accountId
@@ -259,6 +293,225 @@ class CustomerBillRepository extends BaseRepository
             ->with(['customer', 'membershipPlan'])
             ->orderByDesc('bill_date')
             ->get();
+    }
+
+    /**
+     * Get non-voided bills for account within date range for the Revenue report.
+     * Revenue is recognized from bills, so voided bills are excluded.
+     *
+     * @param int $accountId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @param int|null $limit
+     * @return Collection<int, CustomerBill>
+     */
+    public function getForRevenueExport(int $accountId, string $dateFrom, string $dateTo, ?int $limit = null): Collection
+    {
+        $query = CustomerBill::where('account_id', $accountId)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+            ->where('bill_date', '>=', $dateFrom)
+            ->where('bill_date', '<=', $dateTo)
+            ->with(['customer', 'membershipPlan'])
+            ->orderByDesc('bill_date')
+            ->orderByDesc('id');
+
+        if ($limit !== null) {
+            $query->limit($limit);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Count non-voided bills for account within date range (for Revenue report totals).
+     *
+     * @param int $accountId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return int
+     */
+    public function countNonVoidedByAccountAndDateRange(int $accountId, string $dateFrom, string $dateTo): int
+    {
+        return CustomerBill::where('account_id', $accountId)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+            ->where('bill_date', '>=', $dateFrom)
+            ->where('bill_date', '<=', $dateTo)
+            ->count();
+    }
+
+    /**
+     * Sum amount already paid on non-voided bills within a date range
+     * (collection realized against billed revenue).
+     *
+     * @param int $accountId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return float
+     */
+    public function sumPaidOnNonVoidedByDateRange(int $accountId, string $dateFrom, string $dateTo): float
+    {
+        return (float) CustomerBill::where('account_id', $accountId)
+            ->where('bill_status', '!=', CustomerBillConstant::BILL_STATUS_VOIDED)
+            ->where('bill_date', '>=', $dateFrom)
+            ->where('bill_date', '<=', $dateTo)
+            ->sum('paid_amount');
+    }
+
+    /**
+     * Sum billed PT revenue (net amount) for a coach within a date range.
+     *
+     * @param GenericData $genericData Carries userData (coach) + startDate/endDate
+     * @return float
+     */
+    public function getCoachPtRevenueForDateRange(GenericData $genericData): float
+    {
+        $data = $genericData->getData();
+
+        return (float) CustomerBill::where('account_id', $genericData->userData->account_id)
+            ->where('bill_date', '>=', $data->startDate)
+            ->where('bill_date', '<=', $data->endDate)
+            ->forCoachPtPackage($genericData->userData->id)
+            ->sum('net_amount');
+    }
+
+    /**
+     * Count PT package bills for a coach within a date range.
+     *
+     * @param GenericData $genericData Carries userData (coach) + startDate/endDate
+     * @return int
+     */
+    public function countCoachPtBillsForDateRange(GenericData $genericData): int
+    {
+        $data = $genericData->getData();
+
+        return CustomerBill::where('account_id', $genericData->userData->account_id)
+            ->where('bill_date', '>=', $data->startDate)
+            ->where('bill_date', '<=', $data->endDate)
+            ->forCoachPtPackage($genericData->userData->id)
+            ->count();
+    }
+
+    /**
+     * Coach PT billed revenue grouped by month (last N months).
+     *
+     * @param int $accountId
+     * @param int $coachId
+     * @param int $months
+     * @return array<array{month: string, revenue: float}>
+     */
+    public function getCoachPtRevenueByMonth(int $accountId, int $coachId, int $months = 6): array
+    {
+        $rows = CustomerBill::where('account_id', $accountId)
+            ->forCoachPtPackage($coachId)
+            ->selectRaw("DATE_FORMAT(bill_date, '%Y-%m') as month_key, SUM(net_amount) as revenue")
+            ->groupBy('month_key')
+            ->orderByDesc('month_key')
+            ->limit($months)
+            ->get();
+
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = [
+                'month' => Carbon::createFromFormat('Y-m', $r->month_key)->format('M'),
+                'revenue' => (float) $r->revenue,
+            ];
+        }
+        return array_reverse($out);
+    }
+
+    /**
+     * Coach PT billed revenue grouped by week within a date range.
+     *
+     * @param int $accountId
+     * @param int $coachId
+     * @param string $dateFrom Y-m-d
+     * @param string $dateTo Y-m-d
+     * @return array<array{week: string, bills: int, revenue: float}>
+     */
+    public function getCoachPtRevenueByWeek(int $accountId, int $coachId, string $dateFrom, string $dateTo): array
+    {
+        $rows = CustomerBill::where('account_id', $accountId)
+            ->where('bill_date', '>=', $dateFrom)
+            ->where('bill_date', '<=', $dateTo)
+            ->forCoachPtPackage($coachId)
+            ->selectRaw("YEARWEEK(bill_date, 3) as week_key, SUM(net_amount) as revenue, COUNT(*) as bills")
+            ->groupBy('week_key')
+            ->orderBy('week_key')
+            ->get();
+
+        $out = [];
+        $i = 1;
+        foreach ($rows as $r) {
+            $out[] = [
+                'week' => 'Week ' . $i++,
+                'bills' => (int) $r->bills,
+                'revenue' => (float) $r->revenue,
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Recent PT package bills for a coach (with customer loaded).
+     *
+     * @param int $accountId
+     * @param int $coachId
+     * @param int $limit
+     * @return Collection<int, CustomerBill>
+     */
+    public function getRecentPtBillsForCoach(int $accountId, int $coachId, int $limit = 10): Collection
+    {
+        return CustomerBill::where('account_id', $accountId)
+            ->forCoachPtPackage($coachId)
+            ->with(['customer'])
+            ->orderByDesc('bill_date')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Coach PT bills within a date range (customer loaded), optional limit.
+     * Used by the coach My Revenue report list and export.
+     *
+     * @param GenericData $genericData Carries userData (coach) + startDate/endDate
+     * @param int|null $limit
+     * @return Collection<int, CustomerBill>
+     */
+    public function getCoachPtBillsForDateRange(GenericData $genericData, ?int $limit = null): Collection
+    {
+        $data = $genericData->getData();
+
+        $query = CustomerBill::where('account_id', $genericData->userData->account_id)
+            ->where('bill_date', '>=', $data->startDate)
+            ->where('bill_date', '<=', $data->endDate)
+            ->forCoachPtPackage($genericData->userData->id)
+            ->with(['customer'])
+            ->orderByDesc('bill_date')
+            ->orderByDesc('id');
+
+        if ($limit !== null) {
+            $query->limit($limit);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Sum amount already paid on a coach's PT bills within a date range.
+     *
+     * @param GenericData $genericData Carries userData (coach) + startDate/endDate
+     * @return float
+     */
+    public function getCoachPtCollectedForDateRange(GenericData $genericData): float
+    {
+        $data = $genericData->getData();
+
+        return (float) CustomerBill::where('account_id', $genericData->userData->account_id)
+            ->where('bill_date', '>=', $data->startDate)
+            ->where('bill_date', '<=', $data->endDate)
+            ->forCoachPtPackage($genericData->userData->id)
+            ->sum('paid_amount');
     }
 
     /**

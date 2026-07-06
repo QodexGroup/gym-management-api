@@ -23,6 +23,7 @@ use App\Http\Controllers\Core\ClassSessionBookingController;
 use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Account\ReportController;
 use App\Http\Controllers\Core\MyCollectionController;
+use App\Http\Controllers\Core\MyRevenueController;
 use App\Http\Controllers\Common\NotificationController;
 use App\Http\Controllers\Common\WalkinController;
 use App\Http\Controllers\Core\CustomerPtPackageController;
@@ -112,6 +113,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::get('/upcoming-sessions', [DashboardController::class, 'getUpcomingSessions']);
         Route::get('/coach/pt-clients', [DashboardController::class, 'getCoachPtClients']);
         Route::get('/my-collection', [MyCollectionController::class, 'getStats']);
+        Route::get('/my-revenue', [MyRevenueController::class, 'getStats']);
     });
 
     Route::prefix('class-schedules')->middleware(['idempotent'])->group(function () {
@@ -252,6 +254,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
     // Report routes (protected)
     Route::prefix('reports')->group(function () {
         Route::get('/collection-data', [ReportController::class, 'getCollectionData']);
+        Route::get('/revenue-data', [ReportController::class, 'getRevenueData']);
         Route::post('/check-export', [ReportController::class, 'checkExportSize']);
         Route::post('/email', [ReportController::class, 'emailReport']);
     });

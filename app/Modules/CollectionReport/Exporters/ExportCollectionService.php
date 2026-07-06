@@ -52,7 +52,7 @@ class ExportCollectionService
         $count = $paymentData->count();
         $average = $count > 0 ? $totalCollected / $count : 0.0;
         $today = Carbon::today()->toDateString();
-        $todayRevenue = (float) $paymentData->filter(function ($p) use ($today) {
+        $todayCollection = (float) $paymentData->filter(function ($p) use ($today) {
             return Carbon::parse($p->payment_date)->toDateString() === $today;
         })->sum('amount');
 
@@ -60,10 +60,10 @@ class ExportCollectionService
             'businessName' => $this->getBusinessName(),
             'title' => 'Collection Report',
             'summaryRows' => [
-                ['Total Collected', $this->formatCurrency($totalCollected)],
+                ['Total Collected (Payments)', $this->formatCurrency($totalCollected)],
                 ['Transactions', (string) $count],
                 ['Average Transaction', $this->formatCurrency($average)],
-                ["Today's Revenue", $this->formatCurrency($todayRevenue)],
+                ["Today's Collection", $this->formatCurrency($todayCollection)],
             ],
         ];
     }
