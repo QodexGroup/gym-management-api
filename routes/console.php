@@ -22,3 +22,6 @@ Schedule::command('account-billing:lock-accounts')->monthlyOn(10, '06:00');
 
 // Deactivate delinquent accounts on last day of month at 00:00 (Asia/Manila)
 Schedule::command('account-billing:deactivate-accounts')->lastDayOfMonth('00:00');
+
+// Referrals safety net: qualify pending referrals whose invitee has since paid - weekly Mon 02:00 (Asia/Manila)
+Schedule::command('referrals:evaluate-pending')->weeklyOn(1, '02:00');

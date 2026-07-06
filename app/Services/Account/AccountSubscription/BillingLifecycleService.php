@@ -6,6 +6,7 @@ use App\Constant\AccountInvoiceStatusConstant;
 use App\Constant\AccountInvoiceTypeConstant;
 use App\Constant\AccountSubscriptionIntervalConstant;
 use App\Constant\BillingCycleConstant;
+use App\Constant\ReferralConstant;
 use App\Jobs\SendAccountInvoiceNotificationJob;
 use App\Mail\AccountInvoiceNotificationMail;
 use App\Models\Account\AccountInvoice;
@@ -13,6 +14,7 @@ use App\Models\Account\AccountSubscriptionPlan;
 use App\Repositories\Account\AccountRepository;
 use App\Repositories\Account\AccountSubscription\AccountInvoiceRepository;
 use App\Repositories\Account\AccountSubscription\AccountSubscriptionPlanRepository;
+use App\Services\Account\ReferralService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Queue;
 
@@ -21,7 +23,8 @@ class BillingLifecycleService
     public function __construct(
         private AccountInvoiceRepository $accountInvoiceRepository,
         private AccountSubscriptionPlanRepository $accountSubscriptionPlanRepository,
-        private AccountRepository $accountRepository
+        private AccountRepository $accountRepository,
+        private ReferralService $referralService
     ) {
     }
 
@@ -224,18 +227,38 @@ class BillingLifecycleService
             $invoiceDetails['prorate'] = $proration['prorateDetails'];
         }
 
+        $planCharge = (float) $proration['amount'];
+
+        // Apply a one-time 5% referral discount if the account is currently eligible
+        // (has a qualified, not-yet-consumed referral). Capped at one discount per invoice.
+        $referralDiscount = 0.0;
+        if ($this->referralService->isEligibleForDiscount($account->id)) {
+            $referralDiscount = $this->referralService->computeDiscount($planCharge);
+            $invoiceDetails['referralDiscount'] = [
+                'percent' => ReferralConstant::DISCOUNT_PERCENT,
+                'baseAmount' => $planCharge,
+                'discountAmount' => $referralDiscount,
+            ];
+        }
+
         $invoicePayload = [
             'accountId' => $account->id,
             'accountSubscriptionPlanId' => $asp->id,
             'billingPeriod' => $billingPeriod,
             'periodFrom' => $cycleStart,
             'periodTo' => $cycleEndInclusive,
-            'totalAmount' => $proration['amount'],
+            'totalAmount' => round($planCharge - $referralDiscount, 2),
+            'discountAmount' => $referralDiscount,
             'prorate' => $proration['isProrated'] ? 1 : 0,
             'invoiceDetails' => $invoiceDetails,
         ];
 
         $invoice = $this->accountInvoiceRepository->createGeneratedInvoice($invoicePayload);
+
+        // Consume eligibility: mark all currently-unapplied qualified referrals as spent.
+        if ($referralDiscount > 0) {
+            $this->referralService->consumeDiscountForInvoice($account->id, (int) $invoice->id);
+        }
 
         Queue::push(new SendAccountInvoiceNotificationJob($invoice->id, AccountInvoiceNotificationMail::TYPE_ISSUED));
 

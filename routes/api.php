@@ -22,6 +22,7 @@ use App\Http\Controllers\Core\CustomerPaymentController;
 use App\Http\Controllers\Core\ClassSessionBookingController;
 use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Account\ReportController;
+use App\Http\Controllers\Account\ReferralController;
 use App\Http\Controllers\Core\MyCollectionController;
 use App\Http\Controllers\Core\MyRevenueController;
 use App\Http\Controllers\Common\NotificationController;
@@ -71,6 +72,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::post('/payment-request', [AccountPaymentRequestController::class, 'createPaymentRequest']);
         Route::post('/reactivation-payment-request', [AccountPaymentRequestController::class, 'createReactivationPaymentRequest']);
         Route::post('/subscription-request', [AccountPaymentRequestController::class, 'createSubscriptionRequest']);
+        Route::get('/referrals/summary', [ReferralController::class, 'summary']);
     });
 
     Route::prefix('admin')->middleware([EnsurePlatformAdmin::class])->group(function () {

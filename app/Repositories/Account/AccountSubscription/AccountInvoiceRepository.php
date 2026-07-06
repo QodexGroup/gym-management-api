@@ -28,13 +28,16 @@ class AccountInvoiceRepository
      */
     public function createGeneratedInvoice(array $data): AccountInvoice
     {
+        $discountAmount = (float) ($data['discountAmount'] ?? 0);
+
         return AccountInvoice::create([
             'account_id' => $data['accountId'],
             'account_subscription_plan_id' => $data['accountSubscriptionPlanId'],
             'billing_period' => $data['billingPeriod'],
             'invoice_date' => now(),
             'total_amount' => $data['totalAmount'],
-            'discount_amount' => 0,
+            'discount_amount' => $discountAmount,
+            'referral_discount_applied' => $discountAmount > 0,
             'status' => AccountInvoiceStatusConstant::STATUS_PENDING,
             'period_from' => $data['periodFrom'],
             'period_to' => $data['periodTo'],

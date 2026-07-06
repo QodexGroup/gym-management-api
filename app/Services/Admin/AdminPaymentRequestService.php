@@ -17,6 +17,7 @@ use App\Repositories\Account\AccountSubscription\AccountPaymentRequestRepository
 use App\Repositories\Account\AccountSubscription\AccountSubscriptionPlanRepository;
 use App\Repositories\Account\AccountSubscription\SubscriptionPlanRepository;
 use App\Services\Account\AccountSubscription\BillingLifecycleService;
+use App\Services\Account\ReferralService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -28,6 +29,7 @@ class AdminPaymentRequestService
         private AccountSubscriptionPlanRepository $accountSubscriptionPlanRepository,
         private AccountRepository $accountRepository,
         private SubscriptionPlanRepository $subscriptionPlanRepository,
+        private ReferralService $referralService,
     ) {
     }
 
@@ -106,6 +108,9 @@ class AdminPaymentRequestService
             if ($asp && $asp->subscriptionPlan && !$asp->subscriptionPlan->is_trial) {
                 $this->accountSubscriptionPlanRepository->activatePaidSubscriptionPlan($asp);
                 $this->accountRepository->activateAccountById((int) $request->account_id);
+
+                // Qualifying event: this account's paid (non-trial) payment may qualify a referrer.
+                $this->referralService->evaluateInvitedAccount((int) $request->account_id);
             }
         }
     }
@@ -238,6 +243,9 @@ class AdminPaymentRequestService
 
 
         $this->accountRepository->activateAccountById($accountId);
+
+        // Qualifying event: trial upgrade to a paid plan may qualify a referrer.
+        $this->referralService->evaluateInvitedAccount($accountId);
 
         // Avoid double charges by voiding any pending subscription invoices (if generated).
         $this->invoiceRepository->voidUnpaidByAccountIdExceptInvoice($accountId, 0);

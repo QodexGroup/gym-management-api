@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Log;
 class AccountSignUpService
 {
     public function __construct(
-        private AccountRepository $accountRepository
+        private AccountRepository $accountRepository,
+        private ReferralService $referralService
     ) {
     }
 
@@ -54,6 +55,10 @@ class AccountSignUpService
         return DB::transaction(function () use ($firebaseUid, $data, $trialPlan, $trialEndsAt) {
             // Create account
             $account = $this->accountRepository->createAccountFromSignup($data);
+
+            // Attach referral attribution if the signup used a referral code.
+            // No reward is granted here — it only qualifies once the invitee pays.
+            $this->referralService->attachReferralOnSignup($account->id, $data['referralCode'] ?? null);
 
             // Create account subscription plan
             $this->accountRepository->createTrialAccountSubscriptionPlan($account->id, $trialPlan, $trialEndsAt);
