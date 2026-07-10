@@ -1,0 +1,82 @@
+# =============================================================================
+# LOCAL DEVELOPMENT ONLY — replaces XAMPP for the GymHubPH API.
+# Railway (production) ignores this file; it builds the Dockerfile directly.
+#
+# Usage:
+#   1. Copy env:        copy .env.docker.example .env.docker   (then edit secrets)
+#   2. Export XAMPP DB: scripts\export-xampp-db.bat            (writes the seed dump)
+#   3. Start:           docker compose up -d --build
+#   4. App:             http://localhost:8080   Health: http://localhost:8080/up
+#
+# NOTE: the app image is the SAME production Dockerfile. Code is COPIED into the
+# image (not bind-mounted), so after changing PHP code run:  docker compose up -d --build
+# =============================================================================
+
+services:
+  # ------------------------------------------------------------------ MySQL 8
+  mysql:
+    image: mysql:8.0
+    container_name: gymhub-mysql
+    restart: unless-stopped
+    environment:
+      # Root stays passwordless for quick local admin (matches TravelSystem/mymeds).
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: "${DB_DATABASE:-triforceph}"
+      # Shared local-dev credentials so one Navicat connection works across
+      # gymhub / travelsystem / mymeds. NOTE: MySQL only creates this account on
+      # the FIRST boot of an empty volume. For an existing volume, create it once
+      # with the SQL in docs/DOCKER_LOCAL_DEV.md (Section 11).
+      MYSQL_USER: user
+      MYSQL_PASSWORD: "Abc_12345"
+    ports:
+      # Host 3306 -> container 3306. If XAMPP MySQL is still running on 3306,
+      # stop it first OR change the host side to "3307:3306".
+      - "3306:3306"
+    volumes:
+      - gymhub_mysql_data:/var/lib/mysql
+      # Any *.sql / *.sh here runs ONCE, only when the data volume is first
+      # created (empty). This is how the exported triforceph dump is loaded.
+      - ./.docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - gymhub
+
+  # ------------------------------------------------ Laravel API (prod image)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gymhub-api
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      # Override the DB host so the app talks to the mysql service, not 127.0.0.1.
+      DB_HOST: mysql
+      DB_PORT: 3306
+    ports:
+      # Host 8000 -> container 8080. The container serves on 8080 internally
+      # (nginx), but the frontend expects the API on http://localhost:8000/api
+      # (see gym-management-system/.env.development), so we publish on 8000.
+      - "8000:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - gymhub
+
+volumes:
+  gymhub_mysql_data:
+    driver: local
+
+networks:
+  gymhub:
+    driver: bridge

@@ -34,6 +34,18 @@ storage/framework/views/*
 # Node modules (if any)
 node_modules/
 
+# PHP dependencies — the image builds its own --no-dev vendor.
+# Never copy the host vendor in: it carries dev-only packages (e.g. laravel/pail)
+# in installed.json that `dump-autoload --no-dev` then strips from the autoloader,
+# causing "Class Laravel\Pail\PailServiceProvider not found" at boot.
+vendor/
+
+# Local Docker dev — never bake compose files or DB dumps into the prod image
+docker-compose.yml
+docker-compose.*.yml
+.docker/mysql/init/*.sql
+scripts/
+
 # Build artifacts
 bootstrap/cache/*
 !bootstrap/cache/.gitignore

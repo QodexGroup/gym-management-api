@@ -25,3 +25,7 @@ Thumbs.db
 
 # Firebase credentials
 /storage/firebase_credentials.json
+
+# Local Docker dev — keep local-only env and DB dumps out of the repo
+.env.docker
+.docker/mysql/init/*.sql
