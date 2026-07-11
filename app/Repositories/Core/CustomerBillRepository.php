@@ -6,6 +6,7 @@ use App\Repositories\BaseRepository;
 
 use App\Constant\CustomerBillConstant;
 use App\Helpers\GenericData;
+use App\Models\Account\MembershipPlan;
 use App\Models\Core\CustomerBill;
 use App\Models\Core\CustomerMembership;
 use Carbon\Carbon;
@@ -56,6 +57,42 @@ class CustomerBillRepository extends BaseRepository
             'gross_amount' => $grossAmount,
             'discount_percentage' => 0,
             'net_amount' => $grossAmount,
+            'paid_amount' => 0,
+        ]);
+    }
+
+    /**
+     * Create a prorated renewal bill that aligns a member onto a fixed billing day.
+     * The cycle is a full plan period stretched to the next billing day ("month + gap"),
+     * dated at the cycle start (payable immediately) and carrying an explicit
+     * coverage_end_date so paying it extends coverage exactly to that date. The amount
+     * is prorated for the actual number of days, so it can exceed a single plan period.
+     *
+     * @param int $customerId
+     * @param MembershipPlan $plan
+     * @param Carbon $billDate first day of the aligning cycle (day after current coverage)
+     * @param Carbon $coverageEnd last day the cycle covers (day before the billing day)
+     * @return CustomerBill
+     */
+    public function createProratedRenewalBill(int $customerId, MembershipPlan $plan, Carbon $billDate, Carbon $coverageEnd): CustomerBill
+    {
+        $fullDays = max(1, $billDate->diffInDays($plan->calculateEndDate($billDate)));
+        $cycleDays = max(1, $billDate->diffInDays($coverageEnd));
+        $ratio = $cycleDays / $fullDays;
+        $amount = round((float) $plan->price * $ratio, 2);
+
+        return CustomerBill::create([
+            'account_id' => $plan->account_id,
+            'customer_id' => $customerId,
+            'billable_id' => $plan->id,
+            'bill_type' => CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION,
+            'bill_status' => CustomerBillConstant::BILL_STATUS_ACTIVE,
+            'bill_date' => $billDate,
+            'coverage_end_date' => $coverageEnd,
+            'billing_period' => $billDate->format('mdY'),
+            'gross_amount' => $amount,
+            'discount_percentage' => 0,
+            'net_amount' => $amount,
             'paid_amount' => 0,
         ]);
     }

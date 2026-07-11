@@ -11,6 +11,7 @@ use App\Repositories\Core\CustomerMembershipRepository;
 use App\Repositories\Core\CustomerRepository;
 use App\Models\Core\CustomerBill;
 use App\Models\Core\CustomerMembership;
+use App\Services\Account\AccountSystemSettingService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -21,7 +22,8 @@ class CustomerBillService
         private CustomerBillRepository $customerBillRepository,
         private CustomerRepository $customerRepository,
         private CustomerMembershipRepository $membershipRepository,
-        private MembershipPlanRepository $membershipPlanRepository
+        private MembershipPlanRepository $membershipPlanRepository,
+        private AccountSystemSettingService $membershipSettingService
     ) {
     }
 
@@ -44,12 +46,23 @@ class CustomerBillService
                     $bill = $this->customerBillRepository->create($genericData);
                 }
                 elseif($data->billType == CustomerBillConstant::BILL_TYPE_REACTIVATION_FEE) {
+                    if (!$this->membershipSettingService->get($accountId, 'requireReactivationFee')) {
+                        throw new \RuntimeException('Reactivation fee is disabled for this account. Reactivate by paying a membership bill instead.');
+                    }
+                    // Reactivation fee amount is fixed by settings - never trust a client-supplied amount.
+                    $feeAmount = (float) $this->membershipSettingService->get($accountId, 'reactivationFeeAmount');
+                    $data->grossAmount = $feeAmount;
+                    $data->discountPercentage = 0;
+                    $data->netAmount = $feeAmount;
                     // Handle reactivation fee - void expired membership balances
                     $this->voidExpiredMembershipBills($customerId, $accountId);
                     $bill = $this->customerBillRepository->create($genericData);
                 }
                 else{
                     // this is for membership subscription
+                    if (!$this->membershipSettingService->get($accountId, 'allowManualMembershipBills')) {
+                        throw new \RuntimeException('Manual membership bills are disabled for this account. Assign or renew the membership instead.');
+                    }
                     $planId = $data->billableId ?? null;
 
                     if ($planId) {
@@ -121,6 +134,20 @@ class CustomerBillService
                 // Get the existing bill to check for membership plan changes
                 $existingBill = $this->customerBillRepository->findBillById($id, $accountId);
                 $this->ensureBillIsEditableForCurrentCycle($existingBill, $accountId);
+
+                // Guard: a bill's net can never drop below what has already been paid on it.
+                $alreadyPaid = (float) $existingBill->paid_amount;
+                $newNet = isset($data->netAmount) ? (float) $data->netAmount : (float) $existingBill->net_amount;
+                if ($newNet < $alreadyPaid) {
+                    throw new \RuntimeException(sprintf(
+                        'Net amount (%.2f) cannot be less than the amount already paid (%.2f). Delete or adjust the payments first.',
+                        $newNet,
+                        $alreadyPaid
+                    ));
+                }
+                // Keep the bill status consistent with the edited amounts.
+                $data->billStatus = $this->resolveBillStatus($alreadyPaid, $newNet);
+
                 $oldMembershipPlanId = $existingBill->bill_type === CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION
                     ? $existingBill->billable_id
                     : null;
@@ -326,6 +353,26 @@ class CustomerBillService
      * @param int $accountId
      * @return void
      */
+    /**
+     * Derive a bill's status from its paid vs net amounts.
+     *
+     * @param float $paid
+     * @param float $net
+     * @return string
+     */
+    private function resolveBillStatus(float $paid, float $net): string
+    {
+        if ($paid <= 0) {
+            return CustomerBillConstant::BILL_STATUS_ACTIVE;
+        }
+
+        if ($paid >= $net) {
+            return CustomerBillConstant::BILL_STATUS_PAID;
+        }
+
+        return CustomerBillConstant::BILL_STATUS_PARTIAL;
+    }
+
     private function ensureBillIsEditableForCurrentCycle(CustomerBill $bill, int $accountId): void
     {
         if ($bill->bill_status === CustomerBillConstant::BILL_STATUS_VOIDED) {
@@ -333,6 +380,11 @@ class CustomerBillService
         }
 
         if ($bill->bill_type !== CustomerBillConstant::BILL_TYPE_MEMBERSHIP_SUBSCRIPTION) {
+            return;
+        }
+
+        // Editing previous-cycle bills is locked unless the account allows it.
+        if ($this->membershipSettingService->get($accountId, 'allowEditPreviousCycleBills')) {
             return;
         }
 

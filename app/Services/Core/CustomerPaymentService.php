@@ -3,6 +3,7 @@
 namespace App\Services\Core;
 
 use App\Constant\CustomerBillConstant;
+use App\Constant\MembershipSettingConstant;
 use App\Helpers\GenericData;
 use App\Models\Core\CustomerBill;
 use App\Models\Core\CustomerPayment;
@@ -10,6 +11,7 @@ use App\Repositories\Account\MembershipPlanRepository;
 use App\Repositories\Core\CustomerBillRepository;
 use App\Repositories\Core\CustomerPaymentRepository;
 use App\Repositories\Core\CustomerRepository;
+use App\Services\Account\AccountSystemSettingService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -23,6 +25,7 @@ class CustomerPaymentService
         private MembershipPlanRepository $membershipPlanRepository,
         private CustomerBillService $billService,
         private NotificationService $notificationService,
+        private AccountSystemSettingService $membershipSettingService,
     ) {
     }
 
@@ -154,11 +157,20 @@ class CustomerPaymentService
             throw new \RuntimeException('Bill does not belong to the specified customer.');
         }
 
-        $this->ensureBillIsPayableForCurrentCycle($bill, $accountId);
+        $this->ensureBillIsPayable($bill, (int) $accountId);
 
         $remaining = (float) $bill->net_amount - (float) $bill->paid_amount;
         if ($amount <= 0 || $amount > $remaining) {
             throw new \RuntimeException('Invalid payment amount.');
+        }
+
+        // When partial payments are disabled, a payment must settle the full remaining balance.
+        if (!$this->membershipSettingService->get($accountId, 'allowPartialPayments')
+            && ($remaining - $amount) > 0.001) {
+            throw new \RuntimeException(sprintf(
+                'Partial payments are disabled for this account. Please pay the full remaining balance of %.2f.',
+                $remaining
+            ));
         }
     }
 
@@ -203,6 +215,14 @@ class CustomerPaymentService
             return;
         }
 
+        // Grant/extend policy: 'first_payment' activates on any (partial) payment,
+        // 'full_payment' waits until the bill is fully paid.
+        $grantOn = $this->membershipSettingService->getForAccount($accountId)['grantMembershipOn'];
+        if ($grantOn === MembershipSettingConstant::GRANT_ON_FULL_PAYMENT
+            && $newPaidAmount < (float) $bill->net_amount) {
+            return;
+        }
+
         try {
             // Find the current active membership for this customer and plan
             $membership = $this->customerRepository->findLatestMembershipForPlan(
@@ -211,12 +231,59 @@ class CustomerPaymentService
                 (int) $bill->billable_id
             );
 
+            // A scheduled (next-renewal) plan change: the bill is for the customer's
+            // pending plan while the active membership is still on the old plan. Switch
+            // the membership onto the new plan and extend it for the new period.
+            if (!$membership) {
+                $pendingMembership = $this->customerRepository->findMembershipWithPendingPlan(
+                    $bill->customer_id,
+                    $accountId,
+                    (int) $bill->billable_id
+                );
+
+                if ($pendingMembership) {
+                    $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById((int) $bill->billable_id, $accountId);
+                    $billDate = Carbon::parse($bill->bill_date)->startOfDay();
+                    $membershipEndDate = Carbon::parse($pendingMembership->membership_end_date)->startOfDay();
+                    $newStartDate = $billDate->greaterThan($membershipEndDate) ? $billDate : $membershipEndDate;
+                    // A prorated bridge bill carries an explicit coverage end; otherwise a full plan period.
+                    $newEndDate = $bill->coverage_end_date
+                        ? Carbon::parse($bill->coverage_end_date)->startOfDay()
+                        : $membershipPlan->calculateEndDate($newStartDate);
+
+                    // Switch to the new plan (clears the pending flag), then extend dates.
+                    $this->customerRepository->applyPendingPlan($pendingMembership->id, (int) $bill->billable_id);
+                    $this->customerRepository->extendMembership($pendingMembership->id, $newStartDate, $newEndDate);
+
+                    Log::info('Scheduled plan change applied on renewal payment', [
+                        'membership_id' => $pendingMembership->id,
+                        'bill_id' => $bill->id,
+                        'customer_id' => $bill->customer_id,
+                        'new_plan_id' => $bill->billable_id,
+                        'new_start_date' => $newStartDate->toDateString(),
+                        'new_end_date' => $newEndDate->toDateString(),
+                    ]);
+                    return;
+                }
+            }
+
             if (!$membership) {
                 // No existing membership - this is a new member, create membership
                 $membershipPlan = $this->membershipPlanRepository->findMembershipPlanById((int) $bill->billable_id, $accountId);
                 $billDate = Carbon::parse($bill->bill_date);
 
-                $this->customerRepository->createMembership($accountId, $bill->customer_id, $membershipPlan, $billDate);
+                // A prorated bridge bill carries an explicit coverage end; honour it so the
+                // membership spans only the bridge period (not a full plan period).
+                if ($bill->coverage_end_date) {
+                    $this->customerRepository->createMembershipWithDates(
+                        $bill->customer_id,
+                        $membershipPlan,
+                        $billDate->copy()->startOfDay(),
+                        Carbon::parse($bill->coverage_end_date)->startOfDay()
+                    );
+                } else {
+                    $this->customerRepository->createMembership($accountId, $bill->customer_id, $membershipPlan, $billDate);
+                }
 
                 Log::info('Membership created for new member via bill payment', [
                     'bill_id' => $bill->id,
@@ -237,8 +304,10 @@ class CustomerPaymentService
 
                 // New start date = bill date (or membership end date, whichever is later)
                 $newStartDate = $billDate->greaterThan($membershipEndDate) ? $billDate : $membershipEndDate;
-                // New end date = start date + plan period
-                $newEndDate = $membershipPlan->calculateEndDate($newStartDate);
+                // A prorated bridge bill carries an explicit coverage end; otherwise a full plan period.
+                $newEndDate = $bill->coverage_end_date
+                    ? Carbon::parse($bill->coverage_end_date)->startOfDay()
+                    : $membershipPlan->calculateEndDate($newStartDate);
 
                 // Extend the membership
                 $this->customerRepository->extendMembership($membership->id, $newStartDate, $newEndDate);
@@ -297,21 +366,33 @@ class CustomerPaymentService
                 $accountId
             );
 
-            // Payment date = start date for new membership (free month starts from payment date)
+            // Payment date = start date for new membership (promo period starts from payment date)
             // Use payment_date if set, otherwise use payment's created_at, fallback to now()
             $paymentDate = $payment->payment_date
                 ? Carbon::parse($payment->payment_date)
                 : ($payment->created_at ? Carbon::parse($payment->created_at) : Carbon::now());
 
-            // Create new membership with free month (1 month free, regardless of plan type)
-            $newMembership = $this->customerRepository->createMembershipWithFreeMonth(
-                $accountId,
+            // Reactivation grant is account-configurable: a promo period (default 1 month)
+            // when grantReactivationPromo is on, otherwise the plan's normal period.
+            $settings = $this->membershipSettingService->getForAccount($accountId);
+            $start = $paymentDate->copy()->startOfDay();
+            if ($settings['grantReactivationPromo']) {
+                $length = (int) $settings['reactivationPromoLength'];
+                $endDate = $settings['reactivationPromoUnit'] === MembershipSettingConstant::PROMO_UNIT_DAYS
+                    ? $start->copy()->addDays($length)->subDay()->startOfDay()
+                    : $start->copy()->addMonths($length)->subDay()->startOfDay();
+            } else {
+                $endDate = $membershipPlan->calculateEndDate($start);
+            }
+
+            $newMembership = $this->customerRepository->createMembershipWithDates(
                 $bill->customer_id,
                 $membershipPlan,
-                $paymentDate
+                $paymentDate,
+                $endDate
             );
 
-            Log::info('Membership created with free month via reactivation fee payment', [
+            Log::info('Membership created via reactivation fee payment', [
                 'bill_id' => $bill->id,
                 'customer_id' => $bill->customer_id,
                 'membership_id' => $newMembership->id,
@@ -333,13 +414,14 @@ class CustomerPaymentService
     }
 
     /**
-     * Prevent payments on locked/history bills from previous membership cycles.
+     * Prevent payments on voided bills. Previous-cycle membership bills are payable
+     * by default, but the account setting `allowPayPreviousCycleBills` can lock them.
      *
      * @param CustomerBill $bill
      * @param int $accountId
      * @return void
      */
-    private function ensureBillIsPayableForCurrentCycle(CustomerBill $bill, int $accountId): void
+    private function ensureBillIsPayable(CustomerBill $bill, int $accountId): void
     {
         if ($bill->bill_status === CustomerBillConstant::BILL_STATUS_VOIDED) {
             throw new \RuntimeException('Cannot add payment to a voided bill.');
@@ -349,8 +431,13 @@ class CustomerPaymentService
             return;
         }
 
+        // Previous-cycle membership bills stay payable unless the account disables it.
+        if ($this->membershipSettingService->get($accountId, 'allowPayPreviousCycleBills')) {
+            return;
+        }
+
         $customer = $this->customerRepository->findCustomerById((int) $bill->customer_id, $accountId);
-        $currentMembership = $customer->currentMembership;
+        $currentMembership = $customer?->currentMembership;
         if (!$currentMembership) {
             return;
         }

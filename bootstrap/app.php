@@ -30,6 +30,22 @@ return Application::configure(basePath: dirname(__DIR__))
                 newrelic_notice_error($e->getMessage(), $e);
             }
         });
+
+        // Business-rule violations are thrown as \RuntimeException by the service
+        // layer (e.g. "Partial payments are disabled", "Net amount cannot be less
+        // than amount already paid"). Surface their message as a 422 so the client
+        // sees WHY the action was rejected instead of a generic 500 "Server Error".
+        // HTTP exceptions (404/403/405/…) extend RuntimeException too, so let those
+        // fall through to Laravel's normal handling.
+        $exceptions->render(function (\RuntimeException $e, \Illuminate\Http\Request $request) {
+            if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+                return null;
+            }
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return \App\Helpers\ApiResponse::error($e->getMessage(), 422);
+            }
+            return null;
+        });
     })
     ->create();
 

@@ -24,6 +24,10 @@ class CustomerMembershipResource extends JsonResource
             'membershipPlan' => $this->whenLoaded('membershipPlan', function () {
                 return new MembershipPlanResource($this->membershipPlan);
             }),
+            'pendingPlanId' => $this->pending_plan_id,
+            'pendingPlan' => $this->whenLoaded('pendingPlan', function () {
+                return $this->pending_plan_id ? new MembershipPlanResource($this->pendingPlan) : null;
+            }),
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
         ];

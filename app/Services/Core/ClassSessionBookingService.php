@@ -7,13 +7,18 @@ use App\Helpers\GenericData;
 use App\Models\Core\ClassSessionBooking;
 use App\Repositories\Account\ClassScheduleSessionRepository;
 use App\Repositories\Core\ClassSessionBookingRepository;
+use App\Repositories\Core\CustomerRepository;
+use App\Services\Account\AccountSystemSettingService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ClassSessionBookingService
 {
     public function __construct(
         private ClassSessionBookingRepository $bookingRepository,
-        private ClassScheduleSessionRepository $sessionRepository
+        private ClassScheduleSessionRepository $sessionRepository,
+        private CustomerRepository $customerRepository,
+        private AccountSystemSettingService $membershipSettingService
     ) {
     }
 
@@ -39,6 +44,10 @@ class ClassSessionBookingService
                 throw new \Exception('Class session not found');
             }
 
+            // Membership eligibility (account-configurable). Facility walk-in is always
+            // open; only group-class booking may require an active membership.
+            $this->ensureMembershipAllowsBooking((int) $customerId, (int) $genericData->userData->account_id);
+
             // Check capacity - count all bookings except 'cancelled'
             $bookingsCount = $this->bookingRepository->getBookingsCount($sessionId, $genericData);
             $capacity = $session->classSchedule->capacity ?? 0;
@@ -56,6 +65,45 @@ class ClassSessionBookingService
             // Create booking
             $this->bookingRepository->createBooking($genericData);
         });
+    }
+
+    /**
+     * Ensure the customer's membership allows booking a group class, per account settings.
+     * Eligible when the membership is within its paid period, or within the grace window
+     * if grace-period class booking is allowed. Facility check-in is never gated here.
+     *
+     * @param int $customerId
+     * @param int $accountId
+     * @return void
+     * @throws \Exception
+     */
+    private function ensureMembershipAllowsBooking(int $customerId, int $accountId): void
+    {
+        $settings = $this->membershipSettingService->getForAccount($accountId);
+
+        if (!$settings['requireMembershipForClassBooking']) {
+            return;
+        }
+
+        $customer = $this->customerRepository->findCustomerById($customerId, $accountId);
+        $membership = $customer?->currentMembership;
+
+        $eligible = false;
+        if ($membership && $membership->membership_end_date) {
+            $endDate = Carbon::parse($membership->membership_end_date)->startOfDay();
+            $today = Carbon::today();
+
+            if ($endDate->gte($today)) {
+                $eligible = true;
+            } elseif ($settings['allowClassBookingDuringGrace']) {
+                $graceEnd = $endDate->copy()->addDays((int) $settings['gracePeriodDays']);
+                $eligible = $today->lte($graceEnd);
+            }
+        }
+
+        if (!$eligible) {
+            throw new \Exception('An active membership is required to book group classes.');
+        }
     }
 
     /**
