@@ -38,5 +38,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('emails', function ($job) {
             return Limit::perMinute(6)->by('email-sending');
         });
+
+        // Throttle Google Sheets webhook syncs (Apps Script quotas).
+        // 30/min = one append every ~2s; rate-limited jobs are released
+        // back onto the queue, not lost.
+        RateLimiter::for('google-sheets', function ($job) {
+            return Limit::perMinute(30)->by('google-sheets-sync');
+        });
     }
 }

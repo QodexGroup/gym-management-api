@@ -32,6 +32,13 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'google_sheets' => [
+        // Apps Script web app URL that appends payment requests to the sheet.
+        // Leave empty to disable the sync (docs/google-sheets-payment-sync.md).
+        'payment_webhook_url' => env('GOOGLE_SHEETS_PAYMENT_WEBHOOK_URL', ''),
+        'webhook_secret' => env('GOOGLE_SHEETS_WEBHOOK_SECRET', ''),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
