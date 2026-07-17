@@ -109,4 +109,20 @@ class AccountInvoiceRepository
             ->all();
     }
 
+    /**
+     * Whether the account already has an outstanding (unpaid/pending) subscription invoice.
+     * Used to avoid generating a new invoice while a prior one is still unpaid.
+     *
+     * @param int $accountId
+     *
+     * @return bool
+     */
+    public function hasPendingByAccountId(int $accountId): bool
+    {
+        return AccountInvoice::query()
+            ->where('account_id', $accountId)
+            ->where('status', AccountInvoiceStatusConstant::STATUS_PENDING)
+            ->exists();
+    }
+
 }

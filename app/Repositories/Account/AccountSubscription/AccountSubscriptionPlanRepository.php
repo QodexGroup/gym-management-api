@@ -18,15 +18,16 @@ class AccountSubscriptionPlanRepository
      */
     public function chunkBillableByInterval(Carbon $cycleStart, string $interval, callable $callback): void
     {
+        // Deferred billing model: bill an account only once its paid coverage has reached
+        // this anchor (subscription_ends_at <= cycleStart). Accounts still prepaid past the
+        // anchor are billed on a later cycle. Deactivated accounts are excluded via status.
         AccountSubscriptionPlan::with(['account', 'subscriptionPlan'])
             ->whereHas('subscriptionPlan', fn ($q) => $q->where('interval', $interval)->where('is_trial', false))
             ->whereHas('account', fn ($q) => $q->where('status', AccountStatusConstant::STATUS_ACTIVE))
             ->whereNotNull('subscription_starts_at')
             ->where('subscription_starts_at', '<=', $cycleStart)
-            ->where(function ($q) use ($cycleStart) {
-                $q->whereNull('subscription_ends_at')
-                    ->orWhere('subscription_ends_at', '>', $cycleStart);
-            })
+            ->whereNotNull('subscription_ends_at')
+            ->where('subscription_ends_at', '<=', $cycleStart)
             ->chunkById(50, $callback);
     }
 

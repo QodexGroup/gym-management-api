@@ -25,9 +25,11 @@ class InvoiceGenerationAndLockingTest extends AccountSubscriptionFlowTestCase
             'interval' => AccountSubscriptionIntervalConstant::INTERVAL_MONTH,
             'price' => 1200,
         ]);
+        // Deferred model: an account is billed once its paid coverage reaches the anchor.
+        // Coverage ends exactly on the cycle start (the 5th) → clean full month, no bridge.
         $asp = $this->createAccountSubscriptionPlan($account, $plan, [
-            'subscription_starts_at' => Carbon::now()->copy()->subDays(10),
-            'subscription_ends_at' => null,
+            'subscription_starts_at' => Carbon::now()->copy()->subMonthNoOverflow(),
+            'subscription_ends_at' => Carbon::now()->copy()->day(BillingCycleConstant::CYCLE_DAY_DUE)->startOfDay(),
         ]);
 
         $count = $this->billingLifecycleService->generateInvoicesForCurrentCycle();

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\AccountSubscription;
 
+use App\Constant\AccountSubscriptionStatusConstant;
 use App\Models\Account\AccountSubscriptionPlan;
 use App\Services\Account\AccountSignUpService;
 use Carbon\Carbon;
@@ -46,7 +47,8 @@ class SignupInitialSubscriptionTest extends AccountSubscriptionFlowTestCase
         $this->assertSame($this->trialPlan->id, $plan->subscription_plan_id);
         $this->assertNotNull($plan->trial_starts_at);
         $this->assertEquals(Carbon::now()->toDateString(), $plan->trial_starts_at->toDateString());
-        $this->assertEquals(Carbon::now()->addDays($this->trialPlan->trial_days)->toDateString(), $plan->trial_ends_at->toDateString());
+        // Trial length is driven by the constant, not the plan's trial_days column.
+        $this->assertEquals(Carbon::now()->addDays(AccountSubscriptionStatusConstant::TRIAL_DAYS)->toDateString(), $plan->trial_ends_at->toDateString());
         $this->assertNull($plan->subscription_starts_at);
         $this->assertNull($plan->subscription_ends_at);
 
