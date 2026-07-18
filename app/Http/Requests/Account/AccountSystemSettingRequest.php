@@ -33,6 +33,17 @@ class AccountSystemSettingRequest extends GenericRequest
             'allowEditPreviousCycleBills' => ['sometimes', 'boolean'],
             'billingAnchor' => ['sometimes', 'in:' . MembershipSettingConstant::ANCHOR_ANNIVERSARY . ',' . MembershipSettingConstant::ANCHOR_FIXED_DAY],
             'fixedBillingDay' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:28'],
+
+            // In-app notification settings group
+            'notifyMembershipExpiry' => ['sometimes', 'boolean'],
+            'notifyPaymentReceived' => ['sometimes', 'boolean'],
+            'notifyNewRegistration' => ['sometimes', 'boolean'],
+
+            // Member/client email notification settings group
+            'emailNotificationsEnabled' => ['sometimes', 'boolean'],
+            'emailMembershipExpiring' => ['sometimes', 'boolean'],
+            'emailPaymentConfirmation' => ['sometimes', 'boolean'],
+            'emailCustomerRegistration' => ['sometimes', 'boolean'],
         ];
     }
 }
