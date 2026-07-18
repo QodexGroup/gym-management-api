@@ -63,6 +63,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
     Route::prefix('storage')->group(function () {
         Route::post('/presigned-url', [StorageController::class, 'getPresignedUrl']);
+        Route::get('/usage', [StorageController::class, 'usage']);
     });
 
     Route::prefix('accounts')->middleware(['idempotent'])->group(function () {
@@ -88,6 +89,8 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::put('/{id}/deactivate', [UsersController::class, 'deactivateUser']);
         Route::put('/{id}/activate', [UsersController::class, 'activateUser']);
         Route::put('/{id}/reset-password', [UsersController::class, 'resetPassword']);
+        Route::post('/{id}/avatar', [UsersController::class, 'uploadAvatar']);
+        Route::delete('/{id}/avatar', [UsersController::class, 'removeAvatar']);
     });
 
     Route::prefix('membership-plans')->middleware(['idempotent'])->group(function () {
@@ -191,6 +194,8 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::delete('/{id}', [CustomerController::class, 'delete']);
         Route::post('/{id}/membership', [CustomerController::class, 'createOrUpdateMembership']);
         Route::post('/{id}/pt-packages', [CustomerController::class, 'createPtPackage']);
+        Route::post('/{id}/photo', [CustomerController::class, 'uploadPhoto']);
+        Route::delete('/{id}/photo', [CustomerController::class, 'removePhoto']);
         Route::get('/{id}/pt-packages', [CustomerPtPackageController::class, 'getPtPackages']);
 
         Route::delete('/pt-packages/{ptPackageId}', [CustomerPtPackageController::class, 'removePtPackage']);

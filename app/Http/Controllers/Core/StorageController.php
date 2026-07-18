@@ -4,45 +4,57 @@ namespace App\Http\Controllers\Core;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use Aws\S3\S3Client;
+use App\Services\Core\StorageService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class StorageController extends Controller
 {
-    private function getS3Client(): S3Client
-    {
-        return new S3Client([
-            'version' => 'latest',
-            'region' => 'auto',
-            'endpoint' => 'https://' . env('R2_ACCOUNT_ID') . '.r2.cloudflarestorage.com',
-            'credentials' => [
-                'key' => env('R2_ACCESS_KEY_ID'),
-                'secret' => env('R2_SECRET_ACCESS_KEY'),
-            ],
-            'use_path_style_endpoint' => true,
-        ]);
-    }
+    /**
+     * @param StorageService $storageService
+     */
+    public function __construct(
+        private StorageService $storageService,
+    ) {}
 
-    public function getPresignedUrl(Request $request)
+    /**
+     * Issue a short-lived presigned R2 upload URL — but only after checking the
+     * account's storage quota. Over-quota requests throw QuotaExceededException
+     * (rendered as 403), so the upload never runs.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getPresignedUrl(Request $request): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'path' => 'required|string|max:500',
             'content_type' => 'required|string|in:image/jpeg,image/jpg,image/png,image/webp,application/pdf',
+            'content_length' => 'required|integer|min:1',
         ]);
 
-        $s3Client = $this->getS3Client();
+        $accountId = (int) $request->attributes->get('user')->account_id;
 
-        $cmd = $s3Client->getCommand('PutObject', [
-            'Bucket' => env('R2_BUCKET'),
-            'Key' => $request->path,
-            'ContentType' => $request->content_type,
-        ]);
+        $result = $this->storageService->createPresignedUpload(
+            $accountId,
+            $validated['path'],
+            $validated['content_type'],
+            (int) $validated['content_length'],
+        );
 
-        $presignedRequest = $s3Client->createPresignedRequest($cmd, '+15 minutes');
+        return ApiResponse::success($result);
+    }
 
-        return ApiResponse::success([
-            'url' => (string) $presignedRequest->getUri(),
-            'path' => $request->path,
-        ]);
+    /**
+     * Current storage usage/limit for the authenticated account.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function usage(Request $request): JsonResponse
+    {
+        $accountId = (int) $request->attributes->get('user')->account_id;
+
+        return ApiResponse::success($this->storageService->getUsage($accountId));
     }
 }

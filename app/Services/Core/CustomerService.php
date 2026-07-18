@@ -28,7 +28,46 @@ class CustomerService
         private NotificationService $notificationService,
         private PtPackageRepository $ptPackageRepository,
         private CustomerPtPackageRepository $customerPtPackageRepository,
+        private StorageService $storageService,
     ) {
+    }
+
+    /**
+     * Set a customer's photo, replacing any previous one and counting storage.
+     *
+     * @param int $id
+     * @param int $accountId
+     * @param string $path R2 object path of the uploaded photo.
+     * @param float $sizeKb Size of the uploaded photo, in KB.
+     * @return Customer
+     */
+    public function updatePhoto(int $id, int $accountId, string $path, float $sizeKb): Customer
+    {
+        $oldPhoto = $this->repository->findCustomerById($id, $accountId)->photo;
+        $customer = $this->repository->setPhoto($id, $accountId, $path);
+
+        if ($path !== $oldPhoto) {
+            $this->storageService->registerReplacedFile($accountId, $oldPhoto, $sizeKb, $path);
+        }
+
+        return $customer;
+    }
+
+    /**
+     * Remove a customer's photo and release its storage.
+     *
+     * @param int $id
+     * @param int $accountId
+     * @return Customer
+     */
+    public function removePhoto(int $id, int $accountId): Customer
+    {
+        $oldPhoto = $this->repository->findCustomerById($id, $accountId)->photo;
+        $customer = $this->repository->setPhoto($id, $accountId, null);
+
+        $this->storageService->removeFile($accountId, $oldPhoto);
+
+        return $customer;
     }
 
     /**

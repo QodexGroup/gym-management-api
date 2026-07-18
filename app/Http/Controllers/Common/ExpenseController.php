@@ -7,12 +7,18 @@ use App\Http\Requests\GenericRequest;
 use App\Http\Requests\Common\ExpenseRequest;
 use App\Http\Resources\Common\ExpenseResource;
 use App\Repositories\Common\ExpenseRepository;
+use App\Services\Common\ExpenseService;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ExpenseController
 {
+    /**
+     * @param ExpenseRepository $expenseRepository
+     * @param ExpenseService $expenseService
+     */
     public function __construct(
         private ExpenseRepository $expenseRepository,
+        private ExpenseService $expenseService,
     )
     {}
 
@@ -52,8 +58,8 @@ class ExpenseController
     public function createExpense(ExpenseRequest $request): JsonResponse
     {
         $genericData = $request->getGenericDataWithValidated();
-        $expense = $this->expenseRepository->createExpense($genericData);
-        return ApiResponse::success(new ExpenseResource($expense->load('category')), 'Expense created successfully', 201);
+        $expense = $this->expenseService->createExpense($genericData);
+        return ApiResponse::success(new ExpenseResource($expense), 'Expense created successfully', 201);
     }
 
     /**
@@ -66,7 +72,7 @@ class ExpenseController
     public function updateExpense($id, ExpenseRequest $request): JsonResponse
     {
         $genericData = $request->getGenericDataWithValidated();
-        $expense = $this->expenseRepository->updateExpense((int)$id, $genericData);
+        $expense = $this->expenseService->updateExpense((int)$id, $genericData);
         return ApiResponse::success(new ExpenseResource($expense), 'Expense updated successfully');
     }
 
@@ -99,7 +105,7 @@ class ExpenseController
     {
         try {
             $genericData = $request->getGenericData();
-            $this->expenseRepository->deleteExpense((int)$id, $genericData->userData->account_id);
+            $this->expenseService->deleteExpense((int)$id, $genericData->userData->account_id);
             return ApiResponse::success(null, 'Expense deleted successfully');
         } catch (\Throwable $th) {
             return ApiResponse::error('Failed to delete expense: ' . $th->getMessage(), 500);

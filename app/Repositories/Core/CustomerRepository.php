@@ -110,6 +110,22 @@ class CustomerRepository extends BaseRepository
     }
 
     /**
+     * Set (or clear) a customer's photo path.
+     *
+     * @param int $id
+     * @param int $accountId
+     * @param string|null $path
+     * @return Customer
+     */
+    public function setPhoto(int $id, int $accountId, ?string $path): Customer
+    {
+        $customer = Customer::where('id', $id)->where('account_id', $accountId)->firstOrFail();
+        $customer->update(['photo' => $path]);
+
+        return $customer->fresh();
+    }
+
+    /**
      * Update a customer
      *
      * @param int $id

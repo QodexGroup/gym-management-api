@@ -3,6 +3,10 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\IdempotencyMiddleware;
+use Illuminate\Http\Middleware\HandleCors;
+use App\Exceptions\QuotaExceededException;
+use App\Helpers\ApiResponse;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -13,14 +17,19 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Add CORS to global middleware stack — covers all routes including preflight OPTIONS
-        $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+        $middleware->prepend(HandleCors::class);
 
         // Register idempotency middleware alias
         $middleware->alias([
-            'idempotent' => \App\Http\Middleware\IdempotencyMiddleware::class,
+            'idempotent' => IdempotencyMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Resource quota breaches (storage, SMS credits, …) map to a 403.
+        $exceptions->render(function (QuotaExceededException $e) {
+            return ApiResponse::error($e->getMessage(), 403);
+        });
+
         // Report exceptions to New Relic APM so they surface in Errors Inbox.
         // Laravel catches exceptions itself, so the agent never sees them as
         // "uncaught" — we must notify it explicitly. No-op when the agent

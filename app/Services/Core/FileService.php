@@ -15,10 +15,17 @@ use InvalidArgumentException;
 
 class FileService
 {
+    /**
+     * @param CustomerFileRepository $customerFileRepository
+     * @param CustomerProgressRepository $customerProgressRepository
+     * @param CustomerScanRepository $customerScanRepository
+     * @param StorageService $storageService
+     */
     public function __construct(
         private CustomerFileRepository $customerFileRepository,
         private CustomerProgressRepository $customerProgressRepository,
         private CustomerScanRepository $customerScanRepository,
+        private StorageService $storageService,
     )
     {}
 
@@ -43,7 +50,17 @@ class FileService
         $genericData->data['fileable_id'] = $fileableId;
         $genericData->data['customer_id'] = $parent->customer_id;
 
-        return $this->customerFileRepository->createFile($genericData);
+        $file = $this->customerFileRepository->createFile($genericData);
+
+        // Keep the account's live storage counter in step with the new file
+        // (size verified against R2 where available).
+        $this->storageService->registerNewFile(
+            (int) $genericData->userData->account_id,
+            $file->file_url,
+            (float) $file->file_size,
+        );
+
+        return $file;
     }
 
     /**
@@ -62,7 +79,11 @@ class FileService
         }
 
         $fileUrl = $file->file_url;
+        $fileSizeKb = (float) $file->file_size;
         $this->customerFileRepository->deleteFile($id, $accountId);
+
+        // Release the freed space from the account's live storage counter.
+        $this->storageService->decrementUsage($accountId, $fileSizeKb);
 
         // Delete from R2 storage
         try {

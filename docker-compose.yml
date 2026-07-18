@@ -3,7 +3,9 @@
 # Railway (production) ignores this file; it builds the Dockerfile directly.
 #
 # Usage:
-#   1. Copy env:        copy .env.docker.example .env.docker   (then edit secrets)
+#   1. Env:             uses your existing .env — container-specific values (DB host
+#                       and credentials) are overridden in the app service below, so
+#                       there is no separate .env.docker to keep in sync.
 #   2. Export XAMPP DB: scripts\export-xampp-db.bat            (writes the seed dump)
 #   3. Start:           docker compose up -d --build
 #   4. App:             http://localhost:8080   Health: http://localhost:8080/up
@@ -57,11 +59,18 @@ services:
     container_name: gymhub-api
     restart: unless-stopped
     env_file:
-      - .env.docker
+      # Single source of truth: the same .env you use on the host. Everything that
+      # must differ inside the container is overridden below, so there is no second
+      # env file to keep in sync (secrets added to .env now reach the container).
+      - .env
     environment:
-      # Override the DB host so the app talks to the mysql service, not 127.0.0.1.
+      # Talk to the mysql service instead of the host's 127.0.0.1, using the
+      # local-dev credentials created by that service above.
       DB_HOST: mysql
       DB_PORT: 3306
+      DB_DATABASE: "${DB_DATABASE:-triforceph}"
+      DB_USERNAME: user
+      DB_PASSWORD: "Abc_12345"
     ports:
       # Host 8000 -> container 8080. The container serves on 8080 internally
       # (nginx), but the frontend expects the API on http://localhost:8000/api

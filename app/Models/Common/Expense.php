@@ -30,6 +30,7 @@ class Expense extends Model
         'amount',
         'expense_date',
         'status',
+        'receipt_url',
     ];
 
     /**

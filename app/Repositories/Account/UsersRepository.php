@@ -79,6 +79,22 @@ class UsersRepository extends BaseRepository
     }
 
     /**
+     * Set (or clear) a user's avatar path.
+     *
+     * @param int $id
+     * @param int $accountId
+     * @param string|null $path
+     * @return User
+     */
+    public function setAvatar(int $id, int $accountId, ?string $path): User
+    {
+        $user = User::where('id', $id)->where('account_id', $accountId)->firstOrFail();
+        $user->update(['avatar' => $path]);
+
+        return $user->fresh();
+    }
+
+    /**
      * @param int $id
      * @param GenericData $genericData
      *
