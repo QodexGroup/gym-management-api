@@ -37,7 +37,8 @@ class PendingPlanSelectionTest extends AccountSubscriptionFlowTestCase
             'trial_starts_at' => null,
             'trial_ends_at' => null,
             'subscription_starts_at' => Carbon::create(2026, 4, 5, 0, 0, 0),
-            'subscription_ends_at' => null,
+            // Deferred model: coverage reaches the next anchor (May 5), so the change-cycle bills.
+            'subscription_ends_at' => Carbon::create(2026, 5, 5, 0, 0, 0),
             'locked_at' => null,
         ]);
 
@@ -104,7 +105,8 @@ class PendingPlanSelectionTest extends AccountSubscriptionFlowTestCase
             'trial_starts_at' => null,
             'trial_ends_at' => null,
             'subscription_starts_at' => Carbon::create(2026, 4, 5, 0, 0, 0),
-            'subscription_ends_at' => null,
+            // Deferred model: coverage reaches the next anchor (May 5), so the change-cycle bills.
+            'subscription_ends_at' => Carbon::create(2026, 5, 5, 0, 0, 0),
             'locked_at' => null,
         ]);
 

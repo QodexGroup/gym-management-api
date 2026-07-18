@@ -7,7 +7,6 @@ use App\Constant\AccountInvoiceStatusConstant;
 use App\Constant\AccountPaymentRequestStatusConstant;
 use App\Constant\AccountStatusConstant;
 use App\Constant\AccountSubscriptionIntervalConstant;
-use App\Constant\BillingCycleConstant;
 use App\Models\Account\AccountInvoice;
 use App\Models\Account\AccountPaymentRequest;
 use App\Models\Account\AccountSubscriptionPlan;
@@ -16,7 +15,6 @@ use App\Repositories\Account\AccountSubscription\AccountInvoiceRepository;
 use App\Repositories\Account\AccountSubscription\AccountPaymentRequestRepository;
 use App\Repositories\Account\AccountSubscription\AccountSubscriptionPlanRepository;
 use App\Repositories\Account\AccountSubscription\SubscriptionPlanRepository;
-use App\Services\Account\AccountSubscription\BillingLifecycleService;
 use App\Services\Account\ReferralService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -139,18 +137,15 @@ class AdminPaymentRequestService
             throw new \RuntimeException('Default monthly subscription plan not configured.');
         }
 
-        $nextCycleStart = $this->nextCycleStartAfterPayment($paidAt);
-
-        // For reactivation, subscription ends after 1 full monthly interval + 1 free month.
-        $subscriptionEndsAt = BillingLifecycleService::nextCycleStart(
-            $nextCycleStart->copy(),
-            AccountSubscriptionIntervalConstant::INTERVAL_MONTH
-        )->addMonthNoOverflow();
+        // Aligned model: reactivation starts on the payment date and runs one month, with
+        // no free month and no 5th-anchor snap. Regular billing resumes on the next 5th.
+        $startsAt = $paidAt->copy();
+        $subscriptionEndsAt = $startsAt->copy()->addMonthNoOverflow();
 
         $this->accountSubscriptionPlanRepository->applyReactivationWindow(
             $asp,
             $monthlyPlan,
-            $nextCycleStart,
+            $startsAt,
             $subscriptionEndsAt
         );
 
@@ -160,16 +155,14 @@ class AdminPaymentRequestService
         // so void all pending subscription invoices for this account.
         $this->invoiceRepository->voidUnpaidByAccountIdExceptInvoice($accountId, 0);
 
-        // Persist full reactivation metadata for client visibility/auditing.
+        // Persist reactivation metadata for client visibility/auditing.
         $paymentDetails['reactivationProcessed'] = true;
         $paymentDetails['reactivationProcessedAt'] = Carbon::now()->toDateTimeString();
         $paymentDetails['reactivation'] = [
             'paidAt' => $paidAt->toDateString(),
-            'prorateFrom' => $paidAt->toDateString(),
-            'prorateTo' => $nextCycleStart->copy()->subDay()->toDateString(),
-            'subscriptionStartsAt' => $nextCycleStart->toDateString(),
+            'subscriptionStartsAt' => $startsAt->toDateString(),
             'subscriptionEndsAt' => $subscriptionEndsAt->copy()->subDay()->toDateString(),
-            'freeMonthApplied' => true,
+            'freeMonthApplied' => false,
             'invoiceType' => AccountInvoiceTypeConstant::TYPE_REACTIVATION_FEE,
         ];
         $this->requestRepository->updatePaymentDetails($request, $paymentDetails);
@@ -328,20 +321,17 @@ class AdminPaymentRequestService
                 }
 
                 $paidAt = ($request->approved_at ? $request->approved_at->copy() : Carbon::now())->startOfDay();
-                $nextCycleStart = $this->nextCycleStartAfterPayment($paidAt);
 
-                // Free month applies to monthly plan: one full month interval + one free month.
-                $subscriptionEndsAt = BillingLifecycleService::nextCycleStart(
-                    $nextCycleStart->copy(),
-                    AccountSubscriptionIntervalConstant::INTERVAL_MONTH
-                )->addMonthNoOverflow();
+                // Aligned model: start on the payment date, one month, no free month, no 5th-snap.
+                $startsAt = $paidAt->copy();
+                $subscriptionEndsAt = $startsAt->copy()->addMonthNoOverflow();
 
                 // For reactivation, keep original trial dates, but switch to monthly plan and
                 // adjust subscription window + unlock.
                 $this->accountSubscriptionPlanRepository->applyReactivationWindow(
                     $asp,
                     $monthlyPlan,
-                    $nextCycleStart,
+                    $startsAt,
                     $subscriptionEndsAt
                 );
 
@@ -352,11 +342,9 @@ class AdminPaymentRequestService
                 $paymentDetails['reactivationProcessedAt'] = Carbon::now()->toDateTimeString();
                 $paymentDetails['reactivation'] = [
                     'paidAt' => $paidAt->toDateString(),
-                    'prorateFrom' => $paidAt->toDateString(),
-                    'prorateTo' => $nextCycleStart->copy()->subDay()->toDateString(),
-                    'subscriptionStartsAt' => $nextCycleStart->toDateString(),
+                    'subscriptionStartsAt' => $startsAt->toDateString(),
                     'subscriptionEndsAt' => $subscriptionEndsAt->copy()->subDay()->toDateString(),
-                    'freeMonthApplied' => true,
+                    'freeMonthApplied' => false,
                     'invoiceType' => AccountInvoiceTypeConstant::TYPE_REACTIVATION_FEE,
                 ];
 
@@ -392,21 +380,6 @@ class AdminPaymentRequestService
         $this->requestRepository->markAsRejected($request, $adminUserId, $reason);
 
         return $request->fresh(['account', 'paymentTransaction']);
-    }
-
-    /**
-     * @param Carbon $paidAt
-     *
-     * @return Carbon
-     */
-    private function nextCycleStartAfterPayment(Carbon $paidAt): Carbon
-    {
-        $nextCycleStart = $paidAt->copy();
-        if ((int) $paidAt->day >= BillingCycleConstant::CYCLE_DAY_DUE) {
-            $nextCycleStart->addMonthNoOverflow();
-        }
-
-        return $nextCycleStart->day(BillingCycleConstant::CYCLE_DAY_DUE)->startOfDay();
     }
 
     /**

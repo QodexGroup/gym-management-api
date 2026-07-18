@@ -4,6 +4,7 @@ use App\Http\Controllers\Account\AccountSubscription\AccountController;
 use App\Http\Controllers\Account\ClassScheduleController;
 use App\Http\Controllers\Account\ClassScheduleSessionController;
 use App\Http\Controllers\Account\MembershipPlanController;
+use App\Http\Controllers\Account\AccountSystemSettingController;
 use App\Http\Controllers\Account\AccountSubscription\SubscriptionPlanController;
 use App\Http\Controllers\Account\AccountSubscription\AccountPaymentRequestController;
 use App\Http\Controllers\Account\PtCategoryController;
@@ -98,6 +99,11 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::post('/', [MembershipPlanController::class, 'createMembershipPlan']);
         Route::put('/{id}', [MembershipPlanController::class, 'updateMembershipPlan']);
         Route::delete('/{id}', [MembershipPlanController::class, 'deleteMembershipPlan']);
+    });
+
+    Route::prefix('system-settings')->middleware(['idempotent'])->group(function () {
+        Route::get('/', [AccountSystemSettingController::class, 'show']);
+        Route::put('/', [AccountSystemSettingController::class, 'update']);
     });
 
     Route::prefix('pt-packages')->middleware(['idempotent'])->group(function () {

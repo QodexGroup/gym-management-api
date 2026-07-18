@@ -37,6 +37,7 @@ class CustomerBill extends Model
         'net_amount',
         'paid_amount',
         'bill_date',
+        'coverage_end_date',
         'billing_period',
         'bill_status',
         'bill_type',
@@ -55,6 +56,7 @@ class CustomerBill extends Model
     {
         return [
             'bill_date' => 'date',
+            'coverage_end_date' => 'date',
             'gross_amount' => 'decimal:2',
             'discount_percentage' => 'decimal:2',
             'net_amount' => 'decimal:2',

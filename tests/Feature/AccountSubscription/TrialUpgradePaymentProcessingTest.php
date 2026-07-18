@@ -82,17 +82,26 @@ class TrialUpgradePaymentProcessingTest extends AccountSubscriptionFlowTestCase
             ->first();
         $this->assertNull($aprInvoice);
 
-        // Invoice on May 5 should be generated.
+        // Deferred model: May 5 is within the paid month (coverage to May 18) → no invoice yet.
         Carbon::setTestNow(Carbon::create(2026, 5, 5, 6, 0, 0));
         $this->billingLifecycleService->generateInvoicesForCurrentCycle();
 
-        $mayBillingPeriod = BillingLifecycleService::currentBillingPeriodForInterval(AccountSubscriptionIntervalConstant::INTERVAL_MONTH);
+        $mayBillingPeriod = BillingLifecycleService::billingPeriodForDate(Carbon::now());
         $mayInvoice = AccountInvoice::where('account_id', $account->id)
             ->where('billing_period', $mayBillingPeriod)
             ->first();
+        $this->assertNull($mayInvoice);
 
-        $this->assertNotNull($mayInvoice);
-        $this->assertSame(AccountInvoiceStatusConstant::STATUS_PENDING, $mayInvoice->status);
+        // Coverage ends May 19, so the first invoice generates on Jun 5.
+        Carbon::setTestNow(Carbon::create(2026, 6, 5, 6, 0, 0));
+        $this->billingLifecycleService->generateInvoicesForCurrentCycle();
+
+        $juneBillingPeriod = BillingLifecycleService::billingPeriodForDate(Carbon::now());
+        $juneInvoice = AccountInvoice::where('account_id', $account->id)
+            ->where('billing_period', $juneBillingPeriod)
+            ->first();
+        $this->assertNotNull($juneInvoice);
+        $this->assertSame(AccountInvoiceStatusConstant::STATUS_PENDING, $juneInvoice->status);
     }
 
     public function test_trial_upgrade_when_trial_still_active_starts_after_trial_end_plus_one_day(): void
@@ -160,14 +169,25 @@ class TrialUpgradePaymentProcessingTest extends AccountSubscriptionFlowTestCase
             ->first();
         $this->assertNull($marchInvoice);
 
+        // Deferred model: Apr 5 is within the paid month (coverage to Apr 12) → no invoice.
         Carbon::setTestNow(Carbon::create(2026, 4, 5, 6, 0, 0));
         $this->billingLifecycleService->generateInvoicesForCurrentCycle();
 
-        $aprilBillingPeriod = BillingLifecycleService::currentBillingPeriodForInterval(AccountSubscriptionIntervalConstant::INTERVAL_MONTH);
+        $aprilBillingPeriod = BillingLifecycleService::billingPeriodForDate(Carbon::now());
         $aprilInvoice = AccountInvoice::where('account_id', $account->id)
             ->where('billing_period', $aprilBillingPeriod)
             ->first();
-        $this->assertNotNull($aprilInvoice);
+        $this->assertNull($aprilInvoice);
+
+        // Coverage ends Apr 13, so the first invoice generates on May 5.
+        Carbon::setTestNow(Carbon::create(2026, 5, 5, 6, 0, 0));
+        $this->billingLifecycleService->generateInvoicesForCurrentCycle();
+
+        $mayBillingPeriod = BillingLifecycleService::billingPeriodForDate(Carbon::now());
+        $mayInvoice = AccountInvoice::where('account_id', $account->id)
+            ->where('billing_period', $mayBillingPeriod)
+            ->first();
+        $this->assertNotNull($mayInvoice);
     }
 
     public function test_trial_upgrade_prorates_remaining_days_at_next_due_day(): void
@@ -230,25 +250,34 @@ class TrialUpgradePaymentProcessingTest extends AccountSubscriptionFlowTestCase
         $this->assertEquals(Carbon::create(2026, 4, 19, 0, 0, 0)->toDateString(), $trialAsp->subscription_starts_at?->toDateString());
         $this->assertEquals(Carbon::create(2026, 5, 19, 0, 0, 0)->toDateString(), $trialAsp->subscription_ends_at?->toDateString());
 
-        // Next due-day invoice generation:
-        // Billing cycles are anchored at the 5th, so May 5 cycle should invoice the remaining
-        // days AFTER the paid window ends: May 19 -> Jun 5 (exclusive).
+        // Deferred model: coverage runs to May 18, so May 5 is skipped and the first invoice
+        // generates on Jun 5 — a full Jun cycle plus a pro-rated bridge for May 19 -> Jun 5.
         Carbon::setTestNow(Carbon::create(2026, 5, 5, 6, 0, 0));
         $this->billingLifecycleService->generateInvoicesForCurrentCycle();
+        $this->assertNull(
+            AccountInvoice::where('account_id', $account->id)
+                ->where('billing_period', BillingLifecycleService::billingPeriodForDate(Carbon::now()))
+                ->first()
+        );
 
-        $mayBillingPeriod = BillingLifecycleService::currentBillingPeriodForInterval(AccountSubscriptionIntervalConstant::INTERVAL_MONTH);
+        Carbon::setTestNow(Carbon::create(2026, 6, 5, 6, 0, 0));
+        $this->billingLifecycleService->generateInvoicesForCurrentCycle();
+
+        $juneBillingPeriod = BillingLifecycleService::billingPeriodForDate(Carbon::now());
         $invoice = AccountInvoice::where('account_id', $account->id)
-            ->where('billing_period', $mayBillingPeriod)
+            ->where('billing_period', $juneBillingPeriod)
             ->first();
 
         $this->assertNotNull($invoice);
 
-        // Expected remaining-days proration:
-        // period: May 5 -> Jun 5 = 31 days
-        // remaining: May 19 -> Jun 5 = 17 days
-        $expectedTotal = round($monthlyPlanPrice * (17 / 31), 2);
-        $this->assertEquals($expectedTotal, (float) $invoice->total_amount);
+        // full Jun cycle (Jun 5 -> Jul 4, 30 days) + bridge May 19 -> Jun 4 (17 days).
+        // per-day = 1200/30 = 40, bridge = 40 * 17 = 680, total = 1880.
+        $expectedBridge = round($monthlyPlanPrice / 30 * 17, 2);
+        $expectedTotal = round($monthlyPlanPrice + $expectedBridge, 2);
+        $this->assertEqualsWithDelta($expectedTotal, (float) $invoice->total_amount, 0.001);
         $this->assertSame(1, (int) $invoice->prorate);
+        $details = $this->decodeJson($invoice->invoice_details);
+        $this->assertSame(17, $details['bridge']['days']);
     }
 }
 

@@ -12,7 +12,7 @@ use Carbon\Carbon;
 
 class ReactivationProcessingTest extends AccountSubscriptionFlowTestCase
 {
-    public function test_process_reactivation_applies_free_month_and_switches_to_monthly(): void
+    public function test_process_reactivation_starts_on_payment_date_without_free_month(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 3, 10, 8, 0, 0));
 
@@ -67,19 +67,18 @@ class ReactivationProcessingTest extends AccountSubscriptionFlowTestCase
         $this->assertSame(AccountStatusConstant::STATUS_ACTIVE, $account->status);
         $this->assertSame($monthlyPlan->id, $asp->subscription_plan_id);
 
-        $nextCycleStart = Carbon::create(2026, 4, 5)->startOfDay();
-        $expectedEnd = BillingLifecycleService::nextCycleStart(
-            $nextCycleStart->copy(),
-            AccountSubscriptionIntervalConstant::INTERVAL_MONTH
-        )->addMonthNoOverflow();
+        // Aligned model: start on the payment date, run one month, no free month, no 5th-snap.
+        $expectedStart = Carbon::create(2026, 3, 10)->startOfDay();
+        $expectedEnd = $expectedStart->copy()->addMonthNoOverflow();
 
-        $this->assertEquals($nextCycleStart->toDateString(), $asp->subscription_starts_at?->toDateString());
+        $this->assertEquals($expectedStart->toDateString(), $asp->subscription_starts_at?->toDateString());
         $this->assertEquals($expectedEnd->toDateString(), $asp->subscription_ends_at?->toDateString());
         $this->assertSame(AccountInvoiceStatusConstant::STATUS_VOID, $otherInvoice->status);
 
         $details = $this->decodeJson($request->payment_details);
         $this->assertTrue($details['reactivationProcessed'] ?? false);
         $this->assertSame(AccountInvoiceTypeConstant::TYPE_REACTIVATION_FEE, $details['reactivation']['invoiceType'] ?? null);
-        $this->assertSame($nextCycleStart->toDateString(), $details['reactivation']['subscriptionStartsAt'] ?? null);
+        $this->assertSame($expectedStart->toDateString(), $details['reactivation']['subscriptionStartsAt'] ?? null);
+        $this->assertFalse($details['reactivation']['freeMonthApplied'] ?? true);
     }
 }

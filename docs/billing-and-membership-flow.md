@@ -8,6 +8,8 @@ This document describes the complete flow of billing and membership management i
 ## Core Principle
 **Membership is extended when payment is made, not when bills are created.**
 
+> **Configurable behavior:** Several behaviors below are now driven by per-account **Membership Settings** (System Settings → Membership Settings), stored in the generic `system_settings` table and read via `MembershipSettingService`. See [Configurable Membership Settings](#configurable-membership-settings). Defaults are chosen to preserve the original behavior described in this document, so an account that never touches the settings behaves exactly as before.
+
 ## Billing Period and History Locking
 
 ### Billing Period Format
@@ -15,15 +17,45 @@ This document describes the complete flow of billing and membership management i
 - Example: `2026-02-25` becomes `02252026`
 
 ### Lock Rule for Previous Cycle Bills
-- A membership subscription bill is editable/payable only if it belongs to the current cycle
+- A membership subscription bill is **editable** only if it belongs to the current cycle. A previous-cycle bill (`bill_date < current membership_start_date`) is history for editing purposes and cannot be edited.
+- A previous-cycle bill **remains payable** — its outstanding balance can still be collected, and the payment does not change the current membership (bill_date < membership_end_date → no membership extension).
 - Current cycle start is based on the member's latest `membership_start_date`
-- If `bill_date < current membership_start_date`, treat it as history-only
-- History-only bills stay visible in reports and history views
+- Previous-cycle bills stay visible in reports and history views, and continue to count toward the customer's outstanding balance until paid or voided.
+
+### Edit Guard (net vs paid)
+- A bill's `net_amount` can **never** be edited below the amount already paid on it. `updateBill` throws if the new net is less than `paid_amount` ("delete/adjust payments first"); the bill form blocks it inline (red field, disabled Save).
+- After any edit, `bill_status` is **recomputed** from the new net vs paid (`active` / `partial` / `paid`) so status can't go stale.
 
 ### Reactivation Interaction
-- Reactivation fee creation voids old expired outstanding membership bills
-- Voided bills cannot receive new payments
-- After reactivation payment creates a new membership cycle, previous-cycle membership bills cannot be updated or paid
+- Reactivation fee creation voids old expired outstanding membership bills (sets `bill_status = voided`)
+- Voided bills cannot receive new payments and are excluded from the customer balance (balance excludes bills whose status is `voided`)
+- After reactivation payment creates a new membership cycle, previous-cycle membership bills cannot be **updated**, but their outstanding balance can still be **paid**
+
+---
+
+## Configurable Membership Settings
+
+All keys are per-account and live in `account_system_settings` (`account_id`, `set_key`, `set_value`), served by the generic `/system-settings` endpoint (`AccountSystemSettingService`). The service exposes them in camelCase; defaults preserve the legacy behavior.
+
+| Setting (camelCase) | Values | Default | Effect |
+|---|---|---|---|
+| `grantMembershipOn` | `first_payment` / `full_payment` | `first_payment` | When a membership bill payment grants/extends coverage. `first_payment` activates on any partial payment; `full_payment` waits until the bill is fully paid. Enforced in `handleAutomatedBillPayment`. |
+| `allowPartialPayments` | bool | `true` | When on, staff can record a partial amount and leave a balance open. When **off**, every payment must settle the bill's **full remaining balance** — enforced in `validatePaymentRequest` and on the payment form (amount locked to the remaining). |
+| `gracePeriodDays` | int (0–365) | `7` | Days a member stays past-due before expiry. Does **not** gate check-in; only relevant to class booking (below). |
+| `requireMembershipForClassBooking` | bool | `true` | Gates **group-class booking** on an active membership. Walk-in / facility use is always open. |
+| `allowClassBookingDuringGrace` | bool | `false` | Lets past-due members book classes until the grace period ends. |
+| `requireReactivationFee` | bool | `true` | When off, the Reactivation Fee bill type is hidden/blocked; lapsed members reactivate by paying a normal membership bill. |
+| `reactivationFeeAmount` | decimal | `0` | The fixed reactivation fee. The amount is **read-only** on the bill form and enforced server-side (a client cannot override it). |
+| `grantReactivationPromo` | bool | `true` | Whether paying a reactivation fee grants a free/promo period. |
+| `reactivationPromoLength` + `reactivationPromoUnit` | int + `days`/`months` | `1` `months` | Length of the reactivation promo period. Replaces the old hard-coded "1 free month". |
+| `planChangeMode` | `next_renewal` / `immediate_proration` | `next_renewal` | How a mid-cycle plan change is applied. See [Scenario F](#scenario-f-mid-cycle-plan-change). |
+| `downgradeCreditMode` | `extend_days` / `forfeit` | `extend_days` | Under immediate proration, what happens to the unused value on a **downgrade**. Only relevant when `planChangeMode = immediate_proration`. |
+| `allowManualMembershipBills` | bool | `true` | When off, staff cannot manually create a membership bill: both the ad-hoc Bills-endpoint path **and** manually renewing/re-billing a member who **already has an active membership** (Memberships tab) are blocked. New members and lapsed/expired members (onboarding + reactivation) are always allowed. |
+| `allowPayPreviousCycleBills` | bool | `true` | Whether previous-cycle outstanding balances can still be collected. |
+| `allowEditPreviousCycleBills` | bool | `false` | Whether previous-cycle bills can be edited (off = history locked). |
+| `billingAnchor` + `fixedBillingDay` | `anniversary`/`fixed_day` + int (1–28) | `anniversary` | `anniversary` renews on the member's own cycle date. `fixed_day` renews every member on the same day of the month; a member who isn't yet aligned gets **one prorated "month + gap" cycle** (a full period stretched to the next billing day, billed prorated, payable now) and is aligned from then on — no coverage gap. See [Scenario G](#scenario-g-fixed-day-billing--prorated-alignment). |
+
+**Reactivation promo is granted ONLY via the reactivation-fee flow.** Paying a normal membership bill never grants a promo period.
 
 ---
 
@@ -35,23 +67,26 @@ This document describes the complete flow of billing and membership management i
 - **Flow**: Create bill → Payment → No membership change
 
 ### 2. Reactivation Fee
-- **Purpose**: Reactivate expired membership with 1 free month
+- **Purpose**: Reactivate an expired membership, optionally with a free/promo period
+- **Availability**: Only offered when `requireReactivationFee = true`; the amount is fixed to `reactivationFeeAmount` (read-only on the form, enforced server-side)
 - **Membership Impact**: 
   1. Voids expired membership balances
-  2. Creates new membership with 1 free month (same plan as last expired membership)
+  2. Creates a new membership (same plan as last expired membership)
 - **Flow**: 
   1. Create bill → Voids all expired membership bills (sets net_amount = paid_amount)
   2. Payment → Creates new membership with:
      - Same plan as last expired membership
      - Start date = payment date
-     - End date = payment date + 1 month (free month)
+     - End date = payment date + promo length **if** `grantReactivationPromo = true` (length/unit from `reactivationPromoLength`/`reactivationPromoUnit`, default 1 month); otherwise a normal full plan period
      - Status = active
-  3. After free month → Automated system creates bill for next period
+  3. After the promo/period → Automated system creates bill for next period
+- **Note**: The free/promo period is granted **only** through this flow. Defaults (`grantReactivationPromo = true`, `1 month`) reproduce the original "1 free month" behavior.
 
 ### 3. Membership Subscription
 - **Purpose**: Membership renewal/activation
 - **Membership Impact**: Creates or extends membership
-- **Flow**: Varies based on scenario (see below)
+- **Flow**: Varies based on scenario (see below). A mid-cycle switch to a *different* plan is governed by `planChangeMode` — see [Scenario F](#scenario-f-mid-cycle-plan-change).
+- **Manual creation**: When `allowManualMembershipBills = false`, staff cannot manually create a membership bill — this includes manually renewing/re-billing a member who already has an active membership (Memberships tab). Onboarding a new member and reactivating a lapsed member are always allowed.
 
 ---
 
@@ -224,10 +259,10 @@ This document describes the complete flow of billing and membership management i
    - **Action**: ✅ Create automated bill
    - **Bill**: 
      - bill_type = MEMBERSHIP_SUBSCRIPTION
-     - bill_date = membership_end_date (next period start)
-     - gross_amount = membership_plan.price
+     - bill_date = next period start (= membership_end_date; snapped to `fixedBillingDay` when `billingAnchor = fixed_day`)
+     - billable_id / gross_amount = the renewal plan's id / price (the **pending** plan when a `next_renewal` change is scheduled, otherwise the current plan)
      - status = ACTIVE
-   - **Membership**: ❌ No change (waiting for payment)
+   - **Membership**: ❌ No change (waiting for payment; a scheduled plan change is applied on payment, not here)
 
 **Example**:
 - **Current Membership**: Dec 14, 2025 → Jan 14, 2026
@@ -244,9 +279,9 @@ This document describes the complete flow of billing and membership management i
 
 **Flow**:
 1. **User Pays Automated Bill** (`CustomerPaymentService::addPayment()`)
-   - Payment made (even partial)
+   - Payment made — extension requires meeting the `grantMembershipOn` policy: `first_payment` (any partial) or `full_payment` (bill fully paid)
    - **Check**: `billDate >= membership_end_date` (renewal bill)
-   - **Action**: ✅ Extend membership immediately
+   - **Action**: ✅ Extend membership immediately (and switch to the pending plan if a `next_renewal` change was scheduled)
    - **Membership**: Extended from bill_date to bill_date + plan_period
    - **Result**: Bill status updated to PAID/PARTIAL
 
@@ -295,6 +330,62 @@ This document describes the complete flow of billing and membership management i
 - **Result**: 
   - Membership: Status = EXPIRED
   - Log: "Updated membership to Expired"
+
+---
+
+### Scenario F: Mid-Cycle Plan Change
+
+A **mid-cycle plan change** is switching an *active, not-yet-expired* membership to a **different** plan (via the Memberships tab → `CustomerService::createOrUpdateMembership`). New members, expired memberships, and re-selecting the same plan are **not** plan changes — they follow the normal full assignment (create membership + full-price bill). How a real plan change is applied depends on `planChangeMode`.
+
+#### Mode 1: `next_renewal` (default)
+
+The member keeps their current plan and paid period; the new plan takes effect at the next renewal. **No charge now.**
+
+- **On change**: `pending_plan_id` is set on the current membership. Nothing else changes.
+- **At renewal** (`CheckMembershipExpiration`): the automated renewal bill is created for the **pending** plan (its id + price). The membership is **not** switched yet and the pending flag is **not** cleared — so an unpaid or skipped renewal never loses the old plan.
+- **On renewal payment** (`handleAutomatedBillPayment`): the membership is switched to the new plan (pending flag cleared) and extended for the new period.
+
+**Example**:
+- Current: Basic (₱1,000), Dec 1 → Dec 31. Admin switches to Premium (₱2,000) on Dec 10.
+- Dec 10: `pending_plan_id = Premium`. Member stays on Basic until Dec 31.
+- ~Dec 24: automated renewal bill created for **Premium** (₱2,000), dated Dec 31.
+- Member pays it → membership switches to Premium and extends Dec 31 → Jan 31.
+
+#### Mode 2: `immediate_proration`
+
+The switch happens now, prorated over the **remaining days** of the current cycle. The current cycle's original bill is **not** voided (the member keeps what they paid).
+
+- `fraction = remainingDays / totalDays` (both inclusive), `diff = (newPrice − oldPrice) × fraction`.
+- **Upgrade** (`diff > 0`): a prorated **Custom Amount** adjustment bill is raised for the difference; the membership switches to the new plan, same end date.
+- **Downgrade** (`diff < 0`): the leftover value is settled per `downgradeCreditMode`:
+  - `extend_days` (default): the leftover value becomes extra days on the new (cheaper) plan → the end date is pushed later.
+  - `forfeit`: the membership switches now, same end date, no charge and no extension.
+
+**Upgrade example**: Basic (₱1,000) → Premium (₱2,000), 20 of 30 days remaining. `diff = (2000 − 1000) × 20/30 ≈ ₱666.67` → adjustment bill for ₱666.67; plan becomes Premium; end date unchanged.
+
+**Downgrade example (`extend_days`)**: Premium (₱2,000) → Basic (₱1,000), 20 of 30 days remaining. Leftover ≈ ₱666.67; at Basic's daily rate (~₱33.33) that's ~20 extra days → end date extended by ~20 days; plan becomes Basic; no bill.
+
+---
+
+### Scenario G: Fixed-Day Billing — Prorated Alignment
+
+Applies only when `billingAnchor = fixed_day`. Every member is billed on the same day of the month (`fixedBillingDay`). A member whose current period does **not** already end on the day before that billing day gets **one prorated "month + gap" cycle** to align — after which every cycle is a clean full period on the billing day. There is **no coverage gap** and **no proration** on anniversary billing.
+
+#### How the renewal job decides (`CheckMembershipExpiration`)
+1. `cycleStart` = day after current coverage (`membership_end_date + 1`).
+2. `naturalNextStart` = a full plan period from `cycleStart` (where the next cycle would begin with no alignment).
+3. `alignedNextStart` = the fixed billing day on/after `naturalNextStart`.
+4. If `alignedNextStart > naturalNextStart` → **prorated alignment cycle**: one bill dated `cycleStart` (payable now), covering `cycleStart → alignedNextStart − 1`, billed **prorated for the actual days** (so it can exceed one month). `coverage_end_date` is stored on the bill.
+5. Otherwise (anniversary, or already aligned) → normal full-period renewal bill.
+
+On payment, the membership is extended to the bill's `coverage_end_date` (not a full plan period) — honored in the renewal, new-member, and pending-plan payment paths.
+
+#### Example (reactivation + fixed day 10)
+- Reactivate **Jul 1**, 15-day promo → member active **Jul 1 – Jul 15** (free).
+- Renewal job: `cycleStart` = Jul 16, a full month → Aug 16, next billing day on/after that = **Sep 10**. Since Sep 10 > Aug 16, it creates **one prorated bill dated Jul 16 covering Jul 16 → Sep 9** (~55 days, ≈ 1.83× the monthly price). Payable immediately, so the member stays continuously active and can book classes.
+- From then on: clean full months on the 10th — **Sep 10 → Oct 9**, **Oct 10 → Nov 9**, …
+
+New members who join mid-month under fixed-day billing align the same way (one prorated cycle at first renewal).
 
 ---
 
@@ -394,7 +485,7 @@ Is membership_end_date < today?
 - **When**: Customer has expired membership
 - **Action**: 
   1. Create reactivation fee bill
-  2. Void all expired membership bills (net_amount = paid_amount)
+  2. Void all expired membership bills (`CustomerBillRepository::voidBill` sets `bill_status = voided`; voided bills are excluded from the balance by status)
   3. Customer only pays reactivation fee
   4. Membership remains expired until new subscription bill is paid
 
@@ -460,11 +551,12 @@ CustomerPaymentService::addPayment()
 │   │   └─ Log result
 │   └─ MEMBERSHIP_SUBSCRIPTION → handleAutomatedBillPayment()
 │       ├─ Check if membership subscription bill
-│       ├─ Check if payment made
-│       ├─ Find membership
-│       │   ├─ No membership? → Create membership (new member)
-│       │   └─ Has membership? → Check if renewal bill
-│       │       └─ bill_date >= membership_end_date? → Extend membership
+│       ├─ Check grantMembershipOn policy (first_payment / full_payment)
+│       ├─ Find membership for the bill's plan
+│       │   ├─ Found? → Check if renewal bill → Extend membership
+│       │   ├─ Not found but membership has pending_plan_id = bill's plan?
+│       │   │   └─ YES → Apply scheduled plan change → switch plan + extend
+│       │   └─ Otherwise → Create membership (new member)
 │       └─ Log result
 └─ Send payment notification
 ```
@@ -623,11 +715,30 @@ Use this checklist to verify the implementation:
 - [ ] Expiration check expires membership if automated bill has no payment
 - [ ] Reactivation fee voids expired membership balances
 - [ ] Payment on voided bill is blocked
-- [ ] Payment on previous-cycle membership bill is blocked
+- [ ] Payment on previous-cycle membership bill is allowed (outstanding balance collectible)
+- [ ] Paying a previous-cycle bill does NOT extend the current membership
 - [ ] Update on previous-cycle membership bill is blocked
 - [ ] Previous-cycle bills are still visible in history
 - [ ] Customer balance recalculated after bill creation
 - [ ] Customer balance recalculated after payment
+
+**Settings-driven behavior**
+
+- [ ] `grantMembershipOn = full_payment` does not extend until the bill is fully paid
+- [ ] `requireReactivationFee = false` hides/blocks the Reactivation Fee bill type
+- [ ] Reactivation fee amount is read-only and enforced server-side
+- [ ] `grantReactivationPromo`/length/unit control the reactivation period; promo only via reactivation flow
+- [ ] `allowPartialPayments = false` rejects any payment below the bill's full remaining balance (backend + form)
+- [ ] `allowManualMembershipBills = false` blocks manual membership bills AND active-member manual renewal; onboarding/reactivation still work
+- [ ] `allowPayPreviousCycleBills` / `allowEditPreviousCycleBills` toggles honored
+- [ ] Editing a bill can't set net below paid; `bill_status` recomputed after edit
+- [ ] `requireMembershipForClassBooking` / `allowClassBookingDuringGrace` / `gracePeriodDays` gate only class booking, not check-in
+- [ ] `billingAnchor = fixed_day`: a non-aligned member gets ONE prorated month+gap cycle (payable now), then aligns; no coverage gap
+- [ ] Anniversary billing bills a normal full period (no proration, no gap)
+- [ ] Plan change, `next_renewal`: sets pending plan, keeps old plan until the renewal bill is paid
+- [ ] Plan change, `immediate_proration` upgrade: raises a prorated adjustment bill, switches plan
+- [ ] Plan change, `immediate_proration` downgrade: `extend_days` extends end date, `forfeit` does not
+- [ ] Re-selecting the same plan / new / expired members still use the full assignment path
 
 ---
 
@@ -656,5 +767,5 @@ Use this checklist to verify the implementation:
 
 ---
 
-*Last Updated: Based on current implementation*
-*Version: 1.0*
+*Last Updated: 2026-07-11 — v3.0: renamed store to `account_system_settings`; added fixed-day prorated alignment (Scenario G), enforced partial-payment setting, bill edit guard (net ≥ paid + status recompute), and active-member manual-renewal gate*
+*Version: 3.0*

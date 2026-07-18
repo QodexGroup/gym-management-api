@@ -175,7 +175,11 @@ class BillingLifecycleService
     }
 
     /**
-     * Generate invoice for an account's current subscription plan for the given billing period.
+     * Generate an invoice for an account's subscription for the given billing anchor (a 5th).
+     *
+     * Deferred model: the account is billed only once its paid coverage has reached this
+     * anchor. The invoice covers a full upcoming interval plus a one-time pro-rated bridge
+     * for any gap between the previous coverage end and the anchor.
      */
     public function generateInvoiceForPeriod(AccountSubscriptionPlan $asp, string $billingPeriod, ?Carbon $activationDate = null): ?AccountInvoice
     {
@@ -185,24 +189,45 @@ class BillingLifecycleService
             return null;
         }
 
-        $exists = $this->accountInvoiceRepository->existsByAccountAndBillingPeriod($account->id, $billingPeriod);
-        if ($exists) {
+        // Idempotency: don't regenerate an invoice for this billing period.
+        if ($this->accountInvoiceRepository->existsByAccountAndBillingPeriod($account->id, $billingPeriod)) {
+            return null;
+        }
+
+        // Never stack a new charge while a prior invoice is still unpaid
+        // (mirrors PMS doesntHave('activeSubscriptionInvoice')).
+        if ($this->accountInvoiceRepository->hasPendingByAccountId($account->id)) {
             return null;
         }
 
         $cycleStart = Carbon::createFromFormat('mdY', $billingPeriod)->startOfDay();
-        $cycleEndExclusive = self::nextCycleStart($cycleStart->copy(), $plan->interval ?? 'month');
+        $cycleEndExclusive = self::nextCycleStart($cycleStart->copy(), $plan->interval ?? AccountSubscriptionIntervalConstant::INTERVAL_MONTH);
         $cycleEndInclusive = $cycleEndExclusive->copy()->subDay();
-        $st = $asp->subscription_starts_at;
-        $fromDate = $activationDate ?? ($st ? $st->copy() : $cycleStart);
-        if ($fromDate->greaterThan($cycleEndExclusive)) {
+
+        $endsAt = $asp->subscription_ends_at ? $asp->subscription_ends_at->copy()->startOfDay() : null;
+
+        // Defer while still prepaid past this anchor.
+        if ($endsAt && $endsAt->greaterThan($cycleStart)) {
             return null;
         }
 
-        // Calculate proration
-        $proration = $this->calculateProrate($asp, (float) $plan->price, $cycleStart, $cycleEndExclusive);
+        $planPrice = (float) $plan->price;
+        $daysInCycle = (int) $cycleStart->diffInDays($cycleEndExclusive);
 
-        // Build invoice details with account subscription plan data
+        // (1) Full upcoming interval.
+        $fullAmount = $planPrice;
+
+        // (2) One-time pro-rated bridge for the gap [ends_at -> cycleStart).
+        $bridgeDays = 0;
+        $bridgeAmount = 0.0;
+        if ($endsAt && $endsAt->lessThan($cycleStart)) {
+            $bridgeDays = (int) $endsAt->diffInDays($cycleStart);
+            $perDay = $daysInCycle > 0 ? $planPrice / $daysInCycle : 0.0;
+            $bridgeAmount = round($perDay * $bridgeDays, 2);
+        }
+
+        $baseTotal = round($fullAmount + $bridgeAmount, 2);
+
         $invoiceDetails = [
             'invoiceType' => AccountInvoiceTypeConstant::TYPE_SUBSCRIPTION,
             'subscriptionPlan' => [
@@ -220,23 +245,29 @@ class BillingLifecycleService
                 'subscriptionStartsAt' => $asp->subscription_starts_at?->toDateString(),
                 'subscriptionEndsAt' => $asp->subscription_ends_at?->toDateString(),
             ],
+            'fullPeriod' => [
+                'from' => $cycleStart->toDateString(),
+                'to' => $cycleEndInclusive->toDateString(),
+                'amount' => $fullAmount,
+            ],
         ];
 
-        // Add prorate details if prorated
-        if ($proration['isProrated'] && $proration['prorateDetails']) {
-            $invoiceDetails['prorate'] = $proration['prorateDetails'];
+        if ($bridgeDays > 0) {
+            $invoiceDetails['bridge'] = [
+                'from' => $endsAt->toDateString(),
+                'to' => $cycleStart->copy()->subDay()->toDateString(),
+                'days' => $bridgeDays,
+                'amount' => $bridgeAmount,
+            ];
         }
 
-        $planCharge = (float) $proration['amount'];
-
-        // Apply a one-time 5% referral discount if the account is currently eligible
-        // (has a qualified, not-yet-consumed referral). Capped at one discount per invoice.
+        // Referral discount: 5% of the plan (full) charge only — never the bridge.
         $referralDiscount = 0.0;
         if ($this->referralService->isEligibleForDiscount($account->id)) {
-            $referralDiscount = $this->referralService->computeDiscount($planCharge);
+            $referralDiscount = $this->referralService->computeDiscount($fullAmount);
             $invoiceDetails['referralDiscount'] = [
                 'percent' => ReferralConstant::DISCOUNT_PERCENT,
-                'baseAmount' => $planCharge,
+                'baseAmount' => $fullAmount,
                 'discountAmount' => $referralDiscount,
             ];
         }
@@ -247,15 +278,15 @@ class BillingLifecycleService
             'billingPeriod' => $billingPeriod,
             'periodFrom' => $cycleStart,
             'periodTo' => $cycleEndInclusive,
-            'totalAmount' => round($planCharge - $referralDiscount, 2),
+            'totalAmount' => round($baseTotal - $referralDiscount, 2),
             'discountAmount' => $referralDiscount,
-            'prorate' => $proration['isProrated'] ? 1 : 0,
+            'prorate' => $bridgeDays > 0 ? 1 : 0,
             'invoiceDetails' => $invoiceDetails,
         ];
 
         $invoice = $this->accountInvoiceRepository->createGeneratedInvoice($invoicePayload);
 
-        // Consume eligibility: mark all currently-unapplied qualified referrals as spent.
+        // Consume referral eligibility: mark all currently-unapplied qualified referrals as spent.
         if ($referralDiscount > 0) {
             $this->referralService->consumeDiscountForInvoice($account->id, (int) $invoice->id);
         }
@@ -332,20 +363,20 @@ class BillingLifecycleService
 
         $count = 0;
 
-        // Generate invoices for all intervals on the 5th (account-based due filtering is handled in repository queries).
+        // Per-account cadence: every interval is evaluated on the account's own cycle, which
+        // always lands on the 5th. All intervals therefore use the current month's 5th as the
+        // candidate anchor; the deferred-billing guard skips accounts still prepaid, so a
+        // quarterly/yearly account only generates when its own coverage reaches this 5th.
         if ($day === BillingCycleConstant::CYCLE_DAY_DUE) {
             $cycleStart = $now->copy()->day(BillingCycleConstant::CYCLE_DAY_DUE)->startOfDay();
             // Apply any pending plan selections that are due this billing cycle before invoice generation.
             $this->accountSubscriptionPlanRepository->applyPendingPlanSelectionsDue($cycleStart);
 
-            $monthlyPeriod = self::currentBillingPeriodForInterval(AccountSubscriptionIntervalConstant::INTERVAL_MONTH);
-            $count += $this->generateInvoicesForInterval($monthlyPeriod, AccountSubscriptionIntervalConstant::INTERVAL_MONTH);
+            $currentPeriod = self::billingPeriodForDate($now);
 
-            $quarterlyPeriod = self::currentBillingPeriodForInterval(AccountSubscriptionIntervalConstant::INTERVAL_QUARTER);
-            $count += $this->generateInvoicesForInterval($quarterlyPeriod, AccountSubscriptionIntervalConstant::INTERVAL_QUARTER);
-
-            $annualPeriod = self::currentBillingPeriodForInterval(AccountSubscriptionIntervalConstant::INTERVAL_YEAR);
-            $count += $this->generateInvoicesForInterval($annualPeriod, AccountSubscriptionIntervalConstant::INTERVAL_YEAR);
+            $count += $this->generateInvoicesForInterval($currentPeriod, AccountSubscriptionIntervalConstant::INTERVAL_MONTH);
+            $count += $this->generateInvoicesForInterval($currentPeriod, AccountSubscriptionIntervalConstant::INTERVAL_QUARTER);
+            $count += $this->generateInvoicesForInterval($currentPeriod, AccountSubscriptionIntervalConstant::INTERVAL_YEAR);
         }
 
         return $count;

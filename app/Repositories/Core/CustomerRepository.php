@@ -104,6 +104,7 @@ class CustomerRepository extends BaseRepository
             ->where('account_id', $accountId)
             ->with([
                 'currentMembership.membershipPlan',
+                'currentMembership.pendingPlan',
                 'currentTrainer'
             ])
             ->firstOrFail();
@@ -220,6 +221,60 @@ class CustomerRepository extends BaseRepository
     }
 
     /**
+     * Schedule a plan change to take effect at the next renewal.
+     *
+     * @param int $membershipId
+     * @param int|null $pendingPlanId null clears a previously scheduled change
+     * @return CustomerMembership
+     */
+    public function setPendingPlan(int $membershipId, ?int $pendingPlanId): CustomerMembership
+    {
+        $membership = CustomerMembership::findOrFail($membershipId);
+        $membership->pending_plan_id = $pendingPlanId;
+        $membership->save();
+
+        return $membership->fresh();
+    }
+
+    /**
+     * Apply a scheduled plan change: switch the membership to the new plan and
+     * clear the pending flag. Used by the renewal job.
+     *
+     * @param int $membershipId
+     * @param int $newPlanId
+     * @return CustomerMembership
+     */
+    public function applyPendingPlan(int $membershipId, int $newPlanId): CustomerMembership
+    {
+        $membership = CustomerMembership::findOrFail($membershipId);
+        $membership->membership_plan_id = $newPlanId;
+        $membership->pending_plan_id = null;
+        $membership->save();
+
+        return $membership->fresh();
+    }
+
+    /**
+     * Switch a membership to a new plan immediately (proration), optionally
+     * adjusting the end date. Clears any pending scheduled change.
+     *
+     * @param int $membershipId
+     * @param int $newPlanId
+     * @param Carbon $endDate
+     * @return CustomerMembership
+     */
+    public function changePlanImmediately(int $membershipId, int $newPlanId, Carbon $endDate): CustomerMembership
+    {
+        $membership = CustomerMembership::findOrFail($membershipId);
+        $membership->membership_plan_id = $newPlanId;
+        $membership->pending_plan_id = null;
+        $membership->membership_end_date = $endDate;
+        $membership->save();
+
+        return $membership->fresh();
+    }
+
+    /**
      * Get the last expired membership for a customer
      *
      * @param int $customerId
@@ -239,26 +294,24 @@ class CustomerRepository extends BaseRepository
     }
 
     /**
-     * Create membership with free month (for reactivation)
+     * Create an active membership with explicit start/end dates (used by the
+     * reactivation flow where the promo length is account-configurable).
+     * Account is taken from the plan to keep the signature within 4 params.
      *
-     * @param int $accountId
      * @param int $customerId
      * @param MembershipPlan $membershipPlan
      * @param Carbon $startDate
+     * @param Carbon $endDate
      * @return CustomerMembership
      */
-    public function createMembershipWithFreeMonth(int $accountId, int $customerId, MembershipPlan $membershipPlan, Carbon $startDate): CustomerMembership
+    public function createMembershipWithDates(int $customerId, MembershipPlan $membershipPlan, Carbon $startDate, Carbon $endDate): CustomerMembership
     {
-        // One calendar month free (regardless of plan period/interval).
-        $endDate = $startDate->copy()->startOfDay()->addMonth()->subDay()->startOfDay();
-
-        // Deactivate existing active memberships
         CustomerMembership::where('customer_id', $customerId)
             ->where('status', CustomerMembershipConstant::STATUS_ACTIVE)
             ->update(['status' => CustomerMembershipConstant::STATUS_DEACTIVATED]);
 
         return CustomerMembership::create([
-            'account_id' => $accountId,
+            'account_id' => $membershipPlan->account_id,
             'customer_id' => $customerId,
             'membership_plan_id' => $membershipPlan->id,
             'membership_start_date' => $startDate,
@@ -280,6 +333,25 @@ class CustomerRepository extends BaseRepository
         return CustomerMembership::where('customer_id', $customerId)
             ->where('account_id', $accountId)
             ->where('membership_plan_id', $membershipPlanId)
+            ->where('status', '!=', CustomerMembershipConstant::STATUS_EXPIRED)
+            ->orderBy('membership_end_date', 'desc')
+            ->first();
+    }
+
+    /**
+     * Find a non-expired membership that has a scheduled (pending) plan change to
+     * the given plan. Used to apply a next-renewal switch when its renewal bill is paid.
+     *
+     * @param int $customerId
+     * @param int $accountId
+     * @param int $pendingPlanId
+     * @return CustomerMembership|null
+     */
+    public function findMembershipWithPendingPlan(int $customerId, int $accountId, int $pendingPlanId): ?CustomerMembership
+    {
+        return CustomerMembership::where('customer_id', $customerId)
+            ->where('account_id', $accountId)
+            ->where('pending_plan_id', $pendingPlanId)
             ->where('status', '!=', CustomerMembershipConstant::STATUS_EXPIRED)
             ->orderBy('membership_end_date', 'desc')
             ->first();

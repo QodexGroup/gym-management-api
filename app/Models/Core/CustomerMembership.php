@@ -29,6 +29,7 @@ class CustomerMembership extends Model
         'account_id',
         'customer_id',
         'membership_plan_id',
+        'pending_plan_id',
         'membership_start_date',
         'membership_end_date',
         'status',
@@ -61,6 +62,14 @@ class CustomerMembership extends Model
     public function membershipPlan()
     {
         return $this->belongsTo(MembershipPlan::class, 'membership_plan_id');
+    }
+
+    /**
+     * Get the plan scheduled to take effect at the next renewal (if any).
+     */
+    public function pendingPlan()
+    {
+        return $this->belongsTo(MembershipPlan::class, 'pending_plan_id');
     }
 
      /**

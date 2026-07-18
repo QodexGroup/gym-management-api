@@ -3,12 +3,15 @@
 namespace App\Models\Account;
 
 use App\Models\User;
+use App\Observers\AccountPaymentRequestObserver;
 use App\Traits\HasCamelCaseAttributes;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
+#[ObservedBy(AccountPaymentRequestObserver::class)]
 class AccountPaymentRequest extends Model
 {
     use HasFactory, HasCamelCaseAttributes;
