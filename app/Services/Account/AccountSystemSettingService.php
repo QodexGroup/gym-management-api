@@ -2,7 +2,9 @@
 
 namespace App\Services\Account;
 
+use App\Constant\EmailNotificationSettingConstant;
 use App\Constant\MembershipSettingConstant;
+use App\Constant\NotificationSettingConstant;
 use App\Repositories\Account\AccountSystemSettingRepository;
 
 /**
@@ -28,7 +30,11 @@ class AccountSystemSettingService
      */
     private function definitions(): array
     {
-        return MembershipSettingConstant::definitions();
+        return array_merge(
+            MembershipSettingConstant::definitions(),
+            NotificationSettingConstant::definitions(),
+            EmailNotificationSettingConstant::definitions(),
+        );
     }
 
     /**

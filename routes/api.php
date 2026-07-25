@@ -31,7 +31,6 @@ use App\Http\Controllers\Common\WalkinController;
 use App\Http\Controllers\Core\CustomerPtPackageController;
 use App\Http\Controllers\Core\PtBookingController;
 use App\Http\Controllers\Core\StorageController;
-use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\FirebaseAuthMiddleware;
 use App\Http\Middleware\VerifyFirebaseTokenMiddleware;
@@ -272,11 +271,6 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::get('/unread-count', [NotificationController::class, 'getUnreadCount']);
         Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
-    });
-
-    Route::prefix('notification-preferences')->middleware(['idempotent'])->group(function () {
-        Route::get('/', [NotificationPreferenceController::class, 'index']);
-        Route::post('/', [NotificationPreferenceController::class, 'update']);
     });
 });
 
