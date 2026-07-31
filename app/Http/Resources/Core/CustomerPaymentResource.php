@@ -24,6 +24,7 @@ class CustomerPaymentResource extends JsonResource
             'paymentDate' => $this->payment_date,
             'referenceNumber' => $this->reference_number,
             'remarks' => $this->remarks,
+            'receiptUrl' => $this->receipt_url,
             'bill' => $this->whenLoaded('bill', function () {
                 return new CustomerBillResource($this->bill);
             }),

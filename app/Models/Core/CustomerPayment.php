@@ -36,6 +36,7 @@ class CustomerPayment extends Model
         'payment_date',
         'reference_number',
         'remarks',
+        'receipt_url',
         'created_by',
         'updated_by',
     ];

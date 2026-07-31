@@ -12,6 +12,7 @@ use App\Repositories\Core\CustomerBillRepository;
 use App\Repositories\Core\CustomerPaymentRepository;
 use App\Repositories\Core\CustomerRepository;
 use App\Services\Account\AccountSystemSettingService;
+use App\Services\Core\StorageService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -26,6 +27,7 @@ class CustomerPaymentService
         private CustomerBillService $billService,
         private NotificationService $notificationService,
         private AccountSystemSettingService $membershipSettingService,
+        private StorageService $storageService,
     ) {
     }
 
@@ -43,6 +45,10 @@ class CustomerPaymentService
                 $accountId = $genericData->userData->account_id;
                 $updatedBy = $genericData->userData->id;
 
+                // Pull the optional receipt path + size out of the payload before the
+                // payment is persisted (receiptSizeKb is not a DB column).
+                [$receiptUrl, $receiptSizeKb] = $this->extractReceiptMeta($genericData);
+
                 $customerId = (int) $data->customerId;
                 $billId = (int) $data->customerBillId;
                 $amount = (float) $data->amount;
@@ -59,6 +65,11 @@ class CustomerPaymentService
 
                 /** @var CustomerPayment $payment */
                 $payment = $this->paymentRepository->create($genericData);
+
+                // Count the uploaded receipt (if any) toward the account's storage meter.
+                if ($receiptUrl) {
+                    $this->storageService->registerNewFile($accountId, $receiptUrl, $receiptSizeKb);
+                }
 
                 $newPaidAmount = (float) $bill->paid_amount + $amount;
                 $newStatus = $this->determineBillStatus($bill->net_amount, $newPaidAmount);
@@ -86,6 +97,25 @@ class CustomerPaymentService
             ]);
             throw $th;
         }
+    }
+
+    /**
+     * Read receiptUrl + receiptSizeKb from the payload and strip the size (not a
+     * DB column) so it isn't mass-assigned when the payment is created.
+     *
+     * @param GenericData $genericData
+     * @return array{0: string|null, 1: float} [receiptUrl, receiptSizeKb]
+     */
+    private function extractReceiptMeta(GenericData $genericData): array
+    {
+        $data = $genericData->getData();
+        $url = $data->receiptUrl ?? null;
+        $sizeKb = (float) ($data->receiptSizeKb ?? 0);
+
+        unset($data->receiptSizeKb);
+        $genericData->syncDataArray();
+
+        return [$url ?: null, $sizeKb];
     }
 
     /**
