@@ -33,5 +33,10 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Keep storage tests offline: with R2 unset, StorageService falls back
+             to its "R2 unavailable" path instead of making network calls.
+             force="true" is required, otherwise the container's own env vars win. -->
+        <env name="R2_BUCKET" value="" force="true"/>
+        <env name="R2_ACCOUNT_ID" value="" force="true"/>
     </php>
 </phpunit>

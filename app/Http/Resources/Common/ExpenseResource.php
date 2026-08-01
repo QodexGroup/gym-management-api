@@ -25,6 +25,7 @@ class ExpenseResource extends JsonResource
             'amount' => $this->amount,
             'expenseDate' => $this->expense_date,
             'status' => $this->status,
+            'receiptUrl' => $this->receipt_url,
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
             'deletedAt' => $this->deleted_at,

@@ -28,6 +28,7 @@ class UserResource extends JsonResource
             'role' => $this->role,
             'phone' => $this->phone,
             'status' => $this->status,
+            'avatar' => $this->avatar,
             'firebaseUid' => $this->firebase_uid,
             'permissions' => $this->whenLoaded('permissions', function () {
                 return $this->permissions->pluck('permission')->toArray();

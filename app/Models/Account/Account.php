@@ -4,6 +4,7 @@ namespace App\Models\Account;
 
 use App\Constant\AccountStatusConstant;
 use App\Models\Account\AccountSubscriptionPlan;
+use App\Models\Account\AccountUsage;
 use App\Models\User;
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Model;
@@ -36,6 +37,16 @@ class Account extends Model
     protected function casts(): array
     {
         return [];
+    }
+
+    /**
+     * Metered resource counters (storage, sms_credits, …).
+     *
+     * @return HasMany
+     */
+    public function usages(): HasMany
+    {
+        return $this->hasMany(AccountUsage::class);
     }
 
     /**

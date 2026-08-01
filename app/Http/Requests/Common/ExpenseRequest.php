@@ -27,6 +27,9 @@ class ExpenseRequest extends GenericRequest
             'amount' => ['required', 'numeric', 'min:0.01'],
             'expenseDate' => ['required', 'date'],
             'status' => ['required', 'string', 'in:POSTED,UNPOSTED'],
+            // Optional receipt: R2 object path + its size (KB) for storage counting.
+            'receiptUrl' => ['nullable', 'string', 'max:500'],
+            'receiptSizeKb' => ['nullable', 'numeric', 'min:0'],
         ]);
     }
 }

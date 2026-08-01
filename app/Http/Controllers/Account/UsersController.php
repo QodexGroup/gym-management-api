@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Account;
 use App\Helpers\ApiResponse;
 use App\Http\Requests\Account\UserRequest;
 use App\Http\Requests\Account\ResetPasswordRequest;
+use App\Http\Requests\Core\FileReferenceRequest;
 use App\Http\Requests\GenericRequest;
 use App\Http\Resources\Account\UserResource;
 use App\Repositories\Account\UsersRepository;
 use App\Services\Account\UsersService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class UsersController
 {
@@ -124,5 +126,36 @@ class UsersController
         $data = $request->getGenericData();
         $coaches = $this->usersRepository->getAllCoaches($data);
         return ApiResponse::success(UserResource::collection($coaches));
+    }
+
+    /**
+     * Upload/replace a user's avatar. Storage is quota-checked at presign time;
+     * here we record the path and adjust the usage counter.
+     *
+     * @param FileReferenceRequest $request
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function uploadAvatar(FileReferenceRequest $request, int $id): JsonResponse
+    {
+        $accountId = (int) $request->getUserData()->account_id;
+        $user = $this->usersService->updateAvatar($id, $accountId, $request->getPath(), $request->getSizeKb());
+
+        return ApiResponse::success(new UserResource($user), 'Avatar updated successfully');
+    }
+
+    /**
+     * Remove a user's avatar and release its storage.
+     *
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function removeAvatar(Request $request, int $id): JsonResponse
+    {
+        $accountId = (int) $request->attributes->get('user')->account_id;
+        $user = $this->usersService->removeAvatar($id, $accountId);
+
+        return ApiResponse::success(new UserResource($user), 'Avatar removed successfully');
     }
 }

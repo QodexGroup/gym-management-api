@@ -25,3 +25,6 @@ Schedule::command('account-billing:deactivate-accounts')->lastDayOfMonth('00:00'
 
 // Referrals safety net: qualify pending referrals whose invitee has since paid - weekly Mon 02:00 (Asia/Manila)
 Schedule::command('referrals:evaluate-pending')->weeklyOn(1, '02:00');
+
+// Reconcile each account's storage usage against R2 - daily at 02:30 (Asia/Manila)
+Schedule::command('storage:reconcile-usage')->dailyAt('02:30');

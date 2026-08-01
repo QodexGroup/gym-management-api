@@ -34,6 +34,7 @@ class User extends Authenticatable
         'phone',
         'status',
         'is_account_owner',
+        'avatar',
     ];
 
     /**

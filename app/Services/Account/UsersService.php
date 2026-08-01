@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Repositories\Account\UserPermissionRepository;
 use App\Repositories\Account\UsersRepository;
 use App\Services\Auth\FirebaseService;
+use App\Services\Core\StorageService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Exception\Auth\UserNotFound;
@@ -16,8 +17,47 @@ class UsersService
 {
     public function __construct(
         private UsersRepository $usersRepository,
-        private UserPermissionRepository $permissionRepository
+        private UserPermissionRepository $permissionRepository,
+        private StorageService $storageService,
     ) {
+    }
+
+    /**
+     * Set a user's avatar, replacing any previous one and counting storage.
+     *
+     * @param int $id
+     * @param int $accountId
+     * @param string $path R2 object path of the uploaded avatar.
+     * @param float $sizeKb Size of the uploaded avatar, in KB.
+     * @return User
+     */
+    public function updateAvatar(int $id, int $accountId, string $path, float $sizeKb): User
+    {
+        $oldAvatar = $this->usersRepository->findUserById($id, $accountId)->avatar;
+        $user = $this->usersRepository->setAvatar($id, $accountId, $path);
+
+        if ($path !== $oldAvatar) {
+            $this->storageService->registerReplacedFile($accountId, $oldAvatar, $sizeKb, $path);
+        }
+
+        return $user;
+    }
+
+    /**
+     * Remove a user's avatar and release its storage.
+     *
+     * @param int $id
+     * @param int $accountId
+     * @return User
+     */
+    public function removeAvatar(int $id, int $accountId): User
+    {
+        $oldAvatar = $this->usersRepository->findUserById($id, $accountId)->avatar;
+        $user = $this->usersRepository->setAvatar($id, $accountId, null);
+
+        $this->storageService->removeFile($accountId, $oldAvatar);
+
+        return $user;
     }
 
     /**
