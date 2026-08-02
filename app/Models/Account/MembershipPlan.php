@@ -5,6 +5,7 @@ namespace App\Models\Account;
 use App\Models\Core\CustomerMembership;
 use App\Traits\HasCamelCaseAttributes;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -46,6 +47,19 @@ class MembershipPlan extends Model
             'plan_period' => 'integer',
             'features' => 'array',
         ];
+    }
+
+    /**
+     * Read-only alias for `plan_name`.
+     *
+     * The column is `plan_name`, but `->name` is the instinctive spelling and reading it
+     * used to yield null - which callers then swallowed with `?? 'N/A'`, silently shipping
+     * "Your N/A membership is expiring soon" to customers. Aliasing it means both
+     * spellings resolve instead of one failing quietly.
+     */
+    protected function name(): Attribute
+    {
+        return Attribute::get(fn () => $this->plan_name);
     }
 
     /**

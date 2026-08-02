@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Models\Core\Customer;
 use App\Models\Core\CustomerMembership;
+use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -41,18 +42,52 @@ class MembershipExpiringMail extends Mailable
      */
     public function content(): Content
     {
-        $frontendUrl = rtrim(env('APP_URL', 'https://gymhubtech-67e6f.web.app'), '/');
+        // APP_URL is the single source of truth for the public app URL (see 9052972);
+        // read it via config() rather than env() so it survives `config:cache`.
+        $frontendUrl = rtrim((string) config('app.url'), '/');
+
+        // membership_end_date is cast to `date` (midnight) while now() carries wall-clock
+        // time, so the difference is never whole - and Carbon 3 (Laravel 12) returns that
+        // fraction as a float instead of truncating like Carbon 2 did. Anchoring both
+        // sides to midnight and rounding up gives a clean integer. `false` keeps the sign
+        // so an already-expired membership reads negative instead of flipping positive.
+        $daysRemaining = (int) ceil(
+            Carbon::today()->diffInDays($this->membership->membership_end_date, false)
+        );
 
         return new Content(
             markdown: 'emails.membership-expiring',
             with: [
                 'logoUrl' => $frontendUrl . '/img/gymhubph.png',
                 'customerName' => $this->customer->first_name . ' ' . $this->customer->last_name,
-                'membershipPlan' => $this->membership->membershipPlan->name ?? 'N/A',
+                'membershipPlan' => $this->membership->membershipPlan->plan_name ?? 'N/A',
                 'expirationDate' => $this->membership->membership_end_date->format('F d, Y'),
-                'daysRemaining' => now()->diffInDays($this->membership->membership_end_date),
+                'daysRemaining' => $daysRemaining,
+                'daysRemainingLabel' => $this->formatDaysRemaining($daysRemaining),
             ],
         );
+    }
+
+    /**
+     * Human-readable "days remaining" so the template never renders "1 days" or a
+     * bare "0" for a membership that lapses today.
+     *
+     * @param int $days
+     *
+     * @return string
+     */
+    private function formatDaysRemaining(int $days): string
+    {
+        if ($days < 0) {
+            $overdue = abs($days);
+            return $overdue . ' ' . ($overdue === 1 ? 'day' : 'days') . ' overdue';
+        }
+
+        if ($days === 0) {
+            return 'Expires today';
+        }
+
+        return $days . ' ' . ($days === 1 ? 'day' : 'days');
     }
 
     /**
