@@ -378,6 +378,56 @@ class NotificationService
     }
 
     /**
+     * Create a global in-app notification announcing that a client data import
+     * finished (or failed). Called from the import queue job; any failure here
+     * is swallowed so it can never affect the import itself.
+     *
+     * @param int $accountId
+     * @param array<string, mixed> $summary Keys: filename, failed (bool), success, skipped, failure, importJobId, errorMessage.
+     * @return void
+     */
+    public function createImportCompletedNotification(int $accountId, array $summary): void
+    {
+        try {
+            $failed = (bool) ($summary['failed'] ?? false);
+            $filename = $summary['filename'] ?? 'file';
+
+            if ($failed) {
+                $title = 'Client import failed';
+                $message = "{$filename} could not be imported."
+                    . (!empty($summary['errorMessage']) ? " {$summary['errorMessage']}" : '');
+            } else {
+                $success = (int) ($summary['success'] ?? 0);
+                $skipped = (int) ($summary['skipped'] ?? 0);
+                $failure = (int) ($summary['failure'] ?? 0);
+                $title = 'Client import complete';
+                $message = "{$filename} — {$success} imported, {$skipped} skipped, {$failure} failed.";
+            }
+
+            $this->notificationRepository->create([
+                'account_id' => $accountId,
+                'user_id' => null, // Global notification
+                'type' => NotificationConstant::TYPE_IMPORT_COMPLETED,
+                'title' => $title,
+                'message' => $message,
+                'data' => [
+                    'import_job_id' => $summary['importJobId'] ?? null,
+                    'filename' => $filename,
+                    'failed' => $failed,
+                    'success' => (int) ($summary['success'] ?? 0),
+                    'skipped' => (int) ($summary['skipped'] ?? 0),
+                    'failure' => (int) ($summary['failure'] ?? 0),
+                ],
+            ]);
+        } catch (\Throwable $th) {
+            Log::error('Error creating import completed notification', [
+                'account_id' => $accountId,
+                'error' => $th->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Send membership expiring email to customer.
      *
      * @param Customer $customer

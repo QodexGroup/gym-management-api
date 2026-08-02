@@ -456,5 +456,38 @@ class CustomerRepository extends BaseRepository
             ->get();
     }
 
+
+    /**
+     * Whether a (non-deleted) client with this full name (case-insensitive
+     * first + last) already exists for the account.
+     *
+     * @param int $accountId
+     * @param string $firstName
+     * @param string $lastName
+     * @return bool
+     */
+    public function existsByName(int $accountId, string $firstName, string $lastName): bool
+    {
+        return Customer::where('account_id', $accountId)
+            ->whereRaw('LOWER(first_name) = ?', [strtolower($firstName)])
+            ->whereRaw('LOWER(last_name) = ?', [strtolower($lastName)])
+            ->exists();
+    }
+
+    /**
+     * Create a client from a validated import row. Keys are camelCase and are
+     * mapped to their snake_case columns by the model's HasCamelCaseAttributes
+     * trait; account_id is injected here.
+     *
+     * @param int $accountId
+     * @param array<string, mixed> $data
+     * @return Customer
+     */
+    public function createFromImport(int $accountId, array $data): Customer
+    {
+        $data['account_id'] = $accountId;
+        $data['balance'] = 0;
+        return Customer::create($data)->fresh();
+    }
 }
 

@@ -31,6 +31,7 @@ use App\Http\Controllers\Common\WalkinController;
 use App\Http\Controllers\Core\CustomerPtPackageController;
 use App\Http\Controllers\Core\PtBookingController;
 use App\Http\Controllers\Core\StorageController;
+use App\Modules\Imports\Controller\ImportController;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\FirebaseAuthMiddleware;
 use App\Http\Middleware\VerifyFirebaseTokenMiddleware;
@@ -262,6 +263,17 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
 
     });
 
+
+    Route::prefix('import')->group(function () {
+        Route::get('/types', [ImportController::class, 'types']);
+        Route::get('/fields/{type}', [ImportController::class, 'fields']);
+        Route::post('/upload', [ImportController::class, 'upload']);
+        Route::post('/execute', [ImportController::class, 'execute']);
+        Route::get('/history', [ImportController::class, 'history']);
+        Route::get('/status/{id}', [ImportController::class, 'status']);
+        Route::get('/status/{id}/failed', [ImportController::class, 'failed']);
+        Route::get('/download-result/{id}', [ImportController::class, 'downloadResult']);
+    });
 
     // Report routes (protected)
     Route::prefix('reports')->group(function () {
