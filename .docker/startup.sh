@@ -16,7 +16,7 @@ echo "Optimizing application..."
 php artisan config:cache 2>/dev/null || true
 php artisan route:cache 2>/dev/null || true
 php artisan view:cache 2>/dev/null || true
-echo "✓ Application optimization completed!"
+echo "Application optimization completed!"
 
 # Start PHP-FPM in background
 echo "Starting PHP-FPM..."
@@ -25,7 +25,7 @@ sleep 2
 
 # Verify PHP-FPM is running
 if [ -f /tmp/php-fpm.pid ]; then
-    echo "✓ PHP-FPM started (PID: $(cat /tmp/php-fpm.pid))"
+    echo "PHP-FPM started (PID: $(cat /tmp/php-fpm.pid))"
 else
     echo "WARNING: PHP-FPM PID file not found, but continuing..."
 fi
@@ -33,7 +33,7 @@ fi
 # Test Nginx configuration
 echo "Testing Nginx configuration..."
 nginx -t
-echo "✓ Nginx configuration valid"
+echo "Nginx configuration valid"
 
 echo "========================================="
 echo "Starting Nginx server on port 8080..."
@@ -57,10 +57,10 @@ echo "========================================="
     done
 
     if php artisan db:show > /dev/null 2>&1; then
-        echo "✓ Database is ready!"
+        echo "Database is ready!"
         echo "Running database migrations in background..."
         if php artisan migrate --force; then
-            echo "✓ Migrations completed successfully!"
+            echo "Migrations completed successfully!"
         else
             echo "ERROR: Migrations failed! Check logs for details."
             echo "WARNING: Application will continue running, but migrations need attention"
@@ -71,21 +71,35 @@ echo "========================================="
 ) &
 
 # Start Queue Worker in background with auto-restart loop
+# Toggle with QUEUE_ENABLED env var (defaults to true). Set to false in Railway to
+# stop the always-on worker process and free its memory.
 # --max-time=3600 prevents memory leaks by restarting every hour
-(
-    while true; do
-        echo "Starting queue worker..."
-        php artisan queue:work --sleep=3 --tries=3 --timeout=60 --max-time=3600
-        echo "Queue worker exited, restarting in 5 seconds..."
-        sleep 5
-    done
-) &
+if [ "${QUEUE_ENABLED:-true}" = "true" ]; then
+    (
+        while true; do
+            echo "Starting queue worker..."
+            php artisan queue:work --sleep=3 --tries=3 --timeout=60 --max-time=3600
+            echo "Queue worker exited, restarting in 5 seconds..."
+            sleep 5
+        done
+    ) &
+else
+    echo "Queue worker disabled (QUEUE_ENABLED=${QUEUE_ENABLED})"
+fi
 
 # Start Scheduler in background
-(
-    echo "Starting scheduler..."
-    php artisan schedule:work
-) &
+# Toggle with SCHEDULER_ENABLED env var (defaults to true). Set to false in Railway
+# to skip the always-on scheduler process and free its memory. Only do this if the
+# scheduled tasks are handled elsewhere (e.g. a Railway cron service running
+# 'php artisan schedule:run').
+if [ "${SCHEDULER_ENABLED:-true}" = "true" ]; then
+    (
+        echo "Starting scheduler..."
+        php artisan schedule:work
+    ) &
+else
+    echo "Scheduler disabled (SCHEDULER_ENABLED=${SCHEDULER_ENABLED})"
+fi
 
 # Start Nginx in foreground (this keeps container alive and listening)
 # This must be the last command and must not exit

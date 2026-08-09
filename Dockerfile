@@ -109,6 +109,9 @@ COPY .docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY .docker/php-fpm/www.conf /usr/local/etc/php-fpm.d/www.conf
 COPY .docker/php-fpm/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
 
+# Memory-optimized opcache settings (reduces the shared opcache block from 128MB to 64MB):
+COPY .docker/php/zz-opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
+
 # === CRITICAL FIX: Set Permissions using numeric ID (UID 82 for www-data) ===
 # This ensures the command runs successfully during the build phase.
 # We run `chown` as root (default build user) but target UID 82 (www-data).
