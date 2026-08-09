@@ -10,6 +10,7 @@ use App\Models\Core\Notification;
 use App\Repositories\Core\NotificationEmailLogRepository;
 use App\Repositories\Core\NotificationRepository;
 use App\Services\Account\AccountSystemSettingService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class NotificationService
@@ -205,9 +206,11 @@ class NotificationService
                         'customer_id' => $customer->id,
                         'customer_name' => "{$customer->first_name} {$customer->last_name}",
                         'membership_id' => $membership->id,
-                        'membership_plan' => $membership->membershipPlan->name ?? 'N/A',
+                        'membership_plan' => $membership->membershipPlan->plan_name ?? 'N/A',
                         'expiration_date' => $membership->membership_end_date->format('Y-m-d'),
-                        'days_remaining' => now()->diffInDays($membership->membership_end_date),
+                        'days_remaining' => (int) ceil(
+                            Carbon::today()->diffInDays($membership->membership_end_date, false)
+                        ),
                     ],
                 ]);
             }
@@ -352,7 +355,7 @@ class NotificationService
                         'customer_name' => "{$customer->first_name} {$customer->last_name}",
                         'membership_plan' => ($membership === null || $membership->membershipPlan === null)
                             ? 'No membership'
-                            : ($membership->membershipPlan->name ?? 'No membership'),
+                            : ($membership->membershipPlan->plan_name ?? 'No membership'),
                         'registration_date' => $customer->created_at->format('Y-m-d'),
                     ],
                 ]);

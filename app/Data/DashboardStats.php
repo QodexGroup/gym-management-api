@@ -2,8 +2,6 @@
 
 namespace App\Data;
 
-use Illuminate\Database\Eloquent\Collection;
-
 class DashboardStats
 {
     public int $totalMembers;
@@ -15,5 +13,6 @@ class DashboardStats
     public float $todayRevenue;
     public int $expiringMemberships;
     public array $expiringMembersList;
-    public Collection $membershipDistribution;
+    /** @var array<int, array{membershipPlanId: int, planName: string, count: int}> */
+    public array $membershipDistribution;
 }

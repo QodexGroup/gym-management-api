@@ -48,7 +48,7 @@ class DashboardService
         $stats->todayRevenue = $this->customerBillRepository->sumBilledRevenueForToday($accountId);
         $stats->expiringMemberships = $this->membershipRepository->countExpiringMemberships($accountId);
         $stats->expiringMembersList = $this->buildExpiringMembersList($accountId);
-        $stats->membershipDistribution = $this->membershipRepository->getMembershipDistributionByPlan($accountId);
+        $stats->membershipDistribution = $this->buildMembershipDistribution($accountId);
 
         return $stats;
     }
@@ -222,9 +222,31 @@ class DashboardService
     }
 
     /**
+     * Membership counts per plan, shaped for the dashboard chart.
+     *
+     * CustomerMembership does not use HasCamelCaseAttributes, so serialising the raw
+     * models would emit snake_case keys (membership_plan_id, and membership_plan for the
+     * eager-loaded relation) while the rest of this payload is camelCase. Shaping it here
+     * keeps the API contract consistent instead of leaking that split to the client.
+     *
      * @param int $accountId
-     * @param Carbon $now
-     * @param Carbon $sevenDaysFromNow
+     *
+     * @return array<int, array{membershipPlanId: int, planName: string, count: int}>
+     */
+    private function buildMembershipDistribution(int $accountId): array
+    {
+        return $this->membershipRepository->getMembershipDistributionByPlan($accountId)
+            ->map(fn ($row) => [
+                'membershipPlanId' => (int) $row->membership_plan_id,
+                'planName' => $row->membershipPlan->plan_name ?? 'Unknown',
+                'count' => (int) $row->count,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param int $accountId
      *
      * @return array
      */
