@@ -1,0 +1,19 @@
+# Railway config for the SCHEDULER CRON service (separate from the web service).
+# The web service keeps using railway.toml; this cron service points its
+# Config-as-code path at THIS file (service Settings -> Config-as-code).
+#
+# It runs Laravel's scheduler once and exits, on the schedule below.
+# No healthcheckPath on purpose: a cron container exits after running, so an
+# HTTP healthcheck would mark it failed.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Override the Dockerfile CMD / web startup.sh: run the scheduler once, then exit.
+startCommand = "php artisan schedule:run"
+# Railway fires this on schedule; Laravel decides which tasks are actually due.
+cronSchedule = "*/5 * * * *"
+# Don't restart after the process exits - Railway reschedules on the cron.
+restartPolicyType = "NEVER"
