@@ -41,6 +41,20 @@ class CustomerController extends Controller
     }
 
     /**
+     * Get membership status counts for the whole account.
+     * Powers the stat cards on the client list, which must describe every
+     * client and not just the page currently loaded.
+     *
+     * @param GenericRequest $request
+     * @return JsonResponse
+     */
+    public function getCustomerStats(GenericRequest $request): JsonResponse
+    {
+        $data = $request->getGenericData();
+        return ApiResponse::success($this->repository->getMembershipStatusCounts($data));
+    }
+
+    /**
      * Get a customer by id
      *
      * @param GenericRequest $request
