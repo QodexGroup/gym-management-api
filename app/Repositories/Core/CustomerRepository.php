@@ -8,6 +8,7 @@ use App\Constant\CustomerMembershipConstant;
 use App\Constant\CustomerPtPackageConstant;
 use App\Helpers\GenericData;
 use App\Models\Account\MembershipPlan;
+use App\Constant\CustomerRegistrationSourceConstant;
 use App\Models\Core\Customer;
 use App\Models\Core\CustomerMembership;
 use App\Models\Core\CustomerPtPackage;
@@ -364,6 +365,31 @@ class CustomerRepository extends BaseRepository
      * @param int $accountId
      * @return Customer|null
      */
+    /**
+     * Whether the account already has a member with this phone number.
+     *
+     * Compares against the stored phone_number_normalized column, which the
+     * Customer model fills with PhoneNumberHelper::normalize() on every write.
+     * This is now a single indexed lookup on (account_id, phone_number_normalized).
+     *
+     * Soft-deleted members are excluded by the model's default scope, so a
+     * previously removed member can register again.
+     *
+     * @param int $accountId
+     * @param string $normalizedPhoneNumber Output of PhoneNumberHelper::normalize().
+     * @return bool
+     */
+    public function existsByPhoneNumber(int $accountId, string $normalizedPhoneNumber): bool
+    {
+        if ($normalizedPhoneNumber === '') {
+            return false;
+        }
+
+        return Customer::where('account_id', $accountId)
+            ->where('phone_number_normalized', $normalizedPhoneNumber)
+            ->exists();
+    }
+
     public function findCustomerByUuid(string $uuid, int $accountId): ?Customer
     {
         return Customer::where('qr_code_uuid', $uuid)
@@ -481,6 +507,35 @@ class CustomerRepository extends BaseRepository
      *
      * @param int $accountId
      * @param array<string, mixed> $data
+     * @return Customer
+     */
+    /**
+     * Create a member from a public self-registration.
+     *
+     * Takes the account explicitly rather than a GenericData, because the
+     * public endpoint has no authenticated user — GenericData exists to carry
+     * an authenticated request's user, filters, sorts and paging, none of which
+     * apply here. Mirrors createFromImport(), the other context that creates
+     * customers without a signed-in user.
+     *
+     * registration_source is forced here so input can never spoof it.
+     *
+     * @param int $accountId Resolved from the URL public_code.
+     * @param array<string, mixed> $data snake_case customer attributes.
+     * @return Customer
+     */
+    public function createFromPublicRegistration(int $accountId, array $data): Customer
+    {
+        $data['account_id'] = $accountId;
+        $data['registration_source'] = CustomerRegistrationSourceConstant::PUBLIC_LINK;
+
+        return Customer::create($data)->fresh();
+    }
+
+    /**
+     * @param int $accountId
+     * @param array $data
+     *
      * @return Customer
      */
     public function createFromImport(int $accountId, array $data): Customer

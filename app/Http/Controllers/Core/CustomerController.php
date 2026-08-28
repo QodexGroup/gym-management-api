@@ -68,6 +68,22 @@ class CustomerController extends Controller
     }
 
     /**
+     * Create a member from the on-site kiosk.
+     *
+     * Same validation as store(), but rejects a phone number already on file and
+     * stamps registration_source as KIOSK. See CustomerService::createFromKiosk().
+     *
+     * @param CustomerRequest $request
+     * @return JsonResponse
+     */
+    public function createKioskRegistration(CustomerRequest $request): JsonResponse
+    {
+        $customer = $this->customerService->createFromKiosk($request->getGenericDataWithValidated());
+
+        return ApiResponse::success(new CustomerResource($customer), 'Customer created successfully', 201);
+    }
+
+    /**
      * Update a customer
      *
      * @param CustomerRequest $request

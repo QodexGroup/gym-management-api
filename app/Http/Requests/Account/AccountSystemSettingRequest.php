@@ -44,6 +44,14 @@ class AccountSystemSettingRequest extends GenericRequest
             'emailMembershipExpiring' => ['sometimes', 'boolean'],
             'emailPaymentConfirmation' => ['sometimes', 'boolean'],
             'emailCustomerRegistration' => ['sometimes', 'boolean'],
+
+            // Public member self-registration settings group
+            'kioskRegistrationEnabled' => ['sometimes', 'boolean'],
+            'kioskRegistrationRequireEmail' => ['sometimes', 'boolean'],
+            'kioskRegistrationRequireAddress' => ['sometimes', 'boolean'],
+            'kioskRegistrationRequireEmergencyContact' => ['sometimes', 'boolean'],
+            'kioskRegistrationWelcomeText' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'kioskRegistrationSuccessText' => ['sometimes', 'nullable', 'string', 'max:500'],
         ];
     }
 }

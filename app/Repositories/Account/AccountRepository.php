@@ -46,6 +46,20 @@ class AccountRepository
     }
 
     /**
+     * Find an account by its permanent public registration code.
+     *
+     * Used only by the public /join/{publicCode} endpoints, which have no
+     * authenticated user to scope by.
+     *
+     * @param string $publicCode
+     * @return Account|null
+     */
+    public function findAccountByPublicCode(string $publicCode): ?Account
+    {
+        return Account::where('public_code', $publicCode)->first();
+    }
+
+    /**
      * @param string $referralCode
      *
      * @return Account|null

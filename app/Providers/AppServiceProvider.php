@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Constant\PublicRegistrationConstant;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use App\Providers\RouteParameterCastingServiceProvider;
@@ -44,6 +46,23 @@ class AppServiceProvider extends ServiceProvider
         // back onto the queue, not lost.
         RateLimiter::for('google-sheets', function ($job) {
             return Limit::perMinute(30)->by('google-sheets-sync');
+        });
+
+        // Public member self-registration. Customer creation is unmetered in
+        // this system (max_customers is never read anywhere), so these two
+        // limits are the only thing standing between a public link and an
+        // unbounded flood of junk member records.
+        //
+        // The per-IP limit mostly slows scripted probing of the duplicate-phone
+        // response. The per-gym daily ceiling is the real backstop: per-IP
+        // limits are weak here, where CGNAT puts many genuine users behind one
+        // address and a bot rotates addresses at will.
+        RateLimiter::for(PublicRegistrationConstant::RATE_LIMITER, function (Request $request) {
+            return [
+                Limit::perMinute(PublicRegistrationConstant::MAX_PER_MINUTE_PER_IP)->by($request->ip()),
+                Limit::perDay(PublicRegistrationConstant::MAX_PER_DAY_PER_GYM)
+                    ->by('gym:' . $request->route('publicCode')),
+            ];
         });
     }
 }

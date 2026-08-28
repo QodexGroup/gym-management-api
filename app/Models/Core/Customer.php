@@ -4,6 +4,7 @@ namespace App\Models\Core;
 
 use App\Constant\CustomerBillConstant;
 use App\Constant\CustomerMembershipConstant;
+use App\Helpers\PhoneNumberHelper;
 use App\Models\User;
 use App\Traits\BelongsToManyWithNullCheck;
 use App\Traits\HasBelongsToManyWithNullCheck;
@@ -55,6 +56,7 @@ class Customer extends Model
         'emergency_contact_relationship',
         'emergency_contact_address',
         'qr_code_uuid',
+        'registration_source',
     ];
 
     /**
@@ -79,6 +81,15 @@ class Customer extends Model
             if (empty($customer->qr_code_uuid)) {
                 $customer->qr_code_uuid = (string) Str::uuid();
             }
+        });
+
+        // Derived, never mass-assignable: phone_number_normalized is what the
+        // duplicate check compares against, so it must be produced by
+        // PhoneNumberHelper on every write rather than accepted from input.
+        // Recomputed on update too, so an edited number stays comparable.
+        static::saving(function ($customer) {
+            $normalized = PhoneNumberHelper::normalize($customer->phone_number);
+            $customer->phone_number_normalized = $normalized === '' ? null : $normalized;
         });
     }
 

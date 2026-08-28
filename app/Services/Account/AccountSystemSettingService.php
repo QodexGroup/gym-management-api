@@ -3,6 +3,7 @@
 namespace App\Services\Account;
 
 use App\Constant\EmailNotificationSettingConstant;
+use App\Constant\KioskRegistrationSettingConstant;
 use App\Constant\MembershipSettingConstant;
 use App\Constant\NotificationSettingConstant;
 use App\Repositories\Account\AccountSystemSettingRepository;
@@ -34,6 +35,7 @@ class AccountSystemSettingService
             MembershipSettingConstant::definitions(),
             NotificationSettingConstant::definitions(),
             EmailNotificationSettingConstant::definitions(),
+            KioskRegistrationSettingConstant::definitions(),
         );
     }
 

@@ -32,10 +32,32 @@ use App\Http\Controllers\Core\CustomerPtPackageController;
 use App\Http\Controllers\Core\PtBookingController;
 use App\Http\Controllers\Core\StorageController;
 use App\Modules\Imports\Controller\ImportController;
+use App\Constant\PublicRegistrationConstant;
+use App\Http\Controllers\Public\PublicGymController;
+use App\Http\Controllers\Public\PublicRegistrationController;
 use App\Http\Middleware\EnsurePlatformAdmin;
+use App\Http\Middleware\ResolvePublicAccountMiddleware;
 use App\Http\Middleware\FirebaseAuthMiddleware;
 use App\Http\Middleware\VerifyFirebaseTokenMiddleware;
 use Illuminate\Support\Facades\Route;
+
+// Public member self-registration: no token at all. The gym is resolved from
+// the permanent ULID public_code in the URL by ResolvePublicAccountMiddleware,
+// which 404s identically for an unknown code, a deactivated account, and a gym
+// that has registration switched off.
+//
+// Note: NO 'idempotent' middleware here, deliberately. IdempotencyMiddleware
+// keys on optional($request->user())->id, which is always null under Firebase
+// auth, so its cache key would collide across every tenant. The duplicate-phone
+// rejection provides the same guarantee for this endpoint.
+Route::prefix('public')->middleware([ResolvePublicAccountMiddleware::class])->group(function () {
+
+        Route::get('/gyms/{publicCode}', [PublicGymController::class, 'getGymRegistrationInfo'])
+            ->middleware('throttle:' . PublicRegistrationConstant::MAX_INFO_PER_MINUTE_PER_IP . ',1');
+
+        Route::post('/gyms/{publicCode}/registrations', [PublicRegistrationController::class, 'createRegistration'])
+            ->middleware('throttle:' . PublicRegistrationConstant::RATE_LIMITER);
+    });
 
 // Forgot password: public, no Firebase token
 Route::middleware(['throttle:5,1'])
@@ -193,6 +215,9 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
     });
 
     Route::prefix('customers')->middleware(['idempotent'])->group(function () {
+        // On-site kiosk: authenticated like the rest, but the member fills the
+        // form in, so it dedupes on phone number and tags registration_source.
+        Route::post('/kiosk-registration', [CustomerController::class, 'createKioskRegistration']);
         Route::get('/', [CustomerController::class, 'getCustomers']);
         Route::post('/', [CustomerController::class, 'store']);
         Route::get('/{id}', [CustomerController::class, 'getCustomer']);

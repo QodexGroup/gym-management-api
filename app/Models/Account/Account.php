@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 
 class Account extends Model
 {
@@ -37,6 +38,27 @@ class Account extends Model
     protected function casts(): array
     {
         return [];
+    }
+
+    /**
+     * Assign the permanent public registration code on creation.
+     *
+     * public_code is intentionally absent from $fillable: it must never be
+     * settable by mass assignment, because the public /join/{publicCode}
+     * link is permanent and printed on physical signage. Mirrors the
+     * qr_code_uuid hook on the Customer model.
+     *
+     * @return void
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (Account $account): void {
+            if (empty($account->public_code)) {
+                $account->public_code = (string) Str::ulid();
+            }
+        });
     }
 
     /**

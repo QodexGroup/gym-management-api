@@ -26,6 +26,23 @@ class MembershipPlanRepository extends BaseRepository
     }
 
     /**
+     * Plans offered by an account, cheapest first.
+     *
+     * Unlike getAllMembershipPlans() this takes a plain account id rather than
+     * GenericData, so the public registration endpoint (which has no
+     * authenticated user) can list them.
+     *
+     * @param int $accountId
+     * @return Collection
+     */
+    public function getPlansForAccount(int $accountId): Collection
+    {
+        return MembershipPlan::where('account_id', $accountId)
+            ->orderBy('price')
+            ->get();
+    }
+
+    /**
      * Get a membership plan by ID
      *
      * @param int $id

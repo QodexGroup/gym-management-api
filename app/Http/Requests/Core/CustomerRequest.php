@@ -37,6 +37,7 @@ class CustomerRequest extends GenericRequest
             'emergencyContactRelationship' => ['nullable', 'string', 'max:100'],
             'emergencyContactAddress' => ['nullable', 'string'],
             'membershipPlanId' => ['nullable', 'integer'],
+            'membershipStartDate' => ['nullable', 'date'],
             'currentTrainerId' => ['nullable', 'integer'],
         ]);
     }

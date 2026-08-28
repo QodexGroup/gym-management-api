@@ -5,7 +5,9 @@ namespace App\Services\Core;
 use App\Constant\CustomerBillConstant;
 use App\Constant\CustomerMembershipConstant;
 use App\Constant\MembershipSettingConstant;
+use App\Constant\CustomerRegistrationSourceConstant;
 use App\Helpers\GenericData;
+use App\Helpers\PhoneNumberHelper;
 use App\Models\Core\Customer;
 use App\Models\Core\CustomerMembership;
 use App\Models\Account\MembershipPlan;
@@ -88,9 +90,18 @@ class CustomerService
                 // Extract membership plan ID and trainer ID
                 $membershipPlanId = $data->membershipPlanId ?? null;
                 $currentTrainerId = $data->currentTrainerId ?? null;
+                // Optional: when the membership should begin. Null keeps the
+                // existing behaviour of starting today.
+                $membershipStartDate = !empty($data->membershipStartDate)
+                    ? Carbon::parse($data->membershipStartDate)->startOfDay()
+                    : null;
 
                 // Remove these from data as they're not direct customer fields
-                unset($genericData->data['membershipPlanId'], $genericData->data['currentTrainerId']);
+                unset(
+                    $genericData->data['membershipPlanId'],
+                    $genericData->data['currentTrainerId'],
+                    $genericData->data['membershipStartDate']
+                );
 
                 // Calculate balance from membership plan if provided
                 if ($membershipPlanId) {
@@ -108,7 +119,7 @@ class CustomerService
 
                 // Create membership if plan is selected
                 if ($membershipPlanId) {
-                    $this->createMembership($customer->id, $membershipPlanId, $genericData->userData->account_id);
+                    $this->createMembership($customer->id, $membershipPlanId, $genericData->userData->account_id, $membershipStartDate);
                     // create bill for the membership plan
                     $this->createBillFromCustomerMembership($customer->id, $membershipPlanId, $genericData);
                 }
@@ -130,6 +141,40 @@ class CustomerService
             ]);
             throw $th;
         }
+    }
+
+    /**
+     * Create a member from the on-site kiosk, where the member fills the form in
+     * themselves under a staff session.
+     *
+     * Differs from create() in two ways, both because the person typing is the
+     * member and not staff:
+     *
+     *  - A phone number already on file is rejected, exactly as on the public
+     *    link.
+     *  - registration_source is stamped as KIOSK here rather than accepted from
+     *    the request, so it cannot be spoofed and kiosk sign-ups stop being
+     *    mislabelled as staff-entered.
+     *
+     * @param GenericData $genericData
+     * @return Customer
+     * @throws \RuntimeException When the phone number is already registered (rendered as 422).
+     */
+    public function createFromKiosk(GenericData $genericData): Customer
+    {
+        $accountId = $genericData->userData->account_id;
+        $normalizedPhone = PhoneNumberHelper::normalize($genericData->getData()->phoneNumber ?? null);
+
+        if ($this->repository->existsByPhoneNumber($accountId, $normalizedPhone)) {
+            throw new \RuntimeException(
+                'This phone number is already registered at this gym. Please see the front desk for assistance.'
+            );
+        }
+
+        $genericData->getData()->registration_source = CustomerRegistrationSourceConstant::KIOSK;
+        $genericData->syncDataArray();
+
+        return $this->create($genericData);
     }
 
     /**
@@ -481,17 +526,18 @@ class CustomerService
     }
 
     /**
-     * Create a membership for a customer
+     * Create a membership for a customer.
      *
      * @param int $customerId
      * @param int $membershipPlanId
      * @param int $accountId
+     * @param Carbon|null $startDate When the membership begins; null starts it today.
      * @return CustomerMembership
      */
-    private function createMembership(int $customerId, int $membershipPlanId, int $accountId): CustomerMembership
+    private function createMembership(int $customerId, int $membershipPlanId, int $accountId, ?Carbon $startDate = null): CustomerMembership
     {
         $plan = $this->membershipPlanRepository->findMembershipPlanById($membershipPlanId, $accountId);
-        return $this->repository->createMembership($accountId, $customerId, $plan);
+        return $this->repository->createMembership($accountId, $customerId, $plan, $startDate);
     }
 
     /**
