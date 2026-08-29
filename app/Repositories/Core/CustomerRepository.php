@@ -6,6 +6,7 @@ use App\Repositories\BaseRepository;
 
 use App\Constant\CustomerMembershipConstant;
 use App\Constant\CustomerPtPackageConstant;
+use App\Data\MembershipStatusCounts;
 use App\Helpers\GenericData;
 use App\Models\Account\MembershipPlan;
 use App\Models\Core\Customer;
@@ -14,22 +15,24 @@ use App\Models\Core\CustomerPtPackage;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class CustomerRepository extends BaseRepository
 {
     /**
-     * Get all customers with pagination, filtering, sorting, and relations
+     * Get all customers with pagination, filtering, sorting, and relations.
      *
      * @param GenericData $genericData
      * @return LengthAwarePaginator
      */
     public function getAll(GenericData $genericData): LengthAwarePaginator
     {
-        $membershipStatus = $this->pullMembershipStatusFilter($genericData);
+        // The private helpers below strip filters they have handled; work on a
+        // copy so the caller's GenericData is never mutated.
+        $genericData = clone $genericData;
 
+        $membershipStatus = $this->pullMembershipStatusFilter($genericData);
         $query = $this->buildCustomerListQuery($genericData);
 
         if ($membershipStatus !== null) {
@@ -47,41 +50,44 @@ class CustomerRepository extends BaseRepository
      * the membershipStatus filter itself: every bucket stays visible (and
      * clickable) while one of them is selected.
      *
+     * `total` counts every matching client, including those with no membership
+     * at all, so it is not the sum of the three buckets.
+     *
      * @param GenericData $genericData
-     * @return array{total: int, active: int, expiringSoon: int, expired: int}
+     * @return MembershipStatusCounts
      */
-    public function getMembershipStatusCounts(GenericData $genericData): array
+    public function getMembershipStatusCounts(GenericData $genericData): MembershipStatusCounts
     {
+        $genericData = clone $genericData;
+
         // Drop the status filter so the counts always cover every bucket.
         $this->pullMembershipStatusFilter($genericData);
 
-        $query = $this->buildCustomerListQuery($genericData);
-        $query = $genericData->applyFilters($query);
+        $base = $genericData->applyFilters($this->buildCustomerListQuery($genericData));
 
-        $customerTable = (new Customer())->getTable();
+        $counts = new MembershipStatusCounts();
+        $counts->total = $base->clone()->count();
+        $counts->active = $this->countByMembershipStatus($base, CustomerMembershipConstant::STATUS_ACTIVE);
+        $counts->expiringSoon = $this->countByMembershipStatus($base, CustomerMembershipConstant::STATUS_EXPIRING);
+        $counts->expired = $this->countByMembershipStatus($base, CustomerMembershipConstant::STATUS_EXPIRED);
 
-        [$activeSql, $activeBindings] = $this->membershipStatusCondition('lm', CustomerMembershipConstant::STATUS_ACTIVE);
-        [$expiringSql, $expiringBindings] = $this->membershipStatusCondition('lm', CustomerMembershipConstant::STATUS_EXPIRING);
-        [$expiredSql, $expiredBindings] = $this->membershipStatusCondition('lm', CustomerMembershipConstant::STATUS_EXPIRED);
+        return $counts;
+    }
 
-        $row = $query
-            ->leftJoinSub($this->latestMembershipSubquery(), 'lm', 'lm.customer_id', '=', "{$customerTable}.id")
-            ->selectRaw(
-                "COUNT(*) as total_count"
-                . ", SUM(CASE WHEN {$activeSql} THEN 1 ELSE 0 END) as active_count"
-                . ", SUM(CASE WHEN {$expiringSql} THEN 1 ELSE 0 END) as expiring_count"
-                . ", SUM(CASE WHEN {$expiredSql} THEN 1 ELSE 0 END) as expired_count",
-                array_merge($activeBindings, $expiringBindings, $expiredBindings)
-            )
-            ->toBase()
-            ->first();
+    /**
+     * Count the clients in a prepared query whose current membership is in the
+     * given status, leaving the passed query untouched for the next bucket.
+     *
+     * @param Builder $base
+     * @param string $status
+     * @return int
+     */
+    private function countByMembershipStatus(Builder $base, string $status): int
+    {
+        $query = $base->clone();
+        $this->applyMembershipStatusFilter($query, $status);
 
-        return [
-            'total' => (int) ($row->total_count ?? 0),
-            'active' => (int) ($row->active_count ?? 0),
-            'expiringSoon' => (int) ($row->expiring_count ?? 0),
-            'expired' => (int) ($row->expired_count ?? 0),
-        ];
+        return $query->count();
     }
 
     /**
@@ -90,10 +96,12 @@ class CustomerRepository extends BaseRepository
      * (keyword search, assigned PT coach) and removes them from GenericData so
      * they are not re-applied as plain column filters further down the chain.
      *
+     * Mutates $genericData->filters - callers pass a clone.
+     *
      * @param GenericData $genericData
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @return Builder
      */
-    private function buildCustomerListQuery(GenericData $genericData)
+    private function buildCustomerListQuery(GenericData $genericData): Builder
     {
         $query = Customer::where('account_id', $genericData->userData->account_id);
 
@@ -102,7 +110,7 @@ class CustomerRepository extends BaseRepository
             $searchTerm = $genericData->filters['search'];
             unset($genericData->filters['search']); // Remove from filters to avoid double processing
 
-            $query->where(function ($q) use ($searchTerm) {
+            $query->where(function (Builder $q) use ($searchTerm) {
                 $q->where('first_name', 'LIKE', "%{$searchTerm}%")
                   ->orWhere('last_name', 'LIKE', "%{$searchTerm}%")
                   ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$searchTerm}%"])
@@ -148,6 +156,8 @@ class CustomerRepository extends BaseRepository
      * Read and validate the membershipStatus filter, removing it from
      * GenericData so it is never applied as a plain column filter.
      *
+     * Mutates $genericData->filters - callers pass a clone.
+     *
      * @param GenericData $genericData
      * @return string|null One of CustomerMembershipConstant::FILTERABLE_STATUSES
      */
@@ -166,86 +176,19 @@ class CustomerRepository extends BaseRepository
     }
 
     /**
-     * Restrict the query to customers whose *current* membership matches the
-     * given status. Mirrors Customer::currentMembership() (latest membership by
-     * start date, then creation date) so the filtered rows match the badge the
-     * list renders for each client.
+     * Restrict the query to customers whose current membership is in the given
+     * status. Resolves through the denormalised current_membership_id pointer,
+     * so this is a primary-key lookup - and it reuses
+     * CustomerMembership::scopeWithStatus(), which is the only place the
+     * active / expiring / expired rules are defined.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param Builder $query
      * @param string $status
      * @return void
      */
-    private function applyMembershipStatusFilter($query, string $status): void
+    private function applyMembershipStatusFilter(Builder $query, string $status): void
     {
-        [$conditionSql, $bindings] = $this->membershipStatusCondition('cm', $status);
-
-        // Column is qualified: applySorts() may left-join a relation table that
-        // also has an `id`, which would make a bare `id` ambiguous.
-        $customerTable = (new Customer())->getTable();
-
-        $query->whereIn("{$customerTable}.id", $this->latestMembershipSubquery()
-            ->select('cm.customer_id')
-            ->whereRaw($conditionSql, $bindings));
-    }
-
-    /**
-     * Query builder returning one row per customer: their current membership.
-     * Aliased as `cm` so callers can reference cm.status / cm.membership_end_date.
-     *
-     * @return \Illuminate\Database\Query\Builder
-     */
-    private function latestMembershipSubquery()
-    {
-        $table = (new CustomerMembership())->getTable();
-
-        return DB::table("{$table} as cm")
-            ->select('cm.customer_id', 'cm.status', 'cm.membership_end_date')
-            ->whereNull('cm.deleted_at')
-            ->whereRaw(
-                "cm.id = (select cm2.id from {$table} as cm2"
-                . " where cm2.customer_id = cm.customer_id and cm2.deleted_at is null"
-                . " order by cm2.membership_start_date desc, cm2.created_at desc limit 1)"
-            );
-    }
-
-    /**
-     * SQL condition (plus bindings) describing a membership status for the given
-     * table alias. Dates are bound as parameters rather than using database date
-     * functions so the same condition works on every supported driver.
-     *
-     * @param string $alias
-     * @param string $status
-     * @return array{0: string, 1: array}
-     */
-    private function membershipStatusCondition(string $alias, string $status): array
-    {
-        $today = today()->toDateString();
-        $expiringThrough = today()->addDays(CustomerMembershipConstant::EXPIRING_SOON_DAYS)->toDateString();
-
-        $active = CustomerMembershipConstant::STATUS_ACTIVE;
-        $expired = CustomerMembershipConstant::STATUS_EXPIRED;
-
-        switch ($status) {
-            case CustomerMembershipConstant::STATUS_EXPIRING:
-                // Still active, but ending within the reminder window.
-                return [
-                    "({$alias}.status = ? and {$alias}.membership_end_date >= ? and {$alias}.membership_end_date <= ?)",
-                    [$active, $today, $expiringThrough],
-                ];
-
-            case CustomerMembershipConstant::STATUS_EXPIRED:
-                // Explicitly expired, or simply past its end date.
-                return [
-                    "({$alias}.status = ? or {$alias}.membership_end_date < ?)",
-                    [$expired, $today],
-                ];
-
-            default:
-                return [
-                    "({$alias}.status = ? and {$alias}.membership_end_date >= ?)",
-                    [$active, $today],
-                ];
-        }
+        $query->whereHas('currentMembership', fn (Builder $q) => $q->withStatus($status));
     }
 
     /**

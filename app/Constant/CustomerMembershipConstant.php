@@ -18,8 +18,10 @@ class CustomerMembershipConstant
 
     /**
      * Statuses accepted by the `membershipStatus` filter on the customer list.
-     * Note: STATUS_EXPIRING is a subset of STATUS_ACTIVE (an expiring membership
-     * is still active), which keeps the filter consistent with the stat cards.
+     * These are mutually exclusive: a membership inside the expiring window is
+     * reported as STATUS_EXPIRING only, never also as STATUS_ACTIVE, so the
+     * stat cards partition the clients the same way the row badges do.
+     * See CustomerMembership::scopeWithStatus().
      */
     const FILTERABLE_STATUSES = [
         self::STATUS_ACTIVE,
