@@ -219,6 +219,8 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         // form in, so it dedupes on phone number and tags registration_source.
         Route::post('/kiosk-registration', [CustomerController::class, 'createKioskRegistration']);
         Route::get('/', [CustomerController::class, 'getCustomers']);
+        // Declared before /{id} so "stats" is not matched as a customer id.
+        Route::get('/stats', [CustomerController::class, 'getCustomerStats']);
         Route::post('/', [CustomerController::class, 'store']);
         Route::get('/{id}', [CustomerController::class, 'getCustomer']);
         Route::put('/{id}', [CustomerController::class, 'updateCustomer']);

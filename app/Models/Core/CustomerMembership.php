@@ -2,13 +2,18 @@
 
 namespace App\Models\Core;
 
+use App\Constant\CustomerMembershipConstant;
 use App\Models\Account\MembershipPlan;
+use App\Observers\CustomerMembershipObserver;
 use App\Traits\HasCamelCaseAttributes;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
+#[ObservedBy(CustomerMembershipObserver::class)]
 class CustomerMembership extends Model
 {
     use HasFactory, SoftDeletes;
@@ -46,6 +51,48 @@ class CustomerMembership extends Model
             'membership_start_date' => 'date',
             'membership_end_date' => 'date',
         ];
+    }
+
+    /**
+     * Constrain the query to memberships in the given derived status.
+     *
+     * This is the ONE definition of what active / expiring / expired mean, and
+     * the three are mutually exclusive - every non-deleted membership falls in
+     * exactly one of them:
+     *
+     *   expired  - explicitly expired, or simply past its end date
+     *   expiring - active, ending today through today + EXPIRING_SOON_DAYS
+     *   active   - active, ending after that window
+     *
+     * Mirrors getCustomerMembershipDisplayStatus() on the frontend, which picks
+     * one badge per row the same way, so a stat card and the badges below it
+     * always tell the same story.
+     *
+     * @param Builder $query
+     * @param string $status One of CustomerMembershipConstant::FILTERABLE_STATUSES
+     * @return Builder
+     */
+    public function scopeWithStatus(Builder $query, string $status): Builder
+    {
+        $today = today()->toDateString();
+        $expiringThrough = today()->addDays(CustomerMembershipConstant::EXPIRING_SOON_DAYS)->toDateString();
+
+        return match ($status) {
+            CustomerMembershipConstant::STATUS_EXPIRING => $query
+                ->where('status', CustomerMembershipConstant::STATUS_ACTIVE)
+                ->whereBetween('membership_end_date', [$today, $expiringThrough]),
+
+            CustomerMembershipConstant::STATUS_EXPIRED => $query
+                ->where(fn (Builder $q) => $q
+                    ->where('status', CustomerMembershipConstant::STATUS_EXPIRED)
+                    ->orWhere('membership_end_date', '<', $today)),
+
+            // Deliberately excludes the expiring window: an expiring membership
+            // is counted and filtered as expiring only, never as active too.
+            default => $query
+                ->where('status', CustomerMembershipConstant::STATUS_ACTIVE)
+                ->where('membership_end_date', '>', $expiringThrough),
+        };
     }
 
     /**

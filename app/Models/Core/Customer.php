@@ -11,6 +11,7 @@ use App\Traits\HasBelongsToManyWithNullCheck;
 use App\Traits\HasCamelCaseAttributes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -122,13 +123,17 @@ class Customer extends Model
     }
 
     /**
-     * Get the current membership for the customer (most recent).
+     * Get the current membership for the customer.
+     *
+     * Reads the denormalised `current_membership_id` pointer rather than
+     * re-deriving "the latest membership" on every query - the pointer is
+     * maintained by CustomerMembershipObserver, which owns that ordering rule.
+     *
+     * @return BelongsTo
      */
-    public function currentMembership()
+    public function currentMembership(): BelongsTo
     {
-        return $this->hasOne(CustomerMembership::class, 'customer_id')
-            ->orderBy('membership_start_date', 'desc')
-            ->orderBy('created_at', 'desc');
+        return $this->belongsTo(CustomerMembership::class, 'current_membership_id');
     }
 
     /**

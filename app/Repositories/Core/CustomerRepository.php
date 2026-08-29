@@ -6,6 +6,7 @@ use App\Repositories\BaseRepository;
 
 use App\Constant\CustomerMembershipConstant;
 use App\Constant\CustomerPtPackageConstant;
+use App\Data\MembershipStatusCounts;
 use App\Helpers\GenericData;
 use App\Models\Account\MembershipPlan;
 use App\Constant\CustomerRegistrationSourceConstant;
@@ -15,19 +16,93 @@ use App\Models\Core\CustomerPtPackage;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class CustomerRepository extends BaseRepository
 {
     /**
-     * Get all customers with pagination, filtering, sorting, and relations
+     * Get all customers with pagination, filtering, sorting, and relations.
      *
      * @param GenericData $genericData
      * @return LengthAwarePaginator
      */
     public function getAll(GenericData $genericData): LengthAwarePaginator
+    {
+        // The private helpers below strip filters they have handled; work on a
+        // copy so the caller's GenericData is never mutated.
+        $genericData = clone $genericData;
+
+        $membershipStatus = $this->pullMembershipStatusFilter($genericData);
+        $query = $this->buildCustomerListQuery($genericData);
+
+        if ($membershipStatus !== null) {
+            $this->applyMembershipStatusFilter($query, $membershipStatus);
+        }
+
+        return $this->paginateWithGenericData($query, $genericData, ['currentMembership.membershipPlan', 'currentTrainer']);
+    }
+
+    /**
+     * Count clients per membership status for the whole account.
+     *
+     * Honors the same search / PT coach filters as getAll() so the stat cards
+     * always describe the same population as the list, but deliberately ignores
+     * the membershipStatus filter itself: every bucket stays visible (and
+     * clickable) while one of them is selected.
+     *
+     * `total` counts every matching client, including those with no membership
+     * at all, so it is not the sum of the three buckets.
+     *
+     * @param GenericData $genericData
+     * @return MembershipStatusCounts
+     */
+    public function getMembershipStatusCounts(GenericData $genericData): MembershipStatusCounts
+    {
+        $genericData = clone $genericData;
+
+        // Drop the status filter so the counts always cover every bucket.
+        $this->pullMembershipStatusFilter($genericData);
+
+        $base = $genericData->applyFilters($this->buildCustomerListQuery($genericData));
+
+        $counts = new MembershipStatusCounts();
+        $counts->total = $base->clone()->count();
+        $counts->active = $this->countByMembershipStatus($base, CustomerMembershipConstant::STATUS_ACTIVE);
+        $counts->expiringSoon = $this->countByMembershipStatus($base, CustomerMembershipConstant::STATUS_EXPIRING);
+        $counts->expired = $this->countByMembershipStatus($base, CustomerMembershipConstant::STATUS_EXPIRED);
+
+        return $counts;
+    }
+
+    /**
+     * Count the clients in a prepared query whose current membership is in the
+     * given status, leaving the passed query untouched for the next bucket.
+     *
+     * @param Builder $base
+     * @param string $status
+     * @return int
+     */
+    private function countByMembershipStatus(Builder $base, string $status): int
+    {
+        $query = $base->clone();
+        $this->applyMembershipStatusFilter($query, $status);
+
+        return $query->count();
+    }
+
+    /**
+     * Base customer query shared by the paginated list and the status counts.
+     * Applies the account scope plus the filters that need custom handling
+     * (keyword search, assigned PT coach) and removes them from GenericData so
+     * they are not re-applied as plain column filters further down the chain.
+     *
+     * Mutates $genericData->filters - callers pass a clone.
+     *
+     * @param GenericData $genericData
+     * @return Builder
+     */
+    private function buildCustomerListQuery(GenericData $genericData): Builder
     {
         $query = Customer::where('account_id', $genericData->userData->account_id);
 
@@ -36,10 +111,12 @@ class CustomerRepository extends BaseRepository
             $searchTerm = $genericData->filters['search'];
             unset($genericData->filters['search']); // Remove from filters to avoid double processing
 
-            $query->where(function ($q) use ($searchTerm) {
+            $query->where(function (Builder $q) use ($searchTerm) {
                 $q->where('first_name', 'LIKE', "%{$searchTerm}%")
                   ->orWhere('last_name', 'LIKE', "%{$searchTerm}%")
-                  ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$searchTerm}%"]);
+                  ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$searchTerm}%"])
+                  ->orWhere('email', 'LIKE', "%{$searchTerm}%")
+                  ->orWhere('phone_number', 'LIKE', "%{$searchTerm}%");
             });
         }
 
@@ -73,8 +150,46 @@ class CustomerRepository extends BaseRepository
             }
         }
 
-        return $this->paginateWithGenericData($query, $genericData, ['currentMembership.membershipPlan', 'currentTrainer']);
+        return $query;
+    }
 
+    /**
+     * Read and validate the membershipStatus filter, removing it from
+     * GenericData so it is never applied as a plain column filter.
+     *
+     * Mutates $genericData->filters - callers pass a clone.
+     *
+     * @param GenericData $genericData
+     * @return string|null One of CustomerMembershipConstant::FILTERABLE_STATUSES
+     */
+    private function pullMembershipStatusFilter(GenericData $genericData): ?string
+    {
+        if (!isset($genericData->filters['membershipStatus'])) {
+            return null;
+        }
+
+        $status = $genericData->filters['membershipStatus'];
+        unset($genericData->filters['membershipStatus']);
+
+        $status = is_string($status) ? strtolower(trim($status)) : '';
+
+        return in_array($status, CustomerMembershipConstant::FILTERABLE_STATUSES, true) ? $status : null;
+    }
+
+    /**
+     * Restrict the query to customers whose current membership is in the given
+     * status. Resolves through the denormalised current_membership_id pointer,
+     * so this is a primary-key lookup - and it reuses
+     * CustomerMembership::scopeWithStatus(), which is the only place the
+     * active / expiring / expired rules are defined.
+     *
+     * @param Builder $query
+     * @param string $status
+     * @return void
+     */
+    private function applyMembershipStatusFilter(Builder $query, string $status): void
+    {
+        $query->whereHas('currentMembership', fn (Builder $q) => $q->withStatus($status));
     }
 
     /**
