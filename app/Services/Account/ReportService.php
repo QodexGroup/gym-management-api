@@ -2,6 +2,7 @@
 
 namespace App\Services\Account;
 
+use App\Constant\ExpenseStatusConstant;
 use App\Constants\DateFormatConstant;
 use App\Constants\ExportTypeConstant;
 use App\Constants\ReportConstant;
@@ -71,6 +72,14 @@ class ReportService
                 $rowCount = $this->customerPaymentRepository->countByAccountAndDateRange($accountId, $startDate, $endDate);
                 break;
             case ReportTypeConstant::EXPENSE:
+                // Expense report covers posted expenses only.
+                $rowCount = $this->expenseRepository->countByAccountAndDateRange(
+                    $accountId,
+                    $startDate,
+                    $endDate,
+                    ExpenseStatusConstant::EXPENSE_STATUS_POSTED
+                );
+                break;
             case ReportTypeConstant::SUMMARY:
                 $rowCount = $this->expenseRepository->countByAccountAndDateRange($accountId, $startDate, $endDate);
                 break;
@@ -480,7 +489,12 @@ class ReportService
     private function getExpenseReportData(GenericData $genericData): array
     {
         $data = $genericData->getData();
-        $expenseData = $this->expenseRepository->getForExport($genericData->userData->account_id, $data->startDate, $data->endDate);
+        $expenseData = $this->expenseRepository->getForExport(
+            $genericData->userData->account_id,
+            $data->startDate,
+            $data->endDate,
+            ExpenseStatusConstant::EXPENSE_STATUS_POSTED
+        );
         $records = $this->exportExpenseService->transformData($expenseData);
         $summaryHeaderData = $this->exportExpenseService->getSummaryHeaderData($expenseData);
         $headers = $this->exportExpenseService->getHeaders();

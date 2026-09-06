@@ -2,6 +2,7 @@
 
 namespace App\Modules\ExpenseReport;
 
+use App\Constant\ExpenseStatusConstant;
 use App\Constants\ExportTypeConstant;
 use App\Helpers\GenericData;
 use App\Repositories\Common\ExpenseRepository;
@@ -35,7 +36,8 @@ class ExpenseReportExportService
         $expenseData = $this->expenseRepository->getForExport(
             $genericData->userData->account_id,
             $data->dateFrom,
-            $data->dateTo
+            $data->dateTo,
+            ExpenseStatusConstant::EXPENSE_STATUS_POSTED
         );
         return $exporter->export($genericData, $expenseData);
     }

@@ -45,13 +45,15 @@ class ExpenseRepository extends BaseRepository
      * @param int $accountId
      * @param string $dateFrom Y-m-d
      * @param string $dateTo Y-m-d
+     * @param string|null $status Optional status filter (e.g. POSTED only)
      * @return int
      */
-    public function countByAccountAndDateRange(int $accountId, string $dateFrom, string $dateTo): int
+    public function countByAccountAndDateRange(int $accountId, string $dateFrom, string $dateTo, ?string $status = null): int
     {
         return Expense::where('account_id', $accountId)
             ->where('expense_date', '>=', $dateFrom)
             ->where('expense_date', '<=', $dateTo)
+            ->when($status, fn ($query) => $query->where('status', $status))
             ->count();
     }
 
@@ -61,13 +63,15 @@ class ExpenseRepository extends BaseRepository
      * @param int $accountId
      * @param string $dateFrom Y-m-d
      * @param string $dateTo Y-m-d
+     * @param string|null $status Optional status filter (e.g. POSTED only)
      * @return Collection<int, Expense>
      */
-    public function getForExport(int $accountId, string $dateFrom, string $dateTo): Collection
+    public function getForExport(int $accountId, string $dateFrom, string $dateTo, ?string $status = null): Collection
     {
         return Expense::where('account_id', $accountId)
             ->where('expense_date', '>=', $dateFrom)
             ->where('expense_date', '<=', $dateTo)
+            ->when($status, fn ($query) => $query->where('status', $status))
             ->with('category')
             ->orderByDesc('expense_date')
             ->get();

@@ -2,7 +2,6 @@
 
 namespace App\Modules\ExpenseReport\Exporters;
 
-use App\Constant\ExpenseStatusConstant;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -27,7 +26,6 @@ class ExportExpenseService
             $rowData['Category'] = $categoryName;
             $rowData['Description'] = $expense->description ?? '';
             $rowData['Amount'] = (float) $expense->amount;
-            $rowData['Status'] = $this->expenseStatusLabel($expense->status);
             $transformedData[] = $rowData;
         }
 
@@ -37,24 +35,25 @@ class ExportExpenseService
     public function getSummaryHeaderData(Collection $expenseData): array
     {
         $totalExpenses = (float) $expenseData->sum('amount');
-        $posted = (float) $expenseData->where('status', ExpenseStatusConstant::EXPENSE_STATUS_POSTED)->sum('amount');
-        $unposted = (float) $expenseData->where('status', ExpenseStatusConstant::EXPENSE_STATUS_UNPOSTED)->sum('amount');
+        $transactionCount = $expenseData->count();
+        $average = $transactionCount > 0 ? $totalExpenses / $transactionCount : 0.0;
+        $topCategory = $this->getTopCategory($expenseData);
 
         return [
             'businessName' => $this->getBusinessName(),
             'title' => 'Expense Report',
             'summaryRows' => [
                 ['Total Expenses', $this->formatCurrency($totalExpenses)],
-                ['Posted', $this->formatCurrency($posted)],
-                ['Unposted', $this->formatCurrency($unposted)],
-                ['Transactions', (string) $expenseData->count()],
+                ['Transactions', (string) $transactionCount],
+                ['Average per Transaction', $this->formatCurrency($average)],
+                ['Top Category', $topCategory],
             ],
         ];
     }
 
     public function getHeaders(): array
     {
-        return ['Date', 'Category', 'Description', 'Amount', 'Status'];
+        return ['Date', 'Category', 'Description', 'Amount'];
     }
 
     private function formatCurrency(float $amount): string
@@ -62,15 +61,30 @@ class ExportExpenseService
         return 'PHP ' . number_format($amount, 2);
     }
 
-    private function expenseStatusLabel(?string $status): string
+    /**
+     * Resolve the category with the highest total amount.
+     *
+     * @param Collection $expenseData
+     * @return string
+     */
+    private function getTopCategory(Collection $expenseData): string
     {
-        switch ($status) {
-            case ExpenseStatusConstant::EXPENSE_STATUS_POSTED:
-                return 'Posted';
-            case ExpenseStatusConstant::EXPENSE_STATUS_UNPOSTED:
-                return 'Unposted';
-            default:
-                return $status ?? 'N/A';
+        $totals = [];
+
+        foreach ($expenseData as $expense) {
+            $categoryName = $expense->relationLoaded('category') && $expense->category
+                ? $expense->category->name
+                : 'Unknown';
+            $totals[$categoryName] = ($totals[$categoryName] ?? 0) + (float) $expense->amount;
         }
+
+        if (empty($totals)) {
+            return 'N/A';
+        }
+
+        arsort($totals);
+        $name = array_key_first($totals);
+
+        return $name . ' (' . $this->formatCurrency((float) $totals[$name]) . ')';
     }
 }

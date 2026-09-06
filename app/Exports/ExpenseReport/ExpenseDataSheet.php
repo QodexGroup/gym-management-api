@@ -27,7 +27,6 @@ class ExpenseDataSheet implements FromArray, WithHeadings, WithTitle, ShouldAuto
                 $row['Category'] ?? '',
                 $row['Description'] ?? '',
                 $row['Amount'] ?? 0,
-                $row['Status'] ?? '',
             ];
         }, $this->data);
     }
@@ -41,8 +40,7 @@ class ExpenseDataSheet implements FromArray, WithHeadings, WithTitle, ShouldAuto
             'Date',
             'Category',
             'Description',
-            'Amount',
-            'Status'
+            'Amount'
         ];
     }
 
