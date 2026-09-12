@@ -16,7 +16,7 @@ class AccountSubscriptionPlanRepository
     /**
      * @param callable(Collection<int, AccountSubscriptionPlan>): void $callback
      */
-    public function chunkBillableByInterval(Carbon $cycleStart, string $interval, callable $callback): void
+    public function chunkBillableByInterval(Carbon $cycleStart, string $interval, callable $callback, ?int $accountId = null): void
     {
         // Deferred billing model: bill an account only once its paid coverage has reached
         // this anchor (subscription_ends_at <= cycleStart). Accounts still prepaid past the
@@ -28,6 +28,7 @@ class AccountSubscriptionPlanRepository
             ->where('subscription_starts_at', '<=', $cycleStart)
             ->whereNotNull('subscription_ends_at')
             ->where('subscription_ends_at', '<=', $cycleStart)
+            ->when($accountId !== null, fn ($q) => $q->where('account_id', $accountId))
             ->chunkById(50, $callback);
     }
 
@@ -160,7 +161,7 @@ class AccountSubscriptionPlanRepository
      * Apply pending plan selections when the effective date is reached.
      * Returns number of ASP rows updated.
      */
-    public function applyPendingPlanSelectionsDue(Carbon $cycleStart): int
+    public function applyPendingPlanSelectionsDue(Carbon $cycleStart, ?int $accountId = null): int
     {
         $updated = 0;
 
@@ -169,6 +170,7 @@ class AccountSubscriptionPlanRepository
             ->whereNotNull('pending_subscription_plan_id')
             ->whereNotNull('pending_plan_effective_at')
             ->where('pending_plan_effective_at', '<=', $cycleStart)
+            ->when($accountId !== null, fn ($q) => $q->where('account_id', $accountId))
             ->chunkById(100, function (Collection $plans) use (&$updated) {
                 foreach ($plans as $asp) {
                     $pendingPlan = $asp->pendingSubscriptionPlan;

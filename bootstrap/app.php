@@ -4,9 +4,11 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\IdempotencyMiddleware;
+use App\Http\Middleware\PlatformServiceTokenMiddleware;
 use Illuminate\Http\Middleware\HandleCors;
 use App\Exceptions\QuotaExceededException;
 use App\Helpers\ApiResponse;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function (): void {
+            Route::middleware('api')
+                ->prefix('api')
+                ->group(base_path('routes/platform.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Add CORS to global middleware stack — covers all routes including preflight OPTIONS
@@ -22,6 +29,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Register idempotency middleware alias
         $middleware->alias([
             'idempotent' => IdempotencyMiddleware::class,
+            // The operations console. Machine-to-machine, independent of
+            // Firebase — see PlatformServiceTokenMiddleware.
+            'platform.service' => PlatformServiceTokenMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

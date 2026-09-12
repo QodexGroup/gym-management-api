@@ -29,6 +29,7 @@ class AccountPaymentRequest extends Model
         'status',
         'requested_by',
         'approved_by',
+        'platform_actor',
         'approved_at',
         'rejection_reason',
         'payment_details',

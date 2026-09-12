@@ -379,6 +379,10 @@ class AdminPaymentRequestService
 
         $this->requestRepository->markAsRejected($request, $adminUserId, $reason);
 
+        if (in_array($request->payment_transaction, ['Reactivation Fee'], true)) {
+            return $request->fresh(['account']);
+        }
+
         return $request->fresh(['account', 'paymentTransaction']);
     }
 

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class AccountInvoice extends Model
 {
@@ -74,6 +75,26 @@ class AccountInvoice extends Model
     /**
      * @return HasMany
      */
+    /**
+     * The most recent payment request submitted against this invoice.
+     *
+     * Lets the owner-facing list show whether a receipt is already awaiting
+     * review without loading every request for every invoice.
+     *
+     * @return HasOne
+     */
+    public function latestPaymentRequest(): HasOne
+    {
+        // Same linkage as paymentRequests() below: there is NO account_invoice_id
+        // column. A request points at its subject through the
+        // payment_transaction / payment_transaction_id pair, so BOTH halves are
+        // required — without the class guard this would also match a
+        // subscription-plan request that happens to share the id.
+        return $this->hasOne(AccountPaymentRequest::class, 'payment_transaction_id')
+            ->where('payment_transaction', self::class)
+            ->latestOfMany();
+    }
+
     public function paymentRequests(): HasMany
     {
         return $this->hasMany(AccountPaymentRequest::class, 'payment_transaction_id')

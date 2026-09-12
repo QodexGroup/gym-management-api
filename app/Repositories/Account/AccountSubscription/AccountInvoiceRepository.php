@@ -3,11 +3,40 @@
 namespace App\Repositories\Account\AccountSubscription;
 
 use App\Constant\AccountInvoiceStatusConstant;
+use App\Constant\AccountPaymentRequestStatusConstant;
+use App\Helpers\GenericData;
 use App\Models\Account\AccountInvoice;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
 class AccountInvoiceRepository
 {
+    /**
+     * The signed-in account's own invoices, newest first.
+     *
+     * Carries the latest payment request and a pending-request count so the
+     * owner's list can tell "not paid yet" from "receipt already submitted,
+     * waiting on review" without an N+1 per row.
+     *
+     * @param GenericData $genericData
+     *
+     * @return LengthAwarePaginator
+     */
+    public function paginateByAccount(GenericData $genericData): LengthAwarePaginator
+    {
+        $query = AccountInvoice::where('account_id', $genericData->userData->account_id)
+            ->with('latestPaymentRequest')
+            ->withCount([
+                'paymentRequests as pending_payment_requests_count' => fn ($q) => $q->where(
+                    'status',
+                    AccountPaymentRequestStatusConstant::STATUS_PENDING,
+                ),
+            ])
+            ->orderByDesc('id');
+
+        return $query->paginate($genericData->pageSize, ['*'], 'page', $genericData->page);
+    }
+
     /**
      * @param int $accountId
      * @param string $billingPeriod

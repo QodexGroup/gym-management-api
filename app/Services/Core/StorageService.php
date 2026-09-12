@@ -412,6 +412,34 @@ class StorageService
     }
 
     /**
+     * Mint a short-lived, signed URL for READING one stored object.
+     *
+     * The counterpart to createPresignedUpload(). The receipt bucket is private
+     * and must stay that way — a payment receipt is a subscriber's bank or
+     * e-wallet screenshot — so the only way to show one is a URL that expires.
+     * Nothing here is cached: every read signs afresh.
+     *
+     * @param string $path R2 object key, as stored in the receipt_url column.
+     * @param string $expiry Any strtotime-relative expression, e.g. '+15 minutes'.
+     * @return string|null Null when R2 is not configured (e.g. local dev).
+     */
+    public function createPresignedDownload(string $path, string $expiry = '+15 minutes'): ?string
+    {
+        if (!$this->isR2Configured() || $path === '') {
+            return null;
+        }
+
+        $client = $this->s3Client();
+
+        $command = $client->getCommand('GetObject', [
+            'Bucket' => $this->r2('bucket'),
+            'Key' => $path,
+        ]);
+
+        return (string) $client->createPresignedRequest($command, $expiry)->getUri();
+    }
+
+    /**
      * Build an R2 (S3-compatible) client from the `r2` disk config.
      *
      * @return S3Client
