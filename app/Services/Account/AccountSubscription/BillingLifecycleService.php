@@ -356,27 +356,30 @@ class BillingLifecycleService
      * Generate invoices for all intervals (monthly, quarterly, annual) for the current cycle.
      * Only generates invoices for intervals that match the current billing period.
      */
-    public function generateInvoicesForCurrentCycle(): int
+    public function generateInvoicesForCurrentCycle(bool $force = false, ?int $accountId = null): int
     {
         $now = Carbon::now();
         $day = $now->day;
 
         $count = 0;
 
-        // Per-account cadence: every interval is evaluated on the account's own cycle, which
-        // always lands on the 5th. All intervals therefore use the current month's 5th as the
-        // candidate anchor; the deferred-billing guard skips accounts still prepaid, so a
-        // quarterly/yearly account only generates when its own coverage reaches this 5th.
-        if ($day === BillingCycleConstant::CYCLE_DAY_DUE) {
+        // Every interval anchors on the current month's 5th; the deferred-billing guard
+        // skips accounts still prepaid, so a quarterly/yearly one only generates once its
+        // coverage reaches that date. `$force` carries the command's --force past this
+        // guard, which otherwise returned 0 on every other day. The anchor is the 5th
+        // either way — forcing on the 10th bills the cycle that opened on the 5th.
+        if ($day === BillingCycleConstant::CYCLE_DAY_DUE || $force) {
             $cycleStart = $now->copy()->day(BillingCycleConstant::CYCLE_DAY_DUE)->startOfDay();
             // Apply any pending plan selections that are due this billing cycle before invoice generation.
-            $this->accountSubscriptionPlanRepository->applyPendingPlanSelectionsDue($cycleStart);
+            $this->accountSubscriptionPlanRepository->applyPendingPlanSelectionsDue($cycleStart, $accountId);
 
             $currentPeriod = self::billingPeriodForDate($now);
 
-            $count += $this->generateInvoicesForInterval($currentPeriod, AccountSubscriptionIntervalConstant::INTERVAL_MONTH);
-            $count += $this->generateInvoicesForInterval($currentPeriod, AccountSubscriptionIntervalConstant::INTERVAL_QUARTER);
-            $count += $this->generateInvoicesForInterval($currentPeriod, AccountSubscriptionIntervalConstant::INTERVAL_YEAR);
+            // All three intervals are still evaluated when scoped to one account:
+            // the caller knows the account, not which plan interval it is on.
+            $count += $this->generateInvoicesForInterval($currentPeriod, AccountSubscriptionIntervalConstant::INTERVAL_MONTH, $accountId);
+            $count += $this->generateInvoicesForInterval($currentPeriod, AccountSubscriptionIntervalConstant::INTERVAL_QUARTER, $accountId);
+            $count += $this->generateInvoicesForInterval($currentPeriod, AccountSubscriptionIntervalConstant::INTERVAL_YEAR, $accountId);
         }
 
         return $count;
@@ -386,7 +389,7 @@ class BillingLifecycleService
      * Generate invoices for accounts with the given plan interval for the given billing period.
      * Only generates for active subscriptions that match the billing period.
      */
-    private function generateInvoicesForInterval(string $billingPeriod, string $interval): int
+    private function generateInvoicesForInterval(string $billingPeriod, string $interval, ?int $accountId = null): int
     {
         $count = 0;
         $cycleStart = Carbon::createFromFormat('mdY', $billingPeriod)->startOfDay();
@@ -401,7 +404,8 @@ class BillingLifecycleService
                         $count++;
                     }
                 }
-            }
+            },
+            $accountId,
         );
 
         return $count;

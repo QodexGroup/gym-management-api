@@ -6,6 +6,7 @@ use App\Http\Controllers\Account\ClassScheduleSessionController;
 use App\Http\Controllers\Account\MembershipPlanController;
 use App\Http\Controllers\Account\AccountSystemSettingController;
 use App\Http\Controllers\Account\AccountSubscription\SubscriptionPlanController;
+use App\Http\Controllers\Account\AccountSubscription\AccountInvoiceController;
 use App\Http\Controllers\Account\AccountSubscription\AccountPaymentRequestController;
 use App\Http\Controllers\Account\PtCategoryController;
 use App\Http\Controllers\Account\PtPackageController;
@@ -92,6 +93,7 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
     Route::prefix('accounts')->middleware(['idempotent'])->group(function () {
         Route::get('/', [AccountController::class, 'getAccount']);
         Route::put('/', [AccountController::class, 'updateAccount']);
+        Route::get('/invoices', [AccountInvoiceController::class, 'getInvoices']);
         Route::get('/payment-requests', [AccountPaymentRequestController::class, 'getPaymentRequests']);
         Route::post('/payment-request', [AccountPaymentRequestController::class, 'createPaymentRequest']);
         Route::post('/reactivation-payment-request', [AccountPaymentRequestController::class, 'createReactivationPaymentRequest']);
@@ -317,6 +319,3 @@ Route::middleware([FirebaseAuthMiddleware::class])->group(function () {
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
     });
 });
-
-
-
