@@ -3,6 +3,7 @@
 namespace App\Repositories\Platform;
 
 use App\Constant\AccountInvoiceStatusConstant;
+use App\Constant\PlatformConstant;
 use App\Models\Account\Account;
 use App\Support\Platform\AccountStatusResolver;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -23,7 +24,7 @@ class PlatformAccountRepository
      * Paginated account list with the derived status, owner and balance the
      * console's table renders.
      *
-     * @param array<string, mixed> $filters status, search, createdFrom, createdTo
+     * @param array<string, mixed> $filters status, search, createdFrom, createdTo, sort
      * @param int $page
      * @param int $limit
      *
@@ -55,9 +56,38 @@ class PlatformAccountRepository
             $query->whereDate('accounts.created_at', '<=', $filters['createdTo']);
         }
 
-        return $query
-            ->orderByDesc('accounts.created_at')
+        return $this->applySort($query, $filters['sort'] ?? null)
             ->paginate($limit, ['*'], 'page', $page);
+    }
+
+    /**
+     * Order the list by one of the contract's sort keys.
+     *
+     * Coverage end is the expiry the console chases, so it ascends — soonest
+     * (and already past) first. It reads through COALESCE because a trial
+     * account has no `subscription_ends_at` yet and its trial end IS its
+     * coverage end; ordering on the raw column alone would bunch every trial
+     * at one end on a NULL. Accounts with no plan row at all have no coverage
+     * to chase and sort last rather than leading the list.
+     *
+     * Anything else, including no sort at all, keeps the default: newest
+     * signups first.
+     *
+     * @param Builder $query
+     * @param string|null $sort
+     *
+     * @return Builder
+     */
+    private function applySort(Builder $query, ?string $sort): Builder
+    {
+        $coverageEnd = 'COALESCE(asp.subscription_ends_at, asp.trial_ends_at)';
+
+        return match ($sort) {
+            PlatformConstant::ACCOUNT_SORT_COVERAGE_ENDS_AT => $query
+                ->orderByRaw("{$coverageEnd} IS NULL")
+                ->orderByRaw("{$coverageEnd} ASC"),
+            default => $query->orderByDesc('accounts.created_at'),
+        };
     }
 
     /**

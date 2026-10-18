@@ -61,6 +61,26 @@ class PlatformConstant
         self::INVOICE_VOID,
     ];
 
+    /* ---- Account list ordering ---- */
+
+    /**
+     * Sort keys name the FIELD of the contract they order by, not a column, so
+     * the console can offer them without knowing GymHub's schema.
+     *
+     * Direction is not a separate parameter: there is only one reason to order
+     * by each of these. Coverage end is asked for to find what expires first,
+     * so it ascends; the join date is asked for to see recent signups, so it
+     * descends. A `direction` knob would only let a caller ask for the useless
+     * half of each.
+     */
+    const ACCOUNT_SORT_CREATED_AT = 'createdAt';
+    const ACCOUNT_SORT_COVERAGE_ENDS_AT = 'coverageEndsAt';
+
+    const ACCOUNT_SORTS = [
+        self::ACCOUNT_SORT_CREATED_AT,
+        self::ACCOUNT_SORT_COVERAGE_ENDS_AT,
+    ];
+
     /**
      * Translate a stored `payment_transaction` into the contract's kind.
      *

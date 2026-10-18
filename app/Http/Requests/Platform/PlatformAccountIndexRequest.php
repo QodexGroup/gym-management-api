@@ -20,6 +20,7 @@ class PlatformAccountIndexRequest extends PlatformPaginatedRequest
             'search' => ['sometimes', 'nullable', 'string', 'max:191'],
             'createdFrom' => ['sometimes', 'nullable', 'date'],
             'createdTo' => ['sometimes', 'nullable', 'date', 'after_or_equal:createdFrom'],
+            'sort' => ['sometimes', 'nullable', Rule::in(PlatformConstant::ACCOUNT_SORTS)],
         ];
     }
 
@@ -29,7 +30,7 @@ class PlatformAccountIndexRequest extends PlatformPaginatedRequest
     public function filters(): array
     {
         return array_filter(
-            $this->only(['status', 'search', 'createdFrom', 'createdTo']),
+            $this->only(['status', 'search', 'createdFrom', 'createdTo', 'sort']),
             static fn ($value) => $value !== null && $value !== '',
         );
     }

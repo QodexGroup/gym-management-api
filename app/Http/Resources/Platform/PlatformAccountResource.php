@@ -34,7 +34,12 @@ class PlatformAccountResource extends JsonResource
             'ownerEmail' => $this->owner_email ?? $this->account_email,
             'status' => $this->derived_status ?? AccountStatusResolver::resolve($this->resource),
             'plan' => $plan?->plan_name ?? $plan?->subscriptionPlan?->name,
+            // Both ends of both windows. A trial account has no subscription
+            // dates yet, so the console falls back to the trial pair rather
+            // than showing it an empty period.
+            'coverageStartsAt' => $plan?->subscription_starts_at?->toIso8601String(),
             'coverageEndsAt' => $plan?->subscription_ends_at?->toIso8601String(),
+            'trialStartsAt' => $plan?->trial_starts_at?->toIso8601String(),
             'trialEndsAt' => $plan?->trial_ends_at?->toIso8601String(),
             'lockedAt' => $plan?->locked_at?->toIso8601String(),
             'pendingInvoices' => (int) ($this->pending_invoice_count ?? 0),
