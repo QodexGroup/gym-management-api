@@ -31,13 +31,17 @@ return new class extends Migration
             $table->index('current_membership_id');
         });
 
+        // The SET target is written unqualified on purpose: MySQL accepts both
+        // forms, but SQLite (the test suite's driver) rejects an alias-qualified
+        // column there with a syntax error, which would break every test that
+        // runs the migrations.
         // Backfill with the same ordering Customer::currentMembership() used
         // before this change. `id desc` is only a tie-breaker: it makes the
         // previously undefined "same start date and created_at" case
         // deterministic, and matches CustomerMembershipObserver.
         DB::statement(<<<'SQL'
             UPDATE tb_customers AS c
-            SET c.current_membership_id = (
+            SET current_membership_id = (
                 SELECT m.id
                 FROM tb_customer_membership AS m
                 WHERE m.customer_id = c.id

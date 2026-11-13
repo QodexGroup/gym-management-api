@@ -33,7 +33,7 @@ class ReportController extends Controller
     }
 
     /**
-     * Generate report (PDF or Excel) and send via email when export exceeds 200 rows.
+     * Queue a report (PDF or Excel) for emailing when the export exceeds 200 rows.
      *
      * @param EmailReportRequest $request reportType, format (pdf|excel), dateRange, startDate, endDate
      * @return JsonResponse
@@ -45,11 +45,11 @@ class ReportController extends Controller
             return ApiResponse::error('User email not found.', 400);
         }
 
-        $this->reportService->sendEmailReport($request->getGenericDataWithValidated());
+        $this->reportService->requestEmailReport($request->getGenericDataWithValidated());
 
         return ApiResponse::success(
             ['requested' => true],
-            'Report has been sent to your email.',
+            'Your report is being prepared and will be emailed shortly.',
             202
         );
     }
