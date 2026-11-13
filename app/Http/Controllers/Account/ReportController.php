@@ -2,17 +2,13 @@
 
 namespace App\Http\Controllers\Account;
 
-use App\Constants\ExportTypeConstant;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\CheckExportSizeRequest;
 use App\Http\Requests\Core\CollectionReportRequest;
 use App\Http\Requests\Core\EmailReportRequest;
-use App\Mail\ReportEmailMail;
 use App\Services\Account\ReportService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class ReportController extends Controller
 {
@@ -44,41 +40,12 @@ class ReportController extends Controller
      */
     public function emailReport(EmailReportRequest $request): JsonResponse
     {
-        $user = $request->attributes->get('user');
+        $user = $request->getUserData();
         if (! $user || ! $user->email) {
             return ApiResponse::error('User email not found.', 400);
         }
 
-        $genericData = $request->getGenericDataWithValidated();
-        $result = $this->reportService->generateEmailReportFile($genericData);
-
-        $data = $genericData->getData();
-        $format = $data->format;
-
-        // Sent inline rather than queued, so a mail provider failure surfaces
-        // here. Without this the caller got a bare 500 and the generated file
-        // was left behind on disk, since the cleanup sat after the send.
-        try {
-            Mail::to($user->email)->send(new ReportEmailMail($result->title, $result->filePath, $format));
-        } catch (\Throwable $th) {
-            Log::error('Failed to email report', [
-                'user_id' => $user->id ?? null,
-                'report_type' => $data->reportType ?? null,
-                'format' => $format,
-                'mailer' => config('mail.default'),
-                'error' => $th->getMessage(),
-                'trace' => $th->getTraceAsString(),
-            ]);
-
-            return ApiResponse::error(
-                'The report was generated but could not be emailed. Please try again shortly.',
-                500
-            );
-        } finally {
-            if (file_exists($result->filePath)) {
-                @unlink($result->filePath);
-            }
-        }
+        $this->reportService->sendEmailReport($request->getGenericDataWithValidated());
 
         return ApiResponse::success(
             ['requested' => true],

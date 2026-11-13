@@ -459,7 +459,7 @@ class NotificationService
                 $membership->id
             );
 
-            // Dispatch job to queue with a staggered delay to respect Mailtrap's rate limit
+            // Dispatch job to queue with a staggered delay to respect Brevo's rate limit
             $delay = now()->addSeconds($this->getEmailQueueDelay());
             \App\Jobs\SendMembershipExpiringEmail::dispatch($customer->id, $membership->id, $emailLog->id)->delay($delay);
 

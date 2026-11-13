@@ -2,9 +2,11 @@
 
 namespace App\Repositories\Core;
 
+use App\Constant\NotificationEmailLogConstant;
 use App\Models\Core\NotificationEmailLog;
+use App\Repositories\BaseRepository;
 
-class NotificationEmailLogRepository
+class NotificationEmailLogRepository extends BaseRepository
 {
     /**
      * Check whether an email of this type is already queued or sent for the
@@ -25,7 +27,7 @@ class NotificationEmailLogRepository
         $query = NotificationEmailLog::where('account_id', $accountId)
             ->where('type', $type)
             ->where('customer_id', $customerId)
-            ->whereIn('status', NotificationEmailLog::BLOCKING_STATUSES)
+            ->whereIn('status', NotificationEmailLogConstant::BLOCKING_STATUSES)
             ->where('created_at', '>=', now()->subHours($hoursThreshold));
 
         if ($refId !== null) {
@@ -53,7 +55,7 @@ class NotificationEmailLogRepository
             'customer_id' => $customerId,
             'type' => $type,
             'ref_id' => $refId,
-            'status' => NotificationEmailLog::STATUS_QUEUED,
+            'status' => NotificationEmailLogConstant::STATUS_QUEUED,
         ]);
     }
 
@@ -66,7 +68,7 @@ class NotificationEmailLogRepository
     public function markSent(int $id): void
     {
         NotificationEmailLog::where('id', $id)->update([
-            'status' => NotificationEmailLog::STATUS_SENT,
+            'status' => NotificationEmailLogConstant::STATUS_SENT,
             'sent_at' => now(),
             'failed_reason' => null,
         ]);
@@ -83,7 +85,7 @@ class NotificationEmailLogRepository
     public function markFailed(int $id, ?string $reason = null): void
     {
         NotificationEmailLog::where('id', $id)->update([
-            'status' => NotificationEmailLog::STATUS_FAILED,
+            'status' => NotificationEmailLogConstant::STATUS_FAILED,
             'failed_reason' => $reason !== null ? mb_substr($reason, 0, 1000) : null,
         ]);
     }
@@ -98,7 +100,7 @@ class NotificationEmailLogRepository
     public function isSent(int $id): bool
     {
         return NotificationEmailLog::where('id', $id)
-            ->where('status', NotificationEmailLog::STATUS_SENT)
+            ->where('status', NotificationEmailLogConstant::STATUS_SENT)
             ->exists();
     }
 }

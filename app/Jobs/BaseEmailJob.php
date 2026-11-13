@@ -49,6 +49,11 @@ abstract class BaseEmailJob implements ShouldQueue
      */
     protected ?string $recipient = null;
 
+    /**
+     * Queue middleware applied to every email job.
+     *
+     * @return array<int, object>
+     */
     public function middleware(): array
     {
         return [new RateLimited('emails')];
@@ -57,9 +62,16 @@ abstract class BaseEmailJob implements ShouldQueue
     /**
      * Subclasses implement the actual email sending logic here.
      * Early returns (missing model, no email) should happen inside this method.
+     *
+     * @return void
      */
     abstract protected function execute(): void;
 
+    /**
+     * Run the send, classifying any failure as permanent or worth retrying.
+     *
+     * @return void
+     */
     public function handle(): void
     {
         try {
@@ -95,6 +107,9 @@ abstract class BaseEmailJob implements ShouldQueue
      * Runs once the job is given up on, whether the attempts ran out, it timed
      * out, or handle() failed it outright. This is the only place that knows an
      * email is permanently lost, so it has to leave a trace naming the person.
+     *
+     * @param \Throwable|null $th the cause, or null when the queue gave no exception
+     * @return void
      */
     public function failed(?\Throwable $th): void
     {
@@ -119,6 +134,8 @@ abstract class BaseEmailJob implements ShouldQueue
      * guarded: on the failure path the database may be exactly what broke, and
      * a throw from inside failed() would replace the real report with a
      * secondary error.
+     *
+     * @return string|null the address, or null when it could not be determined
      */
     protected function recipientForLog(): ?string
     {
@@ -136,6 +153,8 @@ abstract class BaseEmailJob implements ShouldQueue
     /**
      * Look the address up from the job's own ids, for the case where it was
      * never captured during the send. Subclasses override this.
+     *
+     * @return string|null the address, or null when this job cannot resolve one
      */
     protected function resolveRecipient(): ?string
     {
@@ -146,6 +165,9 @@ abstract class BaseEmailJob implements ShouldQueue
      * Hook for subclasses that need to release state they reserved before
      * dispatch, such as a dedupe row that would otherwise suppress a resend.
      * Runs on every give-up, not only on a permanent provider failure.
+     *
+     * @param \Throwable|null $th the cause, or null when the queue gave no exception
+     * @return void
      */
     protected function onGaveUp(?\Throwable $th): void
     {
@@ -158,6 +180,9 @@ abstract class BaseEmailJob implements ShouldQueue
      * A failure carrying no provider status - an SMTP error, a DNS failure, a
      * bug of our own - is treated as transient, so the default is to retry
      * rather than to drop an email.
+     *
+     * @param int|null $status the provider's HTTP status, or null when there is none
+     * @return bool true when another attempt could not possibly succeed
      */
     protected function isPermanentFailure(?int $status): bool
     {
@@ -181,6 +206,9 @@ abstract class BaseEmailJob implements ShouldQueue
      * failed() is handed the wrapper Laravel throws when the attempts run out
      * or the job times out, so the chain is walked for the real cause rather
      * than reading only the outermost exception.
+     *
+     * @param \Throwable $th the failure, possibly wrapping the transport exception
+     * @return int|null the provider's HTTP status, or null when the failure carries none
      */
     protected function transportStatusCode(\Throwable $th): ?int
     {
@@ -197,6 +225,9 @@ abstract class BaseEmailJob implements ShouldQueue
      * Symfony's API transports throw with an exception code of 0 and put the
      * real status on the response, falling back to the message text for the
      * case where the response never resolved.
+     *
+     * @param HttpTransportException $th the transport failure to read the status from
+     * @return int|null the HTTP status, or null when neither source yields one
      */
     private function statusFromTransportException(HttpTransportException $th): ?int
     {

@@ -38,6 +38,12 @@ class SendAccountInvoiceNotificationJob extends BaseEmailJob
         ]);
     }
 
+    /**
+     * The account's billing address, falling back to the owner's, looked up
+     * again because failed() runs on a job rebuilt from the queue payload.
+     *
+     * @return string|null the address, or null when it no longer resolves
+     */
     protected function resolveRecipient(): ?string
     {
         $invoice = AccountInvoice::with('account')->find($this->accountInvoiceId);

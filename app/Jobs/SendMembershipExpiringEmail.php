@@ -24,6 +24,11 @@ class SendMembershipExpiringEmail extends BaseEmailJob
         public ?int $emailLogId = null
     ) {}
 
+    /**
+     * Send the expiry reminder and settle the dedupe row either way.
+     *
+     * @return void
+     */
     protected function execute(): void
     {
         $logId = $this->reservedLogId();
@@ -69,12 +74,21 @@ class SendMembershipExpiringEmail extends BaseEmailJob
     /**
      * The reminder is lost, so release the dedupe row: the next scheduler run
      * must be free to try this member again.
+     *
+     * @param \Throwable|null $th the cause, or null when the queue gave no exception
+     * @return void
      */
     protected function onGaveUp(?\Throwable $th): void
     {
         $this->settleEmailLogAsFailed($th?->getMessage() ?? 'Email job gave up');
     }
 
+    /**
+     * The member this reminder was for, looked up again because failed()
+     * runs on a job rebuilt from the queue payload.
+     *
+     * @return string|null the address, or null when it no longer resolves
+     */
     protected function resolveRecipient(): ?string
     {
         return Customer::find($this->customerId)?->email;
@@ -90,12 +104,20 @@ class SendMembershipExpiringEmail extends BaseEmailJob
      * uninitialised rather than null. Reading it directly would throw an Error
      * after the email had already gone out, and the retry would send a
      * duplicate. The null coalesce is safe where a plain read is not.
+     *
+     * @return int|null the reserved row id, or null when none was threaded through
      */
     private function reservedLogId(): ?int
     {
         return $this->emailLogId ?? null;
     }
 
+    /**
+     * Mark the dedupe row delivered. Never throws: the email is already out,
+     * and a bubbling bookkeeping error would be retried as a second send.
+     *
+     * @return void
+     */
     private function settleEmailLogAsSent(): void
     {
         $logId = $this->reservedLogId();
@@ -117,6 +139,12 @@ class SendMembershipExpiringEmail extends BaseEmailJob
         }
     }
 
+    /**
+     * Release the dedupe row so the next scheduler run can try again.
+     *
+     * @param string|null $reason recorded on the row for later diagnosis
+     * @return void
+     */
     private function settleEmailLogAsFailed(?string $reason): void
     {
         $logId = $this->reservedLogId();

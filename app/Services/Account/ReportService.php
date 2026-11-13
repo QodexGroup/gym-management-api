@@ -8,6 +8,7 @@ use App\Constants\ExportTypeConstant;
 use App\Constants\ReportConstant;
 use App\Constants\ReportTypeConstant;
 use App\Helpers\GenericData;
+use App\Mail\ReportEmailMail;
 use App\Exports\CollectionReport\CollectionReportSheet;
 use App\Exports\ExpenseReport\ExpenseReportSheet;
 use App\Exports\RevenueReport\RevenueReportSheet;
@@ -21,6 +22,8 @@ use App\Repositories\Core\CustomerBillRepository;
 use App\Repositories\Core\CustomerPaymentRepository;
 use Barryvdh\DomPDF\Facade\Pdf as PdfFacade;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -100,6 +103,49 @@ class ReportService
             'tooLarge' => $rowCount > ReportConstant::MAX_EXPORT_ROWS,
             'rowCount' => $rowCount,
         ];
+    }
+
+    /**
+     * Generate the report and email it to the requesting user.
+     *
+     * The send is inline rather than queued so a mail provider failure
+     * surfaces to the caller instead of disappearing into a worker log. The
+     * generated file is removed in every outcome: before this lived here the
+     * cleanup sat after the send, so a provider failure left the file on disk.
+     *
+     * @param GenericData $genericData validated data: reportType, format, dateRange, startDate, endDate
+     * @return void
+     *
+     * @throws \RuntimeException when the mail provider rejects the message
+     */
+    public function sendEmailReport(GenericData $genericData): void
+    {
+        $user = $genericData->userData;
+        $data = $genericData->getData();
+        $format = $data->format;
+
+        $result = $this->generateEmailReportFile($genericData);
+
+        try {
+            Mail::to($user->email)->send(new ReportEmailMail($result->title, $result->filePath, $format));
+        } catch (\Throwable $th) {
+            Log::error('Failed to email report', [
+                'user_id' => $user->id ?? null,
+                'report_type' => $data->reportType ?? null,
+                'format' => $format,
+                'mailer' => config('mail.default'),
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString(),
+            ]);
+
+            throw new \RuntimeException(
+                'The report was generated but could not be emailed. Please try again shortly.'
+            );
+        } finally {
+            if (file_exists($result->filePath)) {
+                @unlink($result->filePath);
+            }
+        }
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Constant\NotificationConstant;
+use App\Constant\NotificationEmailLogConstant;
 use App\Jobs\SendMembershipExpiringEmail;
 use App\Mail\MembershipExpiringMail;
 use App\Models\Account\MembershipPlan;
@@ -236,7 +237,7 @@ class EmailDeliveryFailureTest extends TestCase
 
         $log->refresh();
 
-        $this->assertSame(NotificationEmailLog::STATUS_SENT, $log->status);
+        $this->assertSame(NotificationEmailLogConstant::STATUS_SENT, $log->status);
         $this->assertNotNull($log->sent_at);
         Mail::assertSent(MembershipExpiringMail::class);
     }
@@ -251,7 +252,7 @@ class EmailDeliveryFailureTest extends TestCase
 
         $log->refresh();
 
-        $this->assertSame(NotificationEmailLog::STATUS_FAILED, $log->status);
+        $this->assertSame(NotificationEmailLogConstant::STATUS_FAILED, $log->status);
         $this->assertStringContainsString('provider rejected', (string) $log->failed_reason);
     }
 
@@ -263,7 +264,7 @@ class EmailDeliveryFailureTest extends TestCase
 
         SendMembershipExpiringEmail::dispatch($this->customer->id + 9999, $this->membership->id, $log->id);
 
-        $this->assertSame(NotificationEmailLog::STATUS_FAILED, $log->refresh()->status);
+        $this->assertSame(NotificationEmailLogConstant::STATUS_FAILED, $log->refresh()->status);
         Mail::assertNothingSent();
     }
 
@@ -352,7 +353,7 @@ class EmailDeliveryFailureTest extends TestCase
 
         $log = NotificationEmailLog::where('customer_id', $this->customer->id)->sole();
 
-        $this->assertSame(NotificationEmailLog::STATUS_QUEUED, $log->status);
+        $this->assertSame(NotificationEmailLogConstant::STATUS_QUEUED, $log->status);
         $this->assertNull($log->sent_at);
 
         Queue::assertPushed(
