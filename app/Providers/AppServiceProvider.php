@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use App\Providers\RouteParameterCastingServiceProvider;
 use Illuminate\Support\ServiceProvider;
+use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\Mailer\Bridge\Brevo\Transport\BrevoTransportFactory;
 use Symfony\Component\Mailer\Transport\Dsn;
 
@@ -27,9 +28,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Register Brevo mail transport
+        // Register Brevo mail transport.
+        //
+        // The explicit HTTP timeout matters: left unset, Symfony falls back to
+        // default_socket_timeout (60s), which is longer than the email jobs'
+        // own 30s timeout. A slow Brevo would then be killed by the job
+        // timeout instead of raising an exception, so the job's error
+        // classification and backoff never ran and the worker died mid-send.
         Mail::extend('brevo', function () {
-            return (new BrevoTransportFactory())->create(
+            return (new BrevoTransportFactory(
+                client: HttpClient::create(['timeout' => (int) config('services.brevo.timeout', 15)])
+            ))->create(
                 new Dsn('brevo+api', 'default', config('services.brevo.key'))
             );
         });

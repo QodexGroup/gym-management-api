@@ -24,11 +24,18 @@ class SendCustomerRegistrationEmail extends BaseEmailJob
             return;
         }
 
+        $this->recipient = $customer->email;
+
         Mail::to($customer->email)->send(new CustomerRegistrationMail($customer));
 
         Log::info('Customer registration email sent', [
             'customer_id' => $customer->id,
             'email' => $customer->email,
         ]);
+    }
+
+    protected function resolveRecipient(): ?string
+    {
+        return Customer::find($this->customerId)?->email;
     }
 }

@@ -24,6 +24,9 @@ return [
 
     'brevo' => [
         'key' => env('BREVO_API_KEY'),
+        // Must stay below the email jobs' $timeout so a hanging request
+        // surfaces as a catchable exception rather than a killed worker.
+        'timeout' => env('BREVO_TIMEOUT', 15),
     ],
 
     'ses' => [

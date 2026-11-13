@@ -27,6 +27,8 @@ class SendPaymentConfirmationEmail extends BaseEmailJob
             return;
         }
 
+        $this->recipient = $customer->email;
+
         Mail::to($customer->email)->send(new PaymentConfirmationMail($customer, $payment));
 
         Log::info('Payment confirmation email sent', [
@@ -34,5 +36,10 @@ class SendPaymentConfirmationEmail extends BaseEmailJob
             'email' => $customer->email,
             'payment_id' => $payment->id,
         ]);
+    }
+
+    protected function resolveRecipient(): ?string
+    {
+        return Customer::find($this->customerId)?->email;
     }
 }
