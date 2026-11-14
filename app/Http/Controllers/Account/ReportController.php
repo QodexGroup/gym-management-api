@@ -2,16 +2,13 @@
 
 namespace App\Http\Controllers\Account;
 
-use App\Constants\ExportTypeConstant;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\CheckExportSizeRequest;
 use App\Http\Requests\Core\CollectionReportRequest;
 use App\Http\Requests\Core\EmailReportRequest;
-use App\Mail\ReportEmailMail;
 use App\Services\Account\ReportService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Mail;
 
 class ReportController extends Controller
 {
@@ -36,32 +33,23 @@ class ReportController extends Controller
     }
 
     /**
-     * Generate report (PDF or Excel) and send via email when export exceeds 200 rows.
+     * Queue a report (PDF or Excel) for emailing when the export exceeds 200 rows.
      *
      * @param EmailReportRequest $request reportType, format (pdf|excel), dateRange, startDate, endDate
      * @return JsonResponse
      */
     public function emailReport(EmailReportRequest $request): JsonResponse
     {
-        $user = $request->attributes->get('user');
+        $user = $request->getUserData();
         if (! $user || ! $user->email) {
             return ApiResponse::error('User email not found.', 400);
         }
 
-        $genericData = $request->getGenericDataWithValidated();
-        $result = $this->reportService->generateEmailReportFile($genericData);
-
-        $data = $genericData->getData();
-        $format = $data->format;
-        Mail::to($user->email)->send(new ReportEmailMail($result->title, $result->filePath, $format));
-
-        if (file_exists($result->filePath)) {
-            @unlink($result->filePath);
-        }
+        $this->reportService->requestEmailReport($request->getGenericDataWithValidated());
 
         return ApiResponse::success(
             ['requested' => true],
-            'Report has been sent to your email.',
+            'Your report is being prepared and will be emailed shortly.',
             202
         );
     }

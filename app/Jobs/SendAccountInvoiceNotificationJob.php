@@ -27,6 +27,8 @@ class SendAccountInvoiceNotificationJob extends BaseEmailJob
             return;
         }
 
+        $this->recipient = $email;
+
         Mail::to($email)->send(new AccountInvoiceNotificationMail($invoice, $this->type));
 
         Log::info('Account invoice notification sent', [
@@ -34,5 +36,18 @@ class SendAccountInvoiceNotificationJob extends BaseEmailJob
             'type' => $this->type,
             'email' => $email,
         ]);
+    }
+
+    /**
+     * The account's billing address, falling back to the owner's, looked up
+     * again because failed() runs on a job rebuilt from the queue payload.
+     *
+     * @return string|null the address, or null when it no longer resolves
+     */
+    protected function resolveRecipient(): ?string
+    {
+        $invoice = AccountInvoice::with('account')->find($this->accountInvoiceId);
+
+        return $invoice?->account?->billing_email ?? $invoice?->account?->owner_email;
     }
 }

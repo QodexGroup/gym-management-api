@@ -183,15 +183,13 @@ class NotificationService
                 return;
             }
 
-            // Send email to customer (if member emails are enabled), then record
-            // it in the email log so re-runs within the window don't resend.
-            if ($sendEmail && $this->sendMembershipExpiringEmail($customer, $membership)) {
-                $this->emailLogRepository->log(
-                    $accountId,
-                    NotificationConstant::TYPE_MEMBERSHIP_EXPIRING,
-                    $customer->id,
-                    $membership->id
-                );
+            // Send email to customer (if member emails are enabled). The email
+            // log row is reserved inside that method, before the job is
+            // dispatched, and settled by the job once delivery is known.
+            if ($sendEmail) {
+                // Keep the flag honest: the summary log below reports it, and a
+                // reminder that could not be queued is not an email sent.
+                $sendEmail = $this->sendMembershipExpiringEmail($customer, $membership, $accountId);
             }
 
             // Create global in-app notification (if in-app alerts are enabled)
@@ -433,25 +431,42 @@ class NotificationService
     /**
      * Send membership expiring email to customer.
      *
+     * Reserves the dedupe row before dispatching, so a scheduler run that
+     * overlaps this one is suppressed while the job is still in flight. The
+     * job itself settles that row: sent on success, failed when it gives up,
+     * which is what lets the next run retry a customer whose email bounced
+     * off the mail provider.
+     *
      * @param Customer $customer
      * @param CustomerMembership $membership
+     * @param int|null $accountId defaults to the membership's account
      * @return bool true when the email job was queued
      */
-    public function sendMembershipExpiringEmail(Customer $customer, CustomerMembership $membership): bool
+    public function sendMembershipExpiringEmail(Customer $customer, CustomerMembership $membership, ?int $accountId = null): bool
     {
         if (!$customer->email) {
             Log::warning('Customer has no email address', ['customer_id' => $customer->id]);
             return false;
         }
 
+        $emailLog = null;
+
         try {
-            // Dispatch job to queue with a staggered delay to respect Mailtrap's rate limit
+            $emailLog = $this->emailLogRepository->log(
+                $accountId ?? $membership->account_id,
+                NotificationConstant::TYPE_MEMBERSHIP_EXPIRING,
+                $customer->id,
+                $membership->id
+            );
+
+            // Dispatch job to queue with a staggered delay to respect Brevo's rate limit
             $delay = now()->addSeconds($this->getEmailQueueDelay());
-            \App\Jobs\SendMembershipExpiringEmail::dispatch($customer->id, $membership->id)->delay($delay);
+            \App\Jobs\SendMembershipExpiringEmail::dispatch($customer->id, $membership->id, $emailLog->id)->delay($delay);
 
             Log::info('Membership expiring email queued', [
                 'customer_id' => $customer->id,
                 'email' => $customer->email,
+                'email_log_id' => $emailLog->id,
                 'delay_seconds' => $delay->diffInSeconds(now())
             ]);
 
@@ -461,6 +476,15 @@ class NotificationService
                 'error' => $th->getMessage(),
                 'customer_id' => $customer->id
             ]);
+
+            // Nothing will ever pick this row up, so release it rather than
+            // leaving it queued and blocking the next run for the whole window.
+            if ($emailLog !== null) {
+                $this->emailLogRepository->markFailed(
+                    $emailLog->id,
+                    'Email job could not be queued: ' . $th->getMessage()
+                );
+            }
 
             return false;
         }

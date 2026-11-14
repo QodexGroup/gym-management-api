@@ -7,7 +7,10 @@ use App\Constants\DateFormatConstant;
 use App\Constants\ExportTypeConstant;
 use App\Constants\ReportConstant;
 use App\Constants\ReportTypeConstant;
+use App\Data\ExportSizeCheck;
+use App\Data\GeneratedReportFile;
 use App\Helpers\GenericData;
+use App\Jobs\SendReportEmail;
 use App\Exports\CollectionReport\CollectionReportSheet;
 use App\Exports\ExpenseReport\ExpenseReportSheet;
 use App\Exports\RevenueReport\RevenueReportSheet;
@@ -59,7 +62,7 @@ class ReportService
      * @param GenericData $genericData GenericData object with validated data in data property
      * @return array{tooLarge: bool, rowCount: int}
      */
-    public function checkExportSize(GenericData $genericData): array
+    public function checkExportSize(GenericData $genericData): ExportSizeCheck
     {
         $data = $genericData->getData();
         $accountId = $genericData->userData->account_id;
@@ -96,19 +99,51 @@ class ReportService
                 $rowCount = 0;
         }
 
-        return [
-            'tooLarge' => $rowCount > ReportConstant::MAX_EXPORT_ROWS,
-            'rowCount' => $rowCount,
-        ];
+        $result = new ExportSizeCheck();
+        $result->tooLarge = $rowCount > ReportConstant::MAX_EXPORT_ROWS;
+        $result->rowCount = $rowCount;
+
+        return $result;
+    }
+
+    /**
+     * Queue the report for generation and delivery.
+     *
+     * Generation happens in the job rather than here: a report large enough to
+     * reach this path takes long enough to render that doing it inside the
+     * request risks the caller timing out, and the file would then be written
+     * by one process and deleted by another.
+     *
+     * Only primitives are handed to the job. A serialised GenericData would
+     * carry the whole User model into the queue payload, where it would be
+     * restored from a row that may since have changed.
+     *
+     * @param GenericData $genericData validated data: reportType, format, dateRange, startDate, endDate
+     * @return void
+     */
+    public function requestEmailReport(GenericData $genericData): void
+    {
+        $data = $genericData->getData();
+
+        SendReportEmail::dispatch(
+            (int) $genericData->userData->id,
+            [
+                'reportType' => $data->reportType,
+                'format' => $data->format ?? ExportTypeConstant::PDF,
+                'dateRange' => $data->dateRange ?? null,
+                'startDate' => $data->startDate,
+                'endDate' => $data->endDate,
+            ]
+        );
     }
 
     /**
      * Generate report file and return file path for email attachment
      *
      * @param GenericData $genericData GenericData object with validated data in data property
-     * @return \stdClass Object with properties: filePath, title
+     * @return GeneratedReportFile the absolute path on disk and the report's title
      */
-    public function generateEmailReportFile(GenericData $genericData): \stdClass
+    public function generateEmailReportFile(GenericData $genericData): GeneratedReportFile
     {
         $data = $genericData->getData();
         $accountId = $genericData->userData->account_id;
@@ -128,16 +163,56 @@ class ReportService
         // Get title for filename
         $title = $this->getReportTitle($reportType);
 
-        $fileExtension = ExportTypeConstant::getFileExtension($exportType);
-        $filename = strtolower(str_replace(' ', '-', $title)) . '-' . $startDate . '.' . $fileExtension;
+        $filePath = $this->generateReportFile(
+            $genericData,
+            $reportType,
+            $exportType,
+            $this->emailReportFilename($reportType, $startDate, $exportType)
+        );
 
-        $filePath = $this->generateReportFile($genericData, $reportType, $exportType, $filename);
-
-        $result = new \stdClass();
+        $result = new GeneratedReportFile();
         $result->filePath = $filePath;
         $result->title = $title;
 
         return $result;
+    }
+
+    /**
+     * Where a report for these parameters is written.
+     *
+     * Exposed so the job can clear a file an attempt left behind without
+     * rendering the report again to find out its name. The name is derived
+     * only from the report type, its start date and the export format, so the
+     * same request always resolves to the same path.
+     *
+     * @param GenericData $genericData validated data: reportType, format, startDate
+     * @return string absolute path on the local disk
+     */
+    public function emailReportFilePath(GenericData $genericData): string
+    {
+        $data = $genericData->getData();
+
+        return Storage::path('reports/' . $this->emailReportFilename(
+            $data->reportType,
+            $data->startDate,
+            ExportTypeConstant::normalizeFormat($data->format ?? ExportTypeConstant::PDF)
+        ));
+    }
+
+    /**
+     * The file name a generated report is stored under.
+     *
+     * @param string $reportType
+     * @param string $startDate
+     * @param string $exportType already normalised by ExportTypeConstant
+     * @return string
+     */
+    private function emailReportFilename(string $reportType, string $startDate, string $exportType): string
+    {
+        $title = $this->getReportTitle($reportType);
+        $fileExtension = ExportTypeConstant::getFileExtension($exportType);
+
+        return strtolower(str_replace(' ', '-', $title)) . '-' . $startDate . '.' . $fileExtension;
     }
 
     /**
